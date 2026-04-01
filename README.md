@@ -15,15 +15,16 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - **Settings ⚙** (right) – open the settings dialog
 - **Inline action icons** (right side of each folder row) for one-click access to common actions — no right-click required:
   - 📁 – Open in File Explorer
-  - 📝 – Open in VS Code
+  - 📝 – Open in Editor
   - 📋 – Copy with Robocopy
   - 🗑 – Delete
+  - Which actions are shown, and their **order**, are fully **configurable** via the Settings dialog or the config file
   - The cursor changes to a **hand pointer** when hovering over an icon
 - **Type to search** – just start typing while the window is focused to instantly filter the list; **Backspace** removes the last character, **Escape** clears the filter. Drag-and-drop reordering is automatically suspended while a filter is active and re-enabled once the filter is cleared
-- **Right-click context menu** (folders and app folders) with the same quick actions plus **SVN Checkout**
+- **Right-click context menu** (folders and app folders) with the same configurable quick actions plus **SVN Checkout**
 - **Real-time output windows** for robocopy and SVN operations
 - **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
-- **Settings dialog** to inspect active config paths and toggle startup options
+- **Settings dialog** to inspect active config paths, toggle startup options, configure commands (`EXPLORER`, `EDITOR`), and customize the action button bar
 - Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
 - **Folder-chooser dialog** when no path is supplied on startup
 - **Color-coded list** for scripts, application folders, and plain folders
@@ -33,7 +34,8 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 - **Java JDK 16 or later** with `javac` and `javaw` available on your `PATH`
   - Records (used internally) require Java 16+
   - Tested with [SapMachine 26](https://sap.github.io/SapMachine/), but any JDK 16+ will work
-- *(Optional)* **`code`** command (from VS Code) on your `PATH` – only needed for the *Open in VS Code* action
+- *(Optional)* An **editor** on your `PATH` – only needed for the *Open in Editor* action. Defaults to `code` (VS Code); configurable via `EDITOR` in the config file or Settings dialog
+- *(Optional)* A custom **file explorer** – defaults to the system default; configurable via `EXPLORER` in the config file or Settings dialog
 - *(Optional)* **SVN client** on your `PATH` – only needed for the *SVN Checkout* action
   - `robocopy` is built-in to Windows, so *Copy with Robocopy* works out of the box
 
@@ -114,10 +116,18 @@ CLI arguments override all config files.
   "startMinimized": false,
   "windowWidth": 560,
   "windowHeight": 680,
+  "explorer": "explorer.exe",
+  "editor": "code",
   "priorityList": [
     "my-favourite-app",
     "another-app",
     "daily-script.bat"
+  ],
+  "actionOrder": [
+    "EXPLORE_ACTION",
+    "EDITOR_ACTION",
+    "COPY_ACTION",
+    "DELETE_ACTION"
   ]
 }
 ```
@@ -130,7 +140,38 @@ Any field can be omitted; omitted fields are inherited from the level below.
 | `startMinimized` | boolean | `true` to start hidden in the system tray |
 | `windowWidth` | integer | Initial window width in pixels |
 | `windowHeight` | integer | Initial window height in pixels |
+| `explorer` | string | File explorer executable. Leave blank or omit to use the system default (`Desktop.open`). Example: `"explorer.exe"` |
+| `editor` | string | Editor executable. Leave blank or omit to use `code` (VS Code). Example: `"notepad++"`, `"idea64.exe"` |
 | `priorityList` | string array | Ordered list of entry names. Entries in this list appear at the top in the given order; all remaining entries follow in the default sort (scripts A–Z → app folders A–Z → plain folders A–Z). Updated automatically when you drag and drop entries in the UI. |
+| `actionOrder` | string array | Ordered list of **action keys** that determines which action buttons are shown and in what order. Omit to show all four actions in the default order. |
+
+### Action Keys
+
+The `actionOrder` field uses the following keys:
+
+| Key | Action |
+|---|---|
+| `EXPLORE_ACTION` | Open in File Explorer |
+| `EDITOR_ACTION` | Open in Editor |
+| `COPY_ACTION` | Copy with Robocopy |
+| `DELETE_ACTION` | Delete |
+
+**Examples:**
+
+Show only Explorer and Editor buttons (in that order):
+```json
+{ "actionOrder": ["EXPLORE_ACTION", "EDITOR_ACTION"] }
+```
+
+Hide the Delete button, reverse the order of the remaining three:
+```json
+{ "actionOrder": ["COPY_ACTION", "EDITOR_ACTION", "EXPLORE_ACTION"] }
+```
+
+Hide all action buttons:
+```json
+{ "actionOrder": [] }
+```
 
 ### Launcher ID
 
@@ -173,19 +214,22 @@ Open by clicking the **⚙ gear icon** on the right side of the toolbar.
 | Configuration files | Global config | Path to `%APPDATA%\nvLauncher\config.json` with 📂 button to open the folder |
 | Configuration files | Instance config | Path to `%APPDATA%\nvLauncher\{id}\config.json` with 📂 button to open the folder |
 | Startup | Start minimized | Checkbox – saves to instance config; takes effect on next launch |
+| Commands | EXPLORER | File explorer command. Leave blank to use the system default. |
+| Commands | EDITOR | Editor command (e.g. `code`, `notepad++`). Leave blank to default to `code`. |
+| Action Buttons | Action list | Checkboxes to show/hide each action; **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
 
 Click **Save** to persist changes or **Cancel** to discard.
 
 ### Inline Action Icons
 
-Every **application folder** and **plain folder** row shows four small icon buttons on the **right-hand side** of the row. Scripts do not have action icons.
+Every **application folder** and **plain folder** row shows small icon buttons on the **right-hand side** of the row. Scripts do not have action icons. The set of visible buttons and their order is configurable (see **Settings** dialog or `actionOrder` config field).
 
-| Icon | Action | Description |
-|---|---|---|
-| 📁 | Open in File Explorer | Browse the folder in Windows Explorer |
-| 📝 | Open in VS Code | Open the folder in Visual Studio Code (`code` must be on `PATH`) |
-| 📋 | Copy with Robocopy… | Duplicate the folder within the active launcher directory |
-| 🗑 | Delete | Permanently delete the folder (requires confirmation) |
+| Icon | Action key | Action | Description |
+|---|---|---|---|
+| 📁 | `EXPLORE_ACTION` | Open in File Explorer | Browse the folder in the configured file explorer (or system default) |
+| 📝 | `EDITOR_ACTION` | Open in Editor | Open the folder in the configured editor (default: `code`) |
+| 📋 | `COPY_ACTION` | Copy with Robocopy… | Duplicate the folder within the active launcher directory |
+| 🗑 | `DELETE_ACTION` | Delete | Permanently delete the folder (requires confirmation) |
 
 - **Single-click** any icon to trigger the action immediately
 - The **cursor changes to a hand pointer** when you hover over an icon
@@ -238,13 +282,13 @@ You can also edit `priorityList` directly in the instance config file (see **Set
 
 ### Right-Click Context Menu (Folders Only)
 
-Right-click any **application folder** or **plain folder** to access (scripts are excluded):
+Right-click any **application folder** or **plain folder** to access (scripts are excluded). The menu shows only the actions that are currently enabled via `actionOrder`.
 
 #### **Open in File Explorer**
-Opens the folder in Windows File Explorer for browsing and file management.
+Opens the folder in the configured file explorer. If `EXPLORER` is not set, the system default is used.
 
-#### **Open in VS Code**
-Opens the folder in Visual Studio Code. Requires `code` command on your `PATH`.
+#### **Open in Editor**
+Opens the folder in the configured editor. If `EDITOR` is not set, defaults to `code` (VS Code). Requires the configured command to be on your `PATH`.
 
 #### **Copy with Robocopy...**
 - Prompts you to enter a new name for the copy
@@ -300,7 +344,7 @@ All other sub-folders are treated as **plain folders**.
 
 | File | Description |
 |---|---|
-| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (~1 840 lines) |
+| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (~2 120 lines) |
 | `src/main/resources/` | PNG icon files used for action buttons, window and tray |
 | `pom.xml` | Maven configuration (JDK 26, JUnit 5) |
 | `scripts/build.bat` | Compiles the source with `javac` |
@@ -340,7 +384,7 @@ Launcher recognizes and launches the following script file types:
 | SVN Checkout | **Toolbar button** (left) or right-click → *SVN Checkout…* |
 | Open Settings | **Toolbar ⚙ button** (right) |
 | Open in File Explorer | **Click folder icon** (row right side) or right-click → *Open in File Explorer* |
-| Open in VS Code | **Click document icon** (row right side) or right-click → *Open in VS Code* |
+| Open in Editor | **Click document icon** (row right side) or right-click → *Open in Editor* |
 | Copy with Robocopy | **Click copy icon** (row right side) or right-click → *Copy with Robocopy…* |
 | Delete folder | **Click bin icon** (row right side) or right-click → *Delete* |
 | Open context menu | **Right-click** (all folders; scripts excluded) |
@@ -437,12 +481,12 @@ The instance config will be stored at `%APPDATA%\nvLauncher\myapps\config.json`.
 
 ## Troubleshooting
 
-### "Could not open VS Code" Error
-- **Cause:** `code` command is not on your `PATH`
-- **Fix:** 
-  - Install VS Code from [code.visualstudio.com](https://code.visualstudio.com/)
-  - During installation, check "Add to PATH"
-  - Or manually add VS Code's bin folder to your PATH environment variable
+### "Could not open editor" Error
+- **Cause:** The configured editor command is not on your `PATH`
+- **Fix:**
+  - Open **Settings ⚙** → **EDITOR** field and enter the full path to the executable, e.g. `C:\Program Files\Microsoft VS Code\bin\code.cmd`
+  - Or add the editor's folder to your PATH environment variable
+  - Or install VS Code from [code.visualstudio.com](https://code.visualstudio.com/) and check "Add to PATH" during installation
 
 ### SVN Checkout Fails
 - **Cause:** SVN client is not installed or not on `PATH`
@@ -471,6 +515,11 @@ The instance config will be stored at `%APPDATA%\nvLauncher\myapps\config.json`.
 ### "Name Already Exists" Error (Copy Operation)
 - **Cause:** A folder with the chosen name already exists in the active launcher directory
 - **Fix:** Choose a different name (e.g., add `_v2`, `_backup`, or a timestamp)
+
+### Action Buttons Not Showing / Wrong Order
+- **Check** the `actionOrder` field in your config file – if it is an empty array (`[]`) no buttons are shown
+- Open **Settings ⚙** → **Action Buttons** section to toggle visibility and reorder using the ↑ / ↓ buttons
+- If `actionOrder` is omitted entirely, all four buttons are shown in the default order
 
 ### Config Not Being Picked Up
 - **Check** that the JSON is valid (no trailing commas, all strings quoted)

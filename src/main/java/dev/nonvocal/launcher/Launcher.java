@@ -18,6 +18,7 @@ import java.util.*;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Launcher – self-contained Java Swing application.
@@ -48,6 +49,23 @@ public class Launcher extends JFrame
      * Relative path of the fallback executable inside an application folder.
      */
     private static final String FALLBACK_EXE = "basis\\sys\\win\\bin\\dsc_StartPlm.exe";
+
+    // =========================================================================
+    //  Action keys
+    // =========================================================================
+
+    /** Action key – open in file explorer. */
+    public static final String EXPLORE_ACTION = "EXPLORE_ACTION";
+    /** Action key – open in editor. */
+    public static final String EDITOR_ACTION  = "EDITOR_ACTION";
+    /** Action key – copy with robocopy. */
+    public static final String COPY_ACTION    = "COPY_ACTION";
+    /** Action key – delete folder. */
+    public static final String DELETE_ACTION  = "DELETE_ACTION";
+
+    /** Default action order when none is explicitly configured. */
+    private static final List<String> DEFAULT_ACTION_ORDER = List.of(
+            EXPLORE_ACTION, EDITOR_ACTION, COPY_ACTION, DELETE_ACTION);
 
     // =========================================================================
     //  Data model
@@ -93,7 +111,10 @@ public class Launcher extends JFrame
             Boolean      startMinimized,
             Integer      windowWidth,
             Integer      windowHeight,
-            List<String> priorityList)
+            List<String> priorityList,
+            String       explorer,
+            String       editor,
+            List<String> actionOrder)
     {
         // ── Static paths ───────────────────────────────────────────────────
 
@@ -121,13 +142,13 @@ public class Launcher extends JFrame
         /** All fields null – represents "nothing set at this level". */
         static LauncherConfig empty()
         {
-            return new LauncherConfig(null, null, null, null, null);
+            return new LauncherConfig(null, null, null, null, null, null, null, null);
         }
 
         /** Hardcoded application defaults (all fields non-null). */
         static LauncherConfig defaults()
         {
-            return new LauncherConfig(null, false, 560, 680, null);
+            return new LauncherConfig(null, false, 560, 680, null, null, null, null);
         }
 
         /**
@@ -162,7 +183,10 @@ public class Launcher extends JFrame
                     startMinimized != null ? startMinimized : base.startMinimized,
                     windowWidth    != null ? windowWidth    : base.windowWidth,
                     windowHeight   != null ? windowHeight   : base.windowHeight,
-                    priorityList   != null ? priorityList   : base.priorityList);
+                    priorityList   != null ? priorityList   : base.priorityList,
+                    explorer       != null ? explorer       : base.explorer,
+                    editor         != null ? editor         : base.editor,
+                    actionOrder    != null ? actionOrder    : base.actionOrder);
         }
 
         /**
@@ -176,7 +200,10 @@ public class Launcher extends JFrame
                     startMinimized != null ? startMinimized : false,
                     windowWidth    != null ? windowWidth    : 560,
                     windowHeight   != null ? windowHeight   : 680,
-                    priorityList);
+                    priorityList,
+                    explorer,
+                    editor,
+                    actionOrder);
         }
 
         // ── Persistence ────────────────────────────────────────────────────
@@ -204,6 +231,8 @@ public class Launcher extends JFrame
             if (startMinimized != null) lines.add("  \"startMinimized\": " + startMinimized);
             if (windowWidth    != null) lines.add("  \"windowWidth\": "    + windowWidth);
             if (windowHeight   != null) lines.add("  \"windowHeight\": "   + windowHeight);
+            if (explorer       != null) lines.add("  \"explorer\": "       + jsonStr(explorer));
+            if (editor         != null) lines.add("  \"editor\": "         + jsonStr(editor));
             if (priorityList   != null && !priorityList.isEmpty())
             {
                 StringBuilder sb = new StringBuilder("  \"priorityList\": [\n");
@@ -211,6 +240,18 @@ public class Launcher extends JFrame
                 {
                     sb.append("    ").append(jsonStr(priorityList.get(i)));
                     if (i < priorityList.size() - 1) sb.append(",");
+                    sb.append("\n");
+                }
+                sb.append("  ]");
+                lines.add(sb.toString());
+            }
+            if (actionOrder != null && !actionOrder.isEmpty())
+            {
+                StringBuilder sb = new StringBuilder("  \"actionOrder\": [\n");
+                for (int i = 0; i < actionOrder.size(); i++)
+                {
+                    sb.append("    ").append(jsonStr(actionOrder.get(i)));
+                    if (i < actionOrder.size() - 1) sb.append(",");
                     sb.append("\n");
                 }
                 sb.append("  ]");
@@ -234,7 +275,10 @@ public class Launcher extends JFrame
                     parseBool   (json, "startMinimized"),
                     parseInt    (json, "windowWidth"),
                     parseInt    (json, "windowHeight"),
-                    parseStrList(json, "priorityList"));
+                    parseStrList(json, "priorityList"),
+                    parseStr    (json, "explorer"),
+                    parseStr    (json, "editor"),
+                    parseStrList(json, "actionOrder"));
         }
 
         private static String parseStr(String json, String key)
@@ -293,10 +337,14 @@ public class Launcher extends JFrame
          * FlowLayout horizontal gap around / between action icons (px).
          */
         static final int ACT_HGAP = 3;
+
         /**
-         * Total width of the action bar: 5 gaps + 4 icons = 5*3 + 4*22 = 103 px.
+         * Computes the total action bar width for {@code numActions} icons.
          */
-        static final int ACT_BAR_W = 5 * ACT_HGAP + 4 * ACT_W;
+        static int barWidth(int numActions)
+        {
+            return (numActions + 1) * ACT_HGAP + numActions * ACT_W;
+        }
 
         // Row colours
         private static final Color ROW_EVEN = new Color(0xF4, 0xF6, 0xF8);
@@ -319,35 +367,42 @@ public class Launcher extends JFrame
         private static final Font CELL_FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 13);
         private static final Font ACT_FONT = new Font(Font.SANS_SERIF, Font.BOLD, 9);
 
-        /**
-         * Labels for the four action icons: Explorer · VS Code · Copy · Delete.
-         */
-        private static final String[] ACT_TEXT = {"E", "VS", "C", "\u2715"};
-        static final String[] ACT_TIPS = {
-                "Open in File Explorer",
-                "Open in VS Code",
-                "Copy with Robocopy\u2026",
-                "Delete"
-        };
+        // Static maps keyed by action key
+        static final Map<String, String>    ACT_TEXT_MAP = new LinkedHashMap<>();
+        static final Map<String, String>    ACT_TIP_MAP  = new LinkedHashMap<>();
+        static final Map<String, ImageIcon> ACT_ICON_MAP = new LinkedHashMap<>();
 
-        /**
-         * PNG icons for the four action buttons (null → fall back to ACT_TEXT).
-         */
-        private static final ImageIcon[] ACT_ICON_IMGS = {
-                Launcher.loadScaledIcon("folder.png", 14, 14),  // 0 – Explorer
-                Launcher.loadScaledIcon("edit-document.png", 14, 14),  // 1 – VS Code
-                Launcher.loadScaledIcon("copy.png", 14, 14),  // 2 – Robocopy
-                Launcher.loadScaledIcon("bin.png", 14, 14),  // 3 – Delete
-        };
+        static
+        {
+            ACT_TEXT_MAP.put(EXPLORE_ACTION, "E");
+            ACT_TEXT_MAP.put(EDITOR_ACTION,  "ED");
+            ACT_TEXT_MAP.put(COPY_ACTION,    "C");
+            ACT_TEXT_MAP.put(DELETE_ACTION,  "\u2715");
+
+            ACT_TIP_MAP.put(EXPLORE_ACTION, "Open in File Explorer");
+            ACT_TIP_MAP.put(EDITOR_ACTION,  "Open in Editor");
+            ACT_TIP_MAP.put(COPY_ACTION,    "Copy with Robocopy\u2026");
+            ACT_TIP_MAP.put(DELETE_ACTION,  "Delete");
+
+            ACT_ICON_MAP.put(EXPLORE_ACTION, Launcher.loadScaledIcon("folder.png",        14, 14));
+            ACT_ICON_MAP.put(EDITOR_ACTION,  Launcher.loadScaledIcon("edit-document.png", 14, 14));
+            ACT_ICON_MAP.put(COPY_ACTION,    Launcher.loadScaledIcon("copy.png",          14, 14));
+            ACT_ICON_MAP.put(DELETE_ACTION,  Launcher.loadScaledIcon("bin.png",           14, 14));
+        }
 
         private final JLabel nameLabel = new JLabel();
         private final JPanel actionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, ACT_HGAP, 0));
-        private final JLabel[] actIcons = new JLabel[4];
+        private final List<String> actionOrder;
+        private final JLabel[] actIcons;
 
         private transient final FileSystemView fsv = FileSystemView.getFileSystemView();
 
-        EntryCellRenderer()
+        EntryCellRenderer(List<String> actionOrder)
         {
+            this.actionOrder = actionOrder;
+            int n = actionOrder.size();
+            this.actIcons = new JLabel[n];
+
             setLayout(new BorderLayout());
             setOpaque(true);
 
@@ -360,20 +415,21 @@ public class Launcher extends JFrame
             // EmptyBorder top/bottom = (36 - 18) / 2 = 9 px → centres 18 px icons in 36 px row
             actionBar.setBorder(new EmptyBorder(9, 0, 9, 0));
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < n; i++)
             {
-                ImageIcon img = ACT_ICON_IMGS[i];
+                String key = actionOrder.get(i);
+                ImageIcon img = ACT_ICON_MAP.get(key);
                 JLabel lbl = (img != null)
                         ? new JLabel(img, JLabel.CENTER)
-                        : new JLabel(ACT_TEXT[i], JLabel.CENTER);
+                        : new JLabel(ACT_TEXT_MAP.getOrDefault(key, "?"), JLabel.CENTER);
                 lbl.setFont(ACT_FONT);
-                lbl.setForeground(i == 3 ? ACT_DEL : ACT_FG);
+                lbl.setForeground(DELETE_ACTION.equals(key) ? ACT_DEL : ACT_FG);
                 lbl.setBackground(ACT_BG);
                 lbl.setOpaque(true);
                 lbl.setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(ACT_BORD, 1),
                         BorderFactory.createEmptyBorder(1, 3, 1, 3)));
-                lbl.setToolTipText(ACT_TIPS[i]);
+                lbl.setToolTipText(ACT_TIP_MAP.getOrDefault(key, key));
                 lbl.setPreferredSize(new Dimension(ACT_W, ACT_W - 4)); // 22 × 18
                 actIcons[i] = lbl;
                 actionBar.add(lbl);
@@ -400,8 +456,8 @@ public class Launcher extends JFrame
                 nameLabel.setIcon(null);
             }
 
-            // Action icons shown only for folder entries (not scripts)
-            actionBar.setVisible(e.type != EntryType.SCRIPT);
+            // Action icons shown only for folder entries (not scripts) and only when actions are configured
+            actionBar.setVisible(e.type != EntryType.SCRIPT && !actionOrder.isEmpty());
 
             if (selected)
             {
@@ -422,10 +478,11 @@ public class Launcher extends JFrame
                 nameLabel.setForeground(e.type == EntryType.SCRIPT ? FG_SCRIPT
                         : e.type == EntryType.APP_FOLDER ? FG_FOLDER
                           : FG_PLAIN);
-                for (int i = 0; i < 4; i++)
+                for (int i = 0; i < actIcons.length; i++)
                 {
+                    String key = actionOrder.get(i);
                     actIcons[i].setBackground(ACT_BG);
-                    actIcons[i].setForeground(i == 3 ? ACT_DEL : ACT_FG);
+                    actIcons[i].setForeground(DELETE_ACTION.equals(key) ? ACT_DEL : ACT_FG);
                     actIcons[i].setBorder(BorderFactory.createCompoundBorder(
                             BorderFactory.createLineBorder(ACT_BORD, 1),
                             BorderFactory.createEmptyBorder(1, 3, 1, 3)));
@@ -448,6 +505,8 @@ public class Launcher extends JFrame
     private JLabel searchLabel;
     private transient String searchQuery = "";
     private transient final List<LaunchEntry> allEntries = new ArrayList<>();
+    private List<String> effectiveActionOrder;
+    private EntryCellRenderer cellRenderer;
 
     Launcher(File baseFolder, LauncherConfig config, String launcherId)
     {
@@ -455,6 +514,33 @@ public class Launcher extends JFrame
         this.config = config;
         this.launcherId = launcherId;
         buildUI();
+    }
+
+    /**
+     * Resolves the effective action order from the config.
+     * If {@code config.actionOrder()} is null, the default order (all 4 actions) is returned.
+     * Unknown keys are filtered out.
+     */
+    private List<String> resolveActionOrder(LauncherConfig cfg)
+    {
+        List<String> order = cfg.actionOrder();
+        if (order == null) return new ArrayList<>(DEFAULT_ACTION_ORDER);
+        return order.stream()
+                .filter(DEFAULT_ACTION_ORDER::contains)
+                .collect(Collectors.toList());
+    }
+
+    /** Human-readable label for an action key, used in the settings dialog. */
+    private static String actionLabel(String key)
+    {
+        return switch (key)
+        {
+            case EXPLORE_ACTION -> "Open in File Explorer";
+            case EDITOR_ACTION  -> "Open in Editor";
+            case COPY_ACTION    -> "Copy with Robocopy";
+            case DELETE_ACTION  -> "Delete";
+            default             -> key;
+        };
     }
 
     /**
@@ -507,6 +593,8 @@ public class Launcher extends JFrame
 
     private void buildUI()
     {
+        effectiveActionOrder = resolveActionOrder(config);
+
         setTitle("Launcher  –  " + baseFolder.getAbsolutePath());
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setSize(config.windowWidth(), config.windowHeight());
@@ -552,17 +640,19 @@ public class Launcher extends JFrame
                 int idx = locationToIndex(e.getPoint());
                 if (idx >= 0 && listModel.getElementAt(idx).type != EntryType.SCRIPT)
                 {
-                    int actionIdx = hitActionIcon(e.getPoint(), this, idx);
+                    int actionIdx = hitActionIcon(e.getPoint(), this, idx, effectiveActionOrder.size());
                     if (actionIdx >= 0)
                     {
-                        return EntryCellRenderer.ACT_TIPS[actionIdx];
+                        String key = effectiveActionOrder.get(actionIdx);
+                        return EntryCellRenderer.ACT_TIP_MAP.getOrDefault(key, key);
                     }
                 }
                 return null;
             }
         };
         ToolTipManager.sharedInstance().registerComponent(list);
-        list.setCellRenderer(new EntryCellRenderer());
+        cellRenderer = new EntryCellRenderer(effectiveActionOrder);
+        list.setCellRenderer(cellRenderer);
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setFixedCellHeight(36);
 
@@ -580,23 +670,36 @@ public class Launcher extends JFrame
 
                 JPopupMenu menu = new JPopupMenu();
 
-                JMenuItem miExplorer = new JMenuItem("Open in File Explorer");
-                miExplorer.addActionListener(ev -> openInExplorer(sel.file));
-                menu.add(miExplorer);
-
-                JMenuItem miVSCode = new JMenuItem("Open in VS Code");
-                miVSCode.addActionListener(ev -> openInVSCode(sel.file));
-                menu.add(miVSCode);
-
-                menu.addSeparator();
-
-                JMenuItem miCopy = new JMenuItem("Copy with Robocopy...");
-                miCopy.addActionListener(ev -> copyWithRobocopy(sel.file));
-                menu.add(miCopy);
-
-                JMenuItem miDelete = new JMenuItem("Delete");
-                miDelete.addActionListener(ev -> deleteFolder(sel.file));
-                menu.add(miDelete);
+                for (String actionKey : effectiveActionOrder)
+                {
+                    switch (actionKey)
+                    {
+                        case EXPLORE_ACTION ->
+                        {
+                            JMenuItem mi = new JMenuItem("Open in File Explorer");
+                            mi.addActionListener(ev -> openInExplorer(sel.file));
+                            menu.add(mi);
+                        }
+                        case EDITOR_ACTION ->
+                        {
+                            JMenuItem mi = new JMenuItem("Open in Editor");
+                            mi.addActionListener(ev -> openInEditor(sel.file));
+                            menu.add(mi);
+                        }
+                        case COPY_ACTION ->
+                        {
+                            JMenuItem mi = new JMenuItem("Copy with Robocopy...");
+                            mi.addActionListener(ev -> copyWithRobocopy(sel.file));
+                            menu.add(mi);
+                        }
+                        case DELETE_ACTION ->
+                        {
+                            JMenuItem mi = new JMenuItem("Delete");
+                            mi.addActionListener(ev -> deleteFolder(sel.file));
+                            menu.add(mi);
+                        }
+                    }
+                }
 
                 menu.addSeparator();
 
@@ -618,17 +721,18 @@ public class Launcher extends JFrame
                 // Check if a rendered action icon was clicked (folder entries only)
                 if (sel.type != EntryType.SCRIPT)
                 {
-                    int actionIdx = hitActionIcon(e.getPoint(), list, idx);
+                    int actionIdx = hitActionIcon(e.getPoint(), list, idx, effectiveActionOrder.size());
                     if (actionIdx >= 0)
                     {
                         if (e.getClickCount() == 1)
                         {
-                            switch (actionIdx)
+                            String actionKey = effectiveActionOrder.get(actionIdx);
+                            switch (actionKey)
                             {
-                                case 0 -> openInExplorer(sel.file);
-                                case 1 -> openInVSCode(sel.file);
-                                case 2 -> copyWithRobocopy(sel.file);
-                                case 3 -> deleteFolder(sel.file);
+                                case EXPLORE_ACTION -> openInExplorer(sel.file);
+                                case EDITOR_ACTION  -> openInEditor(sel.file);
+                                case COPY_ACTION    -> copyWithRobocopy(sel.file);
+                                case DELETE_ACTION  -> deleteFolder(sel.file);
                             }
                         }
                         return; // never propagate to launch on action-icon area
@@ -644,7 +748,7 @@ public class Launcher extends JFrame
                 int idx = list.locationToIndex(e.getPoint());
                 boolean overIcon = idx >= 0
                         && listModel.getElementAt(idx).type != EntryType.SCRIPT
-                        && hitActionIcon(e.getPoint(), list, idx) >= 0;
+                        && hitActionIcon(e.getPoint(), list, idx, effectiveActionOrder.size()) >= 0;
                 list.setCursor(overIcon
                         ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
                         : Cursor.getDefaultCursor());
@@ -992,7 +1096,10 @@ public class Launcher extends JFrame
                 config.startMinimized(),
                 getWidth(),
                 getHeight(),
-                config.priorityList());
+                config.priorityList(),
+                config.explorer(),
+                config.editor(),
+                config.actionOrder());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -1012,13 +1119,16 @@ public class Launcher extends JFrame
                 config.startMinimized(),
                 config.windowWidth(),
                 config.windowHeight(),
-                names);
+                names,
+                config.explorer(),
+                config.editor(),
+                config.actionOrder());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
     /**
      * Opens the settings dialog where the user can inspect config-file locations
-     * and change persistent settings.
+     * and change persistent settings, including EXPLORER, EDITOR, and action order.
      */
     private void showSettings()
     {
@@ -1030,7 +1140,6 @@ public class Launcher extends JFrame
         root.setLayout(new BoxLayout(root, BoxLayout.Y_AXIS));
         root.setBorder(new EmptyBorder(14, 16, 10, 16));
 
-        // ── Helper: section header ────────────────────────────────────────────
         // ── Config-file info ─────────────────────────────────────────────────
         root.add(settingsSectionLabel("Configuration files"));
         root.add(Box.createVerticalStrut(4));
@@ -1046,7 +1155,7 @@ public class Launcher extends JFrame
 
         root.add(settingsSeparator());
 
-        // ── Editable settings ─────────────────────────────────────────────────
+        // ── Startup ───────────────────────────────────────────────────────────
         root.add(settingsSectionLabel("Startup"));
         root.add(Box.createVerticalStrut(6));
 
@@ -1055,6 +1164,113 @@ public class Launcher extends JFrame
         cbMinimized.setSelected(Boolean.TRUE.equals(config.startMinimized()));
         cbMinimized.setAlignmentX(Component.LEFT_ALIGNMENT);
         root.add(cbMinimized);
+
+        root.add(settingsSeparator());
+
+        // ── Commands ──────────────────────────────────────────────────────────
+        root.add(settingsSectionLabel("Commands"));
+        root.add(Box.createVerticalStrut(6));
+
+        JTextField tfExplorer = new JTextField(
+                config.explorer() != null ? config.explorer() : "", 30);
+        tfExplorer.setToolTipText("File explorer executable (blank = use system default)");
+        root.add(settingsEditRow("EXPLORER", tfExplorer,
+                "File explorer command – blank uses the system default"));
+
+        root.add(Box.createVerticalStrut(4));
+
+        JTextField tfEditor = new JTextField(
+                config.editor() != null ? config.editor() : "", 30);
+        tfEditor.setToolTipText("Editor executable, e.g. code, notepad++");
+        root.add(settingsEditRow("EDITOR", tfEditor,
+                "Editor command – blank defaults to 'code' (VS Code)"));
+
+        root.add(settingsSeparator());
+
+        // ── Action buttons ────────────────────────────────────────────────────
+        root.add(settingsSectionLabel("Action Buttons"));
+        root.add(Box.createVerticalStrut(4));
+
+        JLabel actHint = new JLabel("Check to show · drag up/down to reorder");
+        actHint.setFont(actHint.getFont().deriveFont(Font.ITALIC, 10f));
+        actHint.setForeground(Color.GRAY);
+        actHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        root.add(actHint);
+        root.add(Box.createVerticalStrut(4));
+
+        // Build the ordered list: visible actions first, hidden ones at the bottom
+        List<String> orderedKeys = new ArrayList<>(effectiveActionOrder);
+        for (String k : DEFAULT_ACTION_ORDER)
+        {
+            if (!orderedKeys.contains(k)) orderedKeys.add(k);
+        }
+        final Set<String> checkedActions = new HashSet<>(effectiveActionOrder);
+
+        DefaultListModel<String> actModel = new DefaultListModel<>();
+        orderedKeys.forEach(actModel::addElement);
+
+        JList<String> actList = new JList<>(actModel);
+        actList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        actList.setFixedCellHeight(24);
+        actList.setCellRenderer((lst, value, index, isSelected, focus) ->
+        {
+            JCheckBox cb = new JCheckBox(actionLabel(value));
+            cb.setSelected(checkedActions.contains(value));
+            cb.setBackground(isSelected
+                    ? lst.getSelectionBackground() : lst.getBackground());
+            cb.setForeground(isSelected
+                    ? lst.getSelectionForeground() : lst.getForeground());
+            cb.setFont(lst.getFont());
+            return cb;
+        });
+        // Toggle checkbox on click
+        actList.addMouseListener(new MouseAdapter()
+        {
+            @Override
+            public void mouseClicked(MouseEvent ev)
+            {
+                int idx = actList.locationToIndex(ev.getPoint());
+                if (idx < 0) return;
+                String key = actModel.getElementAt(idx);
+                if (checkedActions.contains(key)) checkedActions.remove(key);
+                else checkedActions.add(key);
+                actList.repaint();
+            }
+        });
+
+        JButton btnUp   = new JButton("↑");
+        JButton btnDown = new JButton("↓");
+        btnUp.addActionListener(ev ->
+        {
+            int idx = actList.getSelectedIndex();
+            if (idx > 0)
+            {
+                String item = actModel.remove(idx);
+                actModel.add(idx - 1, item);
+                actList.setSelectedIndex(idx - 1);
+            }
+        });
+        btnDown.addActionListener(ev ->
+        {
+            int idx = actList.getSelectedIndex();
+            if (idx >= 0 && idx < actModel.getSize() - 1)
+            {
+                String item = actModel.remove(idx);
+                actModel.add(idx + 1, item);
+                actList.setSelectedIndex(idx + 1);
+            }
+        });
+
+        JPanel actButtons = new JPanel(new GridLayout(2, 1, 0, 2));
+        actButtons.add(btnUp);
+        actButtons.add(btnDown);
+
+        JPanel actPanel = new JPanel(new BorderLayout(6, 0));
+        actPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        actPanel.add(new JScrollPane(actList), BorderLayout.CENTER);
+        actPanel.add(actButtons, BorderLayout.EAST);
+        actPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 4 * 24 + 8));
+        root.add(actPanel);
 
         root.add(settingsSeparator());
 
@@ -1070,13 +1286,35 @@ public class Launcher extends JFrame
 
         btnSave.addActionListener(e ->
         {
+            // Collect new action order (checked items, in list order)
+            List<String> newActionOrder = new ArrayList<>();
+            for (int i = 0; i < actModel.getSize(); i++)
+            {
+                String k = actModel.getElementAt(i);
+                if (checkedActions.contains(k)) newActionOrder.add(k);
+            }
+
+            String explorerVal = tfExplorer.getText().trim();
+            String editorVal   = tfEditor.getText().trim();
+
             config = new LauncherConfig(
                     config.rootFolder(),
                     cbMinimized.isSelected(),
                     config.windowWidth(),
                     config.windowHeight(),
-                    config.priorityList());
+                    config.priorityList(),
+                    explorerVal.isEmpty() ? null : explorerVal,
+                    editorVal.isEmpty()   ? null : editorVal,
+                    newActionOrder.isEmpty() ? null : newActionOrder);
+
             config.save(LauncherConfig.instanceConfigFile(launcherId));
+
+            // Rebuild the cell renderer immediately so the action bar updates
+            effectiveActionOrder = resolveActionOrder(config);
+            cellRenderer = new EntryCellRenderer(effectiveActionOrder);
+            list.setCellRenderer(cellRenderer);
+            list.repaint();
+
             dlg.dispose();
         });
         btnCancel.addActionListener(e -> dlg.dispose());
@@ -1143,9 +1381,31 @@ public class Launcher extends JFrame
         return row;
     }
 
-    /** Small coloured label for the legend. */
-    private static JLabel coloredLabel(String text, Color color)
+    /**
+     * A single editable row for the settings dialog.
+     * Shows a bold label on the left and the supplied text field in the center.
+     */
+    private static JPanel settingsEditRow(String label, JTextField field, String tooltip)
     {
+        JPanel row = new JPanel(new BorderLayout(8, 0));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+
+        JLabel lbl = new JLabel(label + ":");
+        lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
+        lbl.setPreferredSize(new Dimension(110, 20));
+        lbl.setToolTipText(tooltip);
+        row.add(lbl, BorderLayout.WEST);
+
+        field.setFont(field.getFont().deriveFont(11f));
+        field.setToolTipText(tooltip);
+        row.add(field, BorderLayout.CENTER);
+
+        return row;
+    }
+
+    /** Small coloured label for the legend. */
+    private static JLabel coloredLabel(String text, Color color)    {
         JLabel lbl = new JLabel("■ " + text);
         lbl.setForeground(color);
         lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
@@ -1181,23 +1441,23 @@ public class Launcher extends JFrame
     // =========================================================================
 
     /**
-     * Returns the index (0 = Explorer, 1 = VS Code, 2 = Copy, 3 = Delete) of the
-     * action icon at the given point in the list coordinate space, or -1 if the
-     * point does not fall on any action icon.
+     * Returns the index (0-based) of the action icon at the given point in the list
+     * coordinate space, or -1 if the point does not fall on any action icon.
      * <p>
-     * The action bar occupies the rightmost {@link EntryCellRenderer#ACT_BAR_W}
+     * The action bar occupies the rightmost {@link EntryCellRenderer#barWidth(int)}
      * pixels of a cell.  Inside the bar, FlowLayout places icons as:
-     * gap | icon0 | gap | icon1 | gap | icon2 | gap | icon3 | gap
+     * gap | icon0 | gap | icon1 | … | gap
      */
-    private static int hitActionIcon(Point p, JList<LaunchEntry> list, int idx)
+    private static int hitActionIcon(Point p, JList<LaunchEntry> list, int idx, int numActions)
     {
+        if (numActions == 0) return -1;
         Rectangle cell = list.getCellBounds(idx, idx);
         if (cell == null) return -1;
         int xInCell = p.x - cell.x;
-        int actionBarStart = cell.width - EntryCellRenderer.ACT_BAR_W;
+        int actionBarStart = cell.width - EntryCellRenderer.barWidth(numActions);
         if (xInCell < actionBarStart) return -1;
         int xInBar = xInCell - actionBarStart;
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < numActions; i++)
         {
             int iconStart = EntryCellRenderer.ACT_HGAP
                     + i * (EntryCellRenderer.ACT_W + EntryCellRenderer.ACT_HGAP);
@@ -1429,38 +1689,55 @@ public class Launcher extends JFrame
     }
 
     /**
-     * Opens an application folder in Windows File Explorer.
+     * Opens a folder in the configured file explorer (EXPLORER) or the system default.
      */
     private void openInExplorer(File folder)
     {
-        try
+        String explorerCmd = config.explorer();
+        if (explorerCmd != null && !explorerCmd.isBlank())
         {
-            Desktop.getDesktop().open(folder);
-        } catch (IOException ex)
+            try
+            {
+                new ProcessBuilder(explorerCmd, folder.getAbsolutePath()).start();
+            } catch (IOException ex)
+            {
+                JOptionPane.showMessageDialog(this,
+                        "Could not open file explorer:\n" + ex.getMessage(),
+                        "Launcher Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+        else
         {
-            JOptionPane.showMessageDialog(this,
-                    "Could not open File Explorer:\n" + ex.getMessage(),
-                    "Launcher Error", JOptionPane.ERROR_MESSAGE);
+            try
+            {
+                Desktop.getDesktop().open(folder);
+            } catch (IOException ex)
+            {
+                JOptionPane.showMessageDialog(this,
+                        "Could not open File Explorer:\n" + ex.getMessage(),
+                        "Launcher Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
     /**
-     * Opens an application folder in VS Code (requires 'code' on PATH).
+     * Opens a folder in the configured editor (EDITOR, default: {@code code}).
      */
-    private void openInVSCode(File folder)
+    private void openInEditor(File folder)
     {
+        String editorCmd = (config.editor() != null && !config.editor().isBlank())
+                ? config.editor() : "code";
         try
         {
-            // 'code' is a .cmd script, so it must be invoked via cmd /c;
-            // ProcessBuilder cannot resolve .cmd extensions on its own.
-            new ProcessBuilder("cmd", "/c", "code", folder.getAbsolutePath())
+            // Invoke via cmd /c so .cmd scripts (like VS Code's 'code') are resolved
+            new ProcessBuilder("cmd", "/c", editorCmd, folder.getAbsolutePath())
                     .directory(folder)
                     .start();
         } catch (IOException ex)
         {
             JOptionPane.showMessageDialog(this,
-                    "Could not open VS Code.\n"
-                            + "Make sure 'code' is on your PATH.\n\n" + ex.getMessage(),
+                    "Could not open editor.\n"
+                            + "Make sure '" + editorCmd + "' is on your PATH.\n\n" + ex.getMessage(),
                     "Launcher Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -1819,7 +2096,10 @@ public class Launcher extends JFrame
                 startMinimized,
                 merged.windowWidth(),
                 merged.windowHeight(),
-                merged.priorityList());
+                merged.priorityList(),
+                merged.explorer(),
+                merged.editor(),
+                merged.actionOrder());
         resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
 
         final boolean minimized = startMinimized;
