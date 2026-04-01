@@ -83,10 +83,17 @@ public class Launcher extends JFrame {
     static final class LaunchEntry {
         final File      file;
         final EntryType type;
+        /** For APP_FOLDER: the .lnk or fallback exe used as icon source; null otherwise. */
+        final File      iconFile;
 
         LaunchEntry(File file, EntryType type) {
-            this.file = file;
-            this.type = type;
+            this(file, type, null);
+        }
+
+        LaunchEntry(File file, EntryType type, File iconFile) {
+            this.file     = file;
+            this.type     = type;
+            this.iconFile = iconFile;
         }
 
         @Override
@@ -126,8 +133,10 @@ public class Launcher extends JFrame {
             setToolTipText(e.file.getAbsolutePath());
             setBorder(new EmptyBorder(5, 8, 5, 8));
 
-            // Use the OS-provided icon for realistic visuals
-            try { setIcon(fsv.getSystemIcon(e.file)); }
+            // For app folders use the icon of the .lnk / exe so the application
+            // icon is shown instead of a generic folder icon.
+            File iconSrc = (e.iconFile != null) ? e.iconFile : e.file;
+            try { setIcon(fsv.getSystemIcon(iconSrc)); }
             catch (Exception ignored) { setIcon(null); }
 
             if (selected) {
@@ -378,8 +387,9 @@ public class Launcher extends JFrame {
                     Comparator.comparing(f -> f.getName().toLowerCase(Locale.ROOT)));
             for (File f : children) {
                 if (f.isDirectory()) {
-                    if (isAppFolder(f)) {
-                        apps.add(new LaunchEntry(f, EntryType.APP_FOLDER));
+                    File iconSrc = findAppIconSource(f);
+                    if (iconSrc != null) {
+                        apps.add(new LaunchEntry(f, EntryType.APP_FOLDER, iconSrc));
                     } else {
                         plain.add(new LaunchEntry(f, EntryType.PLAIN_FOLDER));
                     }
@@ -396,19 +406,21 @@ public class Launcher extends JFrame {
     }
 
     /**
-     * Returns true if the directory qualifies as an application folder:
-     * it contains a .lnk shortcut at its top level, or the fallback executable.
+     * If the directory qualifies as an application folder, returns the file to use
+     * as the icon source (the first .lnk at the top level, or the fallback exe).
+     * Returns null if the directory is a plain folder.
      */
-    private static boolean isAppFolder(File dir) {
+    private static File findAppIconSource(File dir) {
         File[] children = dir.listFiles();
         if (children != null) {
             for (File f : children) {
                 if (f.isFile() && f.getName().toLowerCase(Locale.ROOT).endsWith(".lnk")) {
-                    return true;
+                    return f;
                 }
             }
         }
-        return new File(dir, FALLBACK_EXE).isFile();
+        File fallback = new File(dir, FALLBACK_EXE);
+        return fallback.isFile() ? fallback : null;
     }
 
     /** Returns true for files with a recognised script extension. */
