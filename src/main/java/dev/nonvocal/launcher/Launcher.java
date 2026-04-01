@@ -80,25 +80,22 @@ public class Launcher extends JFrame {
 
     enum EntryType { SCRIPT, APP_FOLDER, PLAIN_FOLDER }
 
-    static final class LaunchEntry {
-        final File      file;
-        final EntryType type;
-        /** For APP_FOLDER: the .lnk or fallback exe used as icon source; null otherwise. */
-        final File      iconFile;
-
-        LaunchEntry(File file, EntryType type) {
-            this(file, type, null);
-        }
-
-        LaunchEntry(File file, EntryType type, File iconFile) {
-            this.file     = file;
-            this.type     = type;
-            this.iconFile = iconFile;
-        }
+    /**
+     * @param iconFile For APP_FOLDER: the .lnk or fallback exe used as icon source; null otherwise.
+     */
+    record LaunchEntry(File file, EntryType type, File iconFile)
+    {
+            LaunchEntry(File file, EntryType type)
+            {
+                this(file, type, null);
+            }
 
         @Override
-        public String toString() { return file.getName(); }
-    }
+            public String toString()
+        {
+            return file.getName();
+        }
+        }
 
     // =========================================================================
     //  Cell renderer
@@ -173,7 +170,7 @@ public class Launcher extends JFrame {
     }
 
     private void buildUI() {
-        setTitle("Launcher  \u2013  " + baseFolder.getAbsolutePath());
+        setTitle("Launcher  –  " + baseFolder.getAbsolutePath());
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(560, 680);
         setMinimumSize(new Dimension(320, 200));
@@ -185,7 +182,7 @@ public class Launcher extends JFrame {
         header.setBorder(new EmptyBorder(10, 14, 10, 14));
 
         JLabel dirLabel = new JLabel(baseFolder.getName()
-                + "   \u2014   " + baseFolder.getAbsolutePath());
+                + "   —   " + baseFolder.getAbsolutePath());
         dirLabel.setFont(dirLabel.getFont().deriveFont(Font.BOLD, 13f));
         dirLabel.setForeground(Color.WHITE);
         header.add(dirLabel, BorderLayout.CENTER);
@@ -326,7 +323,7 @@ public class Launcher extends JFrame {
         popup.add(exitItem);
 
         TrayIcon trayIcon = new TrayIcon(img,
-                "Launcher \u2013 " + baseFolder.getName(), popup);
+                "Launcher – " + baseFolder.getName(), popup);
         trayIcon.setImageAutoSize(true);
         trayIcon.addActionListener(e -> toggleVisibility()); // double-click restores
 
@@ -361,7 +358,7 @@ public class Launcher extends JFrame {
 
     /** Small coloured label for the legend. */
     private static JLabel coloredLabel(String text, Color color) {
-        JLabel lbl = new JLabel("\u25A0 " + text);
+        JLabel lbl = new JLabel("■ " + text);
         lbl.setForeground(color);
         lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
         return lbl;
@@ -683,7 +680,7 @@ public class Launcher extends JFrame {
                                 "Checkout completed. Refresh the file list?",
                                 "SVN Checkout", JOptionPane.YES_NO_OPTION);
                         if (refresh == JOptionPane.YES_OPTION) {
-                            setTitle("Launcher  \u2013  " + baseFolder.getAbsolutePath());
+                            setTitle("Launcher  –  " + baseFolder.getAbsolutePath());
                         }
                     });
                 } catch (InterruptedException ignored) { }
