@@ -27,6 +27,8 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.KeyboardFocusManager;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -160,17 +162,44 @@ public class Launcher extends JFrame {
     private final File baseFolder;
     private DefaultListModel<LaunchEntry> listModel;
     private JLabel hintLabel;
+    private JLabel searchLabel;
+    private transient String searchQuery = "";
+    private transient final List<LaunchEntry> allEntries = new ArrayList<>();
 
     Launcher(File baseFolder, boolean startMinimized) {
         this.baseFolder = baseFolder;
         buildUI();
     }
 
-    /** Reloads all entries from disk and refreshes the list and entry-count label. */
+    /** Reloads all entries from disk and re-applies the current search filter. */
     private void refreshList() {
+        allEntries.clear();
+        allEntries.addAll(loadEntries());
+        applyFilter();
+    }
+
+    /** Filters listModel to entries whose name contains searchQuery (case-insensitive). */
+    private void applyFilter() {
         listModel.clear();
-        loadEntries().forEach(listModel::addElement);
-        hintLabel.setText(listModel.size() + " entries   |   Double-click or Enter to launch");
+        String q = searchQuery.toLowerCase(Locale.ROOT);
+        for (LaunchEntry entry : allEntries) {
+            if (q.isEmpty() || entry.file.getName().toLowerCase(Locale.ROOT).contains(q)) {
+                listModel.addElement(entry);
+            }
+        }
+        if (searchQuery.isEmpty()) {
+            searchLabel.setText("");
+            hintLabel.setText(listModel.size() + " entries   |   Double-click or Enter to launch");
+        } else {
+            searchLabel.setText("  Filter: " + searchQuery + "\u258C");
+            hintLabel.setText(listModel.size() + " of " + allEntries.size() + "   |   Esc to clear");
+        }
+    }
+
+    /** Clears the search query and shows all entries. */
+    private void clearSearch() {
+        searchQuery = "";
+        applyFilter();
     }
 
     private void buildUI() {
@@ -193,7 +222,8 @@ public class Launcher extends JFrame {
 
         // ── Entry list ───────────────────────────────────────────────────────
         listModel = new DefaultListModel<>();
-        loadEntries().forEach(listModel::addElement);
+        allEntries.addAll(loadEntries());
+        allEntries.forEach(listModel::addElement);
 
         JList<LaunchEntry> list = new JList<>(listModel);
         list.setCellRenderer(new EntryCellRenderer());
@@ -274,6 +304,11 @@ public class Launcher extends JFrame {
         legend.add(coloredLabel("Application folders", new Color(0x2E, 0x6B, 0x2E)));
         legend.add(coloredLabel("Folders", new Color(0x66, 0x55, 0x44)));
 
+        searchLabel = new JLabel();
+        searchLabel.setForeground(new Color(0x00, 0x50, 0xA0));
+        searchLabel.setFont(searchLabel.getFont().deriveFont(Font.BOLD | Font.ITALIC, 11f));
+        searchLabel.setHorizontalAlignment(JLabel.CENTER);
+
         hintLabel = new JLabel(listModel.size() + " entries   |   "
                 + "Double-click or Enter to launch");
         hintLabel.setForeground(Color.GRAY);
@@ -281,6 +316,7 @@ public class Launcher extends JFrame {
 
         JPanel south = new JPanel(new BorderLayout());
         south.add(legend, BorderLayout.WEST);
+        south.add(searchLabel, BorderLayout.CENTER);
         south.add(hintLabel, BorderLayout.EAST);
         south.setBorder(new EmptyBorder(0, 10, 0, 10));
         south.setBackground(new Color(0xF0, 0xF0, 0xF0));
@@ -288,6 +324,29 @@ public class Launcher extends JFrame {
         add(header, BorderLayout.NORTH);
         add(scroll,  BorderLayout.CENTER);
         add(south,   BorderLayout.SOUTH);
+
+        // ── Type-to-search: capture keystrokes while this window is focused ──
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(event -> {
+            if (event.getID() != KeyEvent.KEY_TYPED) return false;
+            Window focused = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusedWindow();
+            if (focused != Launcher.this) return false;
+            char c = event.getKeyChar();
+            if (c == KeyEvent.CHAR_UNDEFINED) return false;
+            if (c == '\u001b') {                    // Escape – clear filter
+                clearSearch();
+            } else if (c == '\b') {                 // Backspace – delete last char
+                if (!searchQuery.isEmpty()) {
+                    searchQuery = searchQuery.substring(0, searchQuery.length() - 1);
+                    applyFilter();
+                }
+            } else if (c == '\r' || c == '\n') {    // Enter – let existing handler fire
+                return false;
+            } else if (c >= 32) {                   // Any other printable character
+                searchQuery += c;
+                applyFilter();
+            }
+            return false;
+        });
     }
 
     // =========================================================================
