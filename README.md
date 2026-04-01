@@ -10,16 +10,19 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - **Folders** – all other sub-folders (displayed in a distinct color; double-click opens in File Explorer)
 - **Double-click / Enter** to run a script or launch an application
 - **Toolbar** below the header bar with quick-access buttons:
-  - **SVN Checkout** – check out a repository into the selected folder (or the root folder if nothing is selected)
+  - **SVN Checkout** (left) – check out a repository into the selected folder
+  - **Settings ⚙** (right) – open the settings dialog
 - **Inline action icons** (right side of each folder row) for one-click access to common actions — no right-click required:
-  - **E** – Open in File Explorer
-  - **VS** – Open in VS Code
-  - **C** – Copy with Robocopy
-  - **✕** – Delete
+  - 📁 – Open in File Explorer
+  - 📝 – Open in VS Code
+  - 📋 – Copy with Robocopy
+  - 🗑 – Delete
   - The cursor changes to a **hand pointer** when hovering over an icon
 - **Type to search** – just start typing while the window is focused to instantly filter the list; **Backspace** removes the last character, **Escape** clears the filter
 - **Right-click context menu** (folders and app folders) with the same quick actions plus **SVN Checkout**
 - **Real-time output windows** for robocopy and SVN operations
+- **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
+- **Settings dialog** to inspect active config paths and toggle startup options
 - Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
 - **Folder-chooser dialog** when no path is supplied on startup
 - **Color-coded list** for scripts, application folders, and plain folders
@@ -77,11 +80,56 @@ run.bat  C:\path\to\your\folder
 
 **Minimized to the system tray**:
 
-Create a batch file (see *Creating a Batch File to Start Launcher in a Folder at Logon* section) and run it:
-
 ```bat
-example_start_at_logon_in_apps_folder.bat
+run.bat  C:\path\to\your\folder  --minimized
 ```
+
+## Command-Line Options
+
+| Option | Description |
+|---|---|
+| `<rootFolder>` | Path to the root folder to browse. If omitted, the last-used folder from config is opened; if none exists, a folder-chooser dialog is shown. |
+| `--minimized` | Start hidden in the system tray. Single-click the tray icon to show/hide; use the tray menu to exit. |
+| `--launcherId=<id>` | Explicitly set the launcher instance ID. Used to locate the instance-specific config. Defaults to an 8-character hex hash of the root folder path. |
+| `--config=<path>` | Load an additional JSON config file. Its values override both the global and instance configs (highest priority among config files). |
+
+## Configuration
+
+Launcher uses a **three-level configuration** hierarchy. Each level can override individual fields of the level below it; missing fields fall back to the lower level.
+
+```
+Level 1 (lowest priority)  %APPDATA%\nvLauncher\config.json
+Level 2                    %APPDATA%\nvLauncher\{launcherId}\config.json
+Level 3 (highest priority) <path supplied via --config=…>
+
+CLI arguments override all config files.
+```
+
+### Config file format
+
+```json
+{
+  "rootFolder": "C:\\MyApps",
+  "startMinimized": false,
+  "windowWidth": 560,
+  "windowHeight": 680
+}
+```
+
+Any field can be omitted; omitted fields are inherited from the level below.
+
+### Launcher ID
+
+The launcher ID identifies a specific instance and determines which instance config folder is used.
+
+- Provide it explicitly with `--launcherId=<id>` (e.g. `--launcherId=myapps`)
+- If not provided, it is computed as an 8-character hex hash of the absolute root folder path (e.g. `3a7f2c01`)
+
+The **Settings dialog** (⚙ button in the toolbar) shows the active launcher ID and the full paths to both config files.
+
+### First run
+
+On the very first launch, `%APPDATA%\nvLauncher\config.json` is created automatically with the application defaults. The instance config is created/updated each time the launcher starts and on window close (capturing the current window size).
 
 ## Usage Guide
 
@@ -96,9 +144,23 @@ example_start_at_logon_in_apps_folder.bat
 
 A toolbar sits between the blue header and the entry list.
 
-| Button | Action |
-|---|---|
-| **SVN Checkout** | Opens the SVN Checkout dialog for the currently selected folder. If no folder entry is selected, the root launcher folder is used as the checkout target. |
+| Button | Position | Action |
+|---|---|---|
+| **SVN Checkout** (apps-add icon) | Left | Opens the SVN Checkout dialog for the currently selected folder. If no folder entry is selected, the root launcher folder is used as the checkout target. |
+| **Settings** (gear icon) | Right | Opens the Settings dialog to inspect config-file paths and toggle startup options. |
+
+### Settings Dialog
+
+Open by clicking the **⚙ gear icon** on the right side of the toolbar.
+
+| Section | Field | Description |
+|---|---|---|
+| Configuration files | Launcher ID | The active instance identifier (read-only) |
+| Configuration files | Global config | Path to `%APPDATA%\nvLauncher\config.json` with 📂 button to open the folder |
+| Configuration files | Instance config | Path to `%APPDATA%\nvLauncher\{id}\config.json` with 📂 button to open the folder |
+| Startup | Start minimized | Checkbox – saves to instance config; takes effect on next launch |
+
+Click **Save** to persist changes or **Cancel** to discard.
 
 ### Inline Action Icons
 
@@ -106,10 +168,10 @@ Every **application folder** and **plain folder** row shows four small icon butt
 
 | Icon | Action | Description |
 |---|---|---|
-| **E** | Open in File Explorer | Browse the folder in Windows Explorer |
-| **VS** | Open in VS Code | Open the folder in Visual Studio Code (`code` must be on `PATH`) |
-| **C** | Copy with Robocopy… | Duplicate the folder within the active launcher directory |
-| **✕** | Delete | Permanently delete the folder (requires confirmation) |
+| 📁 | Open in File Explorer | Browse the folder in Windows Explorer |
+| 📝 | Open in VS Code | Open the folder in Visual Studio Code (`code` must be on `PATH`) |
+| 📋 | Copy with Robocopy… | Duplicate the folder within the active launcher directory |
+| 🗑 | Delete | Permanently delete the folder (requires confirmation) |
 
 - **Single-click** any icon to trigger the action immediately
 - The **cursor changes to a hand pointer** when you hover over an icon
@@ -190,7 +252,7 @@ All other sub-folders are treated as **plain folders**.
 
 | File | Description |
 |---|---|
-| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (~1 000 lines) |
+| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (~1 660 lines) |
 | `src/main/resources/` | PNG icon files used for action buttons, window and tray |
 | `pom.xml` | Maven configuration (JDK 26, JUnit 5) |
 | `scripts/build.bat` | Compiles the source with `javac` |
@@ -226,11 +288,12 @@ Launcher recognizes and launches the following script file types:
 | Action | Keyboard / Mouse |
 |---|---|
 | Launch selected item | **Enter** or **Double-click** |
-| SVN Checkout | **Toolbar button** or right-click → *SVN Checkout…* |
-| Open in File Explorer | **Click E icon** (row right side) or right-click → *Open in File Explorer* |
-| Open in VS Code | **Click VS icon** (row right side) or right-click → *Open in VS Code* |
-| Copy with Robocopy | **Click C icon** (row right side) or right-click → *Copy with Robocopy…* |
-| Delete folder | **Click ✕ icon** (row right side) or right-click → *Delete* |
+| SVN Checkout | **Toolbar button** (left) or right-click → *SVN Checkout…* |
+| Open Settings | **Toolbar ⚙ button** (right) |
+| Open in File Explorer | **Click folder icon** (row right side) or right-click → *Open in File Explorer* |
+| Open in VS Code | **Click document icon** (row right side) or right-click → *Open in VS Code* |
+| Copy with Robocopy | **Click copy icon** (row right side) or right-click → *Copy with Robocopy…* |
+| Delete folder | **Click bin icon** (row right side) or right-click → *Delete* |
 | Open context menu | **Right-click** (all folders; scripts excluded) |
 | Navigate list | **↑ ↓** Arrow keys |
 | Start filtering | **Type any character** |
@@ -291,7 +354,8 @@ Create a batch file (e.g. `example_start_at_logon_in_apps_folder.bat`) with the 
 @echo off
 REM Example: Start Launcher minimized in the system tray for a specific folder
 
-start "" C:\path\to\your\jdk\bin\javaw Launcher "C:\path\to\your\apps\folder" --minimized
+start "" "C:\path\to\your\jdk\bin\javaw" -jar "C:\path\to\launcher.jar" ^
+    "C:\path\to\your\apps\folder" --minimized --launcherId=myapps
 ```
 
 ### Customising the Batch File
@@ -299,21 +363,26 @@ start "" C:\path\to\your\jdk\bin\javaw Launcher "C:\path\to\your\apps\folder" --
 Update the following values to match your environment:
 
 - **`C:\path\to\your\jdk\bin\javaw`** – Replace with the full path to `javaw.exe` in your JDK installation
+- **`C:\path\to\launcher.jar`** – Replace with the full path to the compiled JAR (or use `-cp` with the class directory)
 - **`C:\path\to\your\apps\folder`** – Replace with the root folder you want Launcher to browse
+- **`--launcherId=myapps`** – Optional; give this instance a memorable name (used for its config folder)
 
 ### Example
 
 If you have:
 - Java installed at `C:\Program Files\SapMachine\jdk-26\bin\javaw.exe`
-- Launcher class in `D:\Launcher\Launcher.class`
+- Launcher JAR at `D:\Launcher\launcher-0.0.1.jar`
 - Apps folder at `D:\MyApps`
 
 Your batch file would be:
 
 ```bat
 @echo off
-start "" "C:\Program Files\SapMachine\jdk-26\bin\javaw" -cp "D:\Launcher" Launcher "D:\MyApps" --minimized
+start "" "C:\Program Files\SapMachine\jdk-26\bin\javaw" -jar "D:\Launcher\launcher-0.0.1.jar" ^
+    "D:\MyApps" --minimized --launcherId=myapps
 ```
+
+The instance config will be stored at `%APPDATA%\nvLauncher\myapps\config.json`.
 
 ---
 
@@ -354,9 +423,31 @@ start "" "C:\Program Files\SapMachine\jdk-26\bin\javaw" -cp "D:\Launcher" Launch
 - **Cause:** A folder with the chosen name already exists in the active launcher directory
 - **Fix:** Choose a different name (e.g., add `_v2`, `_backup`, or a timestamp)
 
+### Config Not Being Picked Up
+- **Check** that the JSON is valid (no trailing commas, all strings quoted)
+- **Check** the correct config file is being edited – use the **Settings** dialog (⚙) to see the exact paths that are active for the current instance
+
 ---
 
 ## Tips & Best Practices
+
+### Running Multiple Launcher Instances
+
+You can run several Launcher windows side-by-side, each pointing to a different folder and carrying its own configuration:
+
+```bat
+REM Apps launcher
+javaw -jar launcher.jar "D:\Apps" --launcherId=apps
+
+REM Projects launcher
+javaw -jar launcher.jar "D:\Projects" --launcherId=projects
+```
+
+Each instance reads/writes its own `%APPDATA%\nvLauncher\{launcherId}\config.json`.
+
+### Sharing a Common Base Config
+
+Edit `%APPDATA%\nvLauncher\config.json` to set defaults that apply to **all** instances (e.g. `startMinimized: true`). Instance configs will override only the fields they explicitly set.
 
 ### Organizing Your Apps Folder
 

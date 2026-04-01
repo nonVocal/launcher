@@ -11,8 +11,11 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Launcher – self-contained Java Swing application.
@@ -65,6 +68,176 @@ public class Launcher extends JFrame
         public String toString()
         {
             return file.getName();
+        }
+    }
+
+    // =========================================================================
+    //  Configuration
+    // =========================================================================
+
+    /**
+     * Three-level configuration:
+     * <ol>
+     *   <li>Global:   {@code %APPDATA%\nvLauncher\config.json}</li>
+     *   <li>Instance: {@code %APPDATA%\nvLauncher\{launcherId}\config.json}</li>
+     *   <li>Explicit: path supplied via {@code --config=<path>}</li>
+     * </ol>
+     * Each level overrides only the fields that are explicitly present.
+     * All fields are nullable; {@code null} means "not set at this level".
+     * Call {@link #withDefaults()} on the final merged config to fill gaps.
+     */
+    record LauncherConfig(
+            String  rootFolder,
+            Boolean startMinimized,
+            Integer windowWidth,
+            Integer windowHeight)
+    {
+        // ── Static paths ───────────────────────────────────────────────────
+
+        /** Base config directory: {@code %APPDATA%\nvLauncher} */
+        static final File CONFIG_DIR;
+        static
+        {
+            String appData = System.getenv("APPDATA");
+            if (appData == null) appData = System.getProperty("user.home");
+            CONFIG_DIR = new File(appData, "nvLauncher");
+        }
+
+        static File globalConfigFile()
+        {
+            return new File(CONFIG_DIR, "config.json");
+        }
+
+        static File instanceConfigFile(String launcherId)
+        {
+            return new File(new File(CONFIG_DIR, launcherId), "config.json");
+        }
+
+        // ── Factory methods ────────────────────────────────────────────────
+
+        /** All fields null – represents "nothing set at this level". */
+        static LauncherConfig empty()
+        {
+            return new LauncherConfig(null, null, null, null);
+        }
+
+        /** Hardcoded application defaults (all fields non-null). */
+        static LauncherConfig defaults()
+        {
+            return new LauncherConfig(null, false, 560, 680);
+        }
+
+        /**
+         * Loads a config from {@code file}.
+         * Returns {@link #empty()} if the file does not exist or cannot be read.
+         * Fields missing in the file are left null.
+         */
+        static LauncherConfig loadFile(File file)
+        {
+            if (!file.exists()) return empty();
+            try
+            {
+                return parse(Files.readString(file.toPath()));
+            }
+            catch (IOException e)
+            {
+                return empty();
+            }
+        }
+
+        // ── Merging ────────────────────────────────────────────────────────
+
+        /**
+         * Returns a new config in which every non-null field of {@code this}
+         * overrides the corresponding field from {@code base}.
+         * Use as: {@code override.mergeOver(base)}.
+         */
+        LauncherConfig mergeOver(LauncherConfig base)
+        {
+            return new LauncherConfig(
+                    rootFolder     != null ? rootFolder     : base.rootFolder,
+                    startMinimized != null ? startMinimized : base.startMinimized,
+                    windowWidth    != null ? windowWidth    : base.windowWidth,
+                    windowHeight   != null ? windowHeight   : base.windowHeight);
+        }
+
+        /**
+         * Returns a new config where every field that is still null is filled
+         * with the hardcoded application default.
+         */
+        LauncherConfig withDefaults()
+        {
+            return new LauncherConfig(
+                    rootFolder,
+                    startMinimized != null ? startMinimized : false,
+                    windowWidth    != null ? windowWidth    : 560,
+                    windowHeight   != null ? windowHeight   : 680);
+        }
+
+        // ── Persistence ────────────────────────────────────────────────────
+
+        /**
+         * Saves this config to {@code file}, creating parent directories as needed.
+         * Only non-null fields are written; silently ignores I/O errors.
+         */
+        void save(File file)
+        {
+            try
+            {
+                file.getParentFile().mkdirs();
+                Files.writeString(file.toPath(), toJson());
+            }
+            catch (IOException ignored) {}
+        }
+
+        // ── Serialisation ──────────────────────────────────────────────────
+
+        private String toJson()
+        {
+            List<String> lines = new ArrayList<>();
+            if (rootFolder     != null) lines.add("  \"rootFolder\": "     + jsonStr(rootFolder));
+            if (startMinimized != null) lines.add("  \"startMinimized\": " + startMinimized);
+            if (windowWidth    != null) lines.add("  \"windowWidth\": "    + windowWidth);
+            if (windowHeight   != null) lines.add("  \"windowHeight\": "   + windowHeight);
+            return "{\n" + String.join(",\n", lines) + "\n}";
+        }
+
+        private static String jsonStr(String s)
+        {
+            if (s == null) return "null";
+            return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        }
+
+        // ── Deserialisation (no external library) ──────────────────────────
+
+        private static LauncherConfig parse(String json)
+        {
+            return new LauncherConfig(
+                    parseStr (json, "rootFolder"),
+                    parseBool(json, "startMinimized"),
+                    parseInt (json, "windowWidth"),
+                    parseInt (json, "windowHeight"));
+        }
+
+        private static String parseStr(String json, String key)
+        {
+            Matcher m = Pattern.compile(
+                    "\"" + key + "\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\")").matcher(json);
+            if (!m.find()) return null;
+            String g = m.group(1);
+            return g == null ? null : g.replace("\\\\", "\\").replace("\\\"", "\"");
+        }
+
+        private static Boolean parseBool(String json, String key)
+        {
+            Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*(true|false)").matcher(json);
+            return m.find() ? Boolean.parseBoolean(m.group(1)) : null;
+        }
+
+        private static Integer parseInt(String json, String key)
+        {
+            Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+)").matcher(json);
+            return m.find() ? Integer.parseInt(m.group(1)) : null;
         }
     }
 
@@ -232,15 +405,19 @@ public class Launcher extends JFrame
     // =========================================================================
 
     private final File baseFolder;
+    private LauncherConfig config;
+    private final String launcherId;
     private DefaultListModel<LaunchEntry> listModel;
     private JLabel hintLabel;
     private JLabel searchLabel;
     private transient String searchQuery = "";
     private transient final List<LaunchEntry> allEntries = new ArrayList<>();
 
-    Launcher(File baseFolder, boolean startMinimized)
+    Launcher(File baseFolder, LauncherConfig config, String launcherId)
     {
         this.baseFolder = baseFolder;
+        this.config = config;
+        this.launcherId = launcherId;
         buildUI();
     }
 
@@ -292,10 +469,21 @@ public class Launcher extends JFrame
     private void buildUI()
     {
         setTitle("Launcher  –  " + baseFolder.getAbsolutePath());
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(560, 680);
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        setSize(config.windowWidth(), config.windowHeight());
         setMinimumSize(new Dimension(320, 200));
         setLocationRelativeTo(null);
+
+        // Save config (with current window size) when the window is closed
+        addWindowListener(new WindowAdapter()
+        {
+            @Override
+            public void windowClosing(WindowEvent e)
+            {
+                saveConfig();
+                System.exit(0);
+            }
+        });
 
         // Application window icon
         ImageIcon appIcon = loadScaledIcon("apps.png", 32, 32);
@@ -500,6 +688,18 @@ public class Launcher extends JFrame
         });
         toolbar.add(svnButton);
 
+        // Push the settings button to the right
+        toolbar.add(Box.createHorizontalGlue());
+
+        ImageIcon settingsIcon = loadScaledIcon("setting.png", 20, 20);
+        JButton settingsButton = settingsIcon != null
+                ? new JButton(settingsIcon)
+                : new JButton("\u2699");
+        settingsButton.setToolTipText("Settings");
+        settingsButton.setFocusPainted(false);
+        settingsButton.addActionListener(ev -> showSettings());
+        toolbar.add(settingsButton);
+
         // ── Combine header + toolbar in a single north area ───────────────────
         JPanel topArea = new JPanel(new BorderLayout());
         topArea.add(header, BorderLayout.NORTH);
@@ -649,8 +849,145 @@ public class Launcher extends JFrame
     }
 
     /**
-     * Small coloured label for the legend.
+     * Saves the current config with up-to-date window dimensions.
      */
+    private void saveConfig()
+    {
+        config = new LauncherConfig(
+                baseFolder.getAbsolutePath(),
+                config.startMinimized(),
+                getWidth(),
+                getHeight());
+        config.save(LauncherConfig.instanceConfigFile(launcherId));
+    }
+
+    /**
+     * Opens the settings dialog where the user can inspect config-file locations
+     * and change persistent settings.
+     */
+    private void showSettings()
+    {
+        JDialog dlg = new JDialog(this, "Settings  –  " + launcherId, true);
+        dlg.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dlg.setResizable(false);
+
+        JPanel root = new JPanel();
+        root.setLayout(new BoxLayout(root, BoxLayout.Y_AXIS));
+        root.setBorder(new EmptyBorder(14, 16, 10, 16));
+
+        // ── Helper: section header ────────────────────────────────────────────
+        // ── Config-file info ─────────────────────────────────────────────────
+        root.add(settingsSectionLabel("Configuration files"));
+        root.add(Box.createVerticalStrut(4));
+        root.add(settingsInfoRow("Launcher ID",       launcherId,                                                              null));
+        root.add(Box.createVerticalStrut(2));
+        root.add(settingsInfoRow("Global config",
+                LauncherConfig.globalConfigFile().getAbsolutePath(),
+                LauncherConfig.globalConfigFile().getParentFile()));
+        root.add(Box.createVerticalStrut(2));
+        root.add(settingsInfoRow("Instance config",
+                LauncherConfig.instanceConfigFile(launcherId).getAbsolutePath(),
+                LauncherConfig.instanceConfigFile(launcherId).getParentFile()));
+
+        root.add(settingsSeparator());
+
+        // ── Editable settings ─────────────────────────────────────────────────
+        root.add(settingsSectionLabel("Startup"));
+        root.add(Box.createVerticalStrut(6));
+
+        JCheckBox cbMinimized = new JCheckBox(
+                "Start minimized to system tray  (takes effect on next launch)");
+        cbMinimized.setSelected(Boolean.TRUE.equals(config.startMinimized()));
+        cbMinimized.setAlignmentX(Component.LEFT_ALIGNMENT);
+        root.add(cbMinimized);
+
+        root.add(settingsSeparator());
+
+        // ── Buttons ───────────────────────────────────────────────────────────
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        btnPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JButton btnSave   = new JButton("Save");
+        JButton btnCancel = new JButton("Cancel");
+        btnPanel.add(btnSave);
+        btnPanel.add(btnCancel);
+        root.add(btnPanel);
+
+        btnSave.addActionListener(e ->
+        {
+            config = new LauncherConfig(
+                    config.rootFolder(),
+                    cbMinimized.isSelected(),
+                    config.windowWidth(),
+                    config.windowHeight());
+            config.save(LauncherConfig.instanceConfigFile(launcherId));
+            dlg.dispose();
+        });
+        btnCancel.addActionListener(e -> dlg.dispose());
+
+        dlg.add(root);
+        dlg.pack();
+        dlg.setLocationRelativeTo(this);
+        dlg.setVisible(true);
+    }
+
+    /** Bold section header label for the settings dialog. */
+    private static JLabel settingsSectionLabel(String text)
+    {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
+        lbl.setForeground(new Color(0x00, 0x50, 0x99));
+        lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return lbl;
+    }
+
+    /** Horizontal separator for the settings dialog. */
+    private static JSeparator settingsSeparator()
+    {
+        JSeparator sep = new JSeparator();
+        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 8));
+        sep.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return sep;
+    }
+
+    /**
+     * A single read-only info row for the settings dialog.
+     * If {@code openDir} is non-null a small folder button opens that directory.
+     */
+    private JPanel settingsInfoRow(String label, String value, File openDir)
+    {
+        JPanel row = new JPanel(new BorderLayout(8, 0));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+
+        JLabel lbl = new JLabel(label + ":");
+        lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
+        lbl.setPreferredSize(new Dimension(110, 20));
+        row.add(lbl, BorderLayout.WEST);
+
+        JTextField tf = new JTextField(value);
+        tf.setEditable(false);
+        tf.setFont(tf.getFont().deriveFont(11f));
+        tf.setBorder(BorderFactory.createEmptyBorder(1, 4, 1, 4));
+        tf.setBackground(UIManager.getColor("Panel.background"));
+        row.add(tf, BorderLayout.CENTER);
+
+        if (openDir != null)
+        {
+            ImageIcon folderIco = loadScaledIcon("folder.png", 14, 14);
+            JButton btn = folderIco != null ? new JButton(folderIco) : new JButton("📂");
+            btn.setToolTipText("Open folder");
+            btn.setFocusPainted(false);
+            btn.setMargin(new Insets(1, 4, 1, 4));
+            final File dir = openDir;
+            btn.addActionListener(e -> openInExplorer(dir));
+            row.add(btn, BorderLayout.EAST);
+        }
+
+        return row;
+    }
+
+    /** Small coloured label for the legend. */
     private static JLabel coloredLabel(String text, Color color)
     {
         JLabel lbl = new JLabel("■ " + text);
@@ -1200,30 +1537,60 @@ public class Launcher extends JFrame
 
         // ── Parse CLI flags ──────────────────────────────────────────────────
         // Usage:
-        //   java Launcher [<rootFolder>] [--minimized]
+        //   java Launcher [<rootFolder>]
+        //                 [--minimized]
+        //                 [--launcherId=<id>]
+        //                 [--config=<path>]
         //
-        //   --minimized   Start hidden in the system tray.
-        //                 Double-click the tray icon or use its menu to show/exit.
-        boolean startMinimized = false;
-        String folderArg = null;
+        //   --minimized         Start hidden in the system tray.
+        //   --launcherId=<id>   Use this string as the launcher instance ID.
+        //                       Defaults to an 8-char hex hash of the root folder path.
+        //   --config=<path>     Load an additional config file whose values override
+        //                       both the global and instance configs.
+        boolean minimizedCli  = false;
+        String  folderArg     = null;
+        String  launcherIdArg = null;
+        String  configPathArg = null;
+
         for (String arg : args)
         {
             if (arg.equalsIgnoreCase("--minimized") || arg.equalsIgnoreCase("-minimized"))
             {
-                startMinimized = true;
+                minimizedCli = true;
             }
-            else if (folderArg == null)
+            else if (arg.startsWith("--launcherId="))
+            {
+                launcherIdArg = arg.substring("--launcherId=".length()).trim();
+            }
+            else if (arg.startsWith("--config="))
+            {
+                configPathArg = arg.substring("--config=".length()).trim();
+            }
+            else if (folderArg == null && !arg.startsWith("--"))
             {
                 folderArg = arg;
             }
         }
 
-        // Determine the root folder
-        final File folder;
-
-        if (folderArg == null)
+        // ── Level 1: global config (%APPDATA%\nvLauncher\config.json) ────────
+        File globalFile = LauncherConfig.globalConfigFile();
+        LauncherConfig globalConfig = LauncherConfig.loadFile(globalFile);
+        if (!globalFile.exists())
         {
-            // No argument supplied → open a folder-chooser dialog
+            // Create global config with defaults on first run
+            LauncherConfig.defaults().save(globalFile);
+        }
+
+        // ── Determine root folder (needed for launcherId hash) ───────────────
+        String folderStr = (folderArg != null) ? folderArg : globalConfig.rootFolder();
+        final File folder;
+        if (folderStr != null)
+        {
+            folder = new File(folderStr);
+        }
+        else
+        {
+            // No folder known yet – show file chooser
             JFileChooser chooser = new JFileChooser();
             chooser.setDialogTitle("Select launcher root folder");
             chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -1234,10 +1601,6 @@ public class Launcher extends JFrame
             }
             folder = chooser.getSelectedFile();
         }
-        else
-        {
-            folder = new File(folderArg);
-        }
 
         if (!folder.isDirectory())
         {
@@ -1247,10 +1610,43 @@ public class Launcher extends JFrame
             System.exit(1);
         }
 
+        // ── Determine launcher instance ID ───────────────────────────────────
+        final String launcherId = (launcherIdArg != null && !launcherIdArg.isEmpty())
+                ? launcherIdArg
+                : String.format("%08x", folder.getAbsolutePath().hashCode() & 0xFFFFFFFFL);
+
+        // ── Level 2: instance config (%APPDATA%\nvLauncher\{id}\config.json) ─
+        LauncherConfig instanceConfig = LauncherConfig.loadFile(
+                LauncherConfig.instanceConfigFile(launcherId));
+
+        // ── Level 3: explicit config (--config=<path>) ───────────────────────
+        LauncherConfig explicitConfig = (configPathArg != null)
+                ? LauncherConfig.loadFile(new File(configPathArg))
+                : LauncherConfig.empty();
+
+        // ── Merge: global ← instance ← explicit, then fill defaults ─────────
+        LauncherConfig merged = explicitConfig
+                .mergeOver(instanceConfig
+                .mergeOver(globalConfig))
+                .withDefaults();
+
+        // ── CLI overrides (highest priority) ─────────────────────────────────
+        boolean startMinimized = minimizedCli || Boolean.TRUE.equals(merged.startMinimized());
+        // CLI folder arg overrides config rootFolder
+        final File resolvedFolder = (folderArg != null) ? new File(folderArg) : folder;
+
+        // ── Build final resolved config and persist to instance file ─────────
+        final LauncherConfig resolvedConfig = new LauncherConfig(
+                resolvedFolder.getAbsolutePath(),
+                startMinimized,
+                merged.windowWidth(),
+                merged.windowHeight());
+        resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
+
         final boolean minimized = startMinimized;
         SwingUtilities.invokeLater(() ->
         {
-            Launcher launcher = new Launcher(folder, minimized);
+            Launcher launcher = new Launcher(resolvedFolder, resolvedConfig, launcherId);
             if (minimized)
             {
                 launcher.setupTray();   // starts hidden; tray icon allows show/exit
