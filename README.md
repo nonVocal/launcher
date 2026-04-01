@@ -9,6 +9,8 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - **Application folders** – sub-folders that contain a `.lnk` shortcut or a known fallback executable; shown with the **application's own icon**
   - **Folders** – all other sub-folders (displayed in a distinct color; double-click opens in File Explorer)
 - **Double-click / Enter** to run a script or launch an application
+- **Toolbar** below the header bar with quick-access buttons:
+  - **SVN Checkout** – check out a repository into the selected folder (or the root folder if nothing is selected)
 - **Inline action icons** (right side of each folder row) for one-click access to common actions — no right-click required:
   - **E** – Open in File Explorer
   - **VS** – Open in VS Code
@@ -89,6 +91,14 @@ example_start_at_logon_in_apps_folder.bat
   - **Scripts** (.bat, .cmd, .ps1, .vbs, .sh, .js) open in their respective interpreter/shell
   - **Application folders** search for and launch `.lnk` shortcuts or the fallback executable
   - **Plain folders** open in Windows File Explorer
+
+### Toolbar
+
+A toolbar sits between the blue header and the entry list.
+
+| Button | Action |
+|---|---|
+| **SVN Checkout** | Opens the SVN Checkout dialog for the currently selected folder. If no folder entry is selected, the root launcher folder is used as the checkout target. |
 
 ### Inline Action Icons
 
@@ -216,6 +226,7 @@ Launcher recognizes and launches the following script file types:
 | Action | Keyboard / Mouse |
 |---|---|
 | Launch selected item | **Enter** or **Double-click** |
+| SVN Checkout | **Toolbar button** or right-click → *SVN Checkout…* |
 | Open in File Explorer | **Click E icon** (row right side) or right-click → *Open in File Explorer* |
 | Open in VS Code | **Click VS icon** (row right side) or right-click → *Open in VS Code* |
 | Copy with Robocopy | **Click C icon** (row right side) or right-click → *Copy with Robocopy…* |

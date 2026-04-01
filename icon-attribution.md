@@ -7,3 +7,4 @@ Icons provided by [Flaticon](https://www.flaticon.com/):
 - [Application icons created by Yudhi Restu - Flaticon](https://www.flaticon.com/free-icons/application)
 - [Software icons created by Pixel perfect - Flaticon](https://www.flaticon.com/free-icons/software)
 - [Archiving icons created by Shashank Singh - Flaticon](https://www.flaticon.com/free-icons/archiving)
+- [Uicons by Flaticon](https://www.flaticon.com/uicons)

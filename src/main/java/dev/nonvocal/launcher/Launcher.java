@@ -3,6 +3,7 @@ package dev.nonvocal.launcher;
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
+import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -12,9 +13,11 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
+import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
+import javax.swing.ToolTipManager;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
@@ -146,7 +149,7 @@ public class Launcher extends JFrame {
 
         /** Labels for the four action icons: Explorer · VS Code · Copy · Delete. */
         private static final String[] ACT_TEXT = { "E", "VS", "C", "\u2715" };
-        private static final String[] ACT_TIPS = {
+        static final String[] ACT_TIPS = {
             "Open in File Explorer",
             "Open in VS Code",
             "Copy with Robocopy\u2026",
@@ -317,7 +320,20 @@ public class Launcher extends JFrame {
         allEntries.addAll(loadEntries());
         allEntries.forEach(listModel::addElement);
 
-        JList<LaunchEntry> list = new JList<>(listModel);
+        JList<LaunchEntry> list = new JList<>(listModel) {
+            @Override
+            public String getToolTipText(MouseEvent e) {
+                int idx = locationToIndex(e.getPoint());
+                if (idx >= 0 && listModel.getElementAt(idx).type != EntryType.SCRIPT) {
+                    int actionIdx = hitActionIcon(e.getPoint(), this, idx);
+                    if (actionIdx >= 0) {
+                        return EntryCellRenderer.ACT_TIPS[actionIdx];
+                    }
+                }
+                return null;
+            }
+        };
+        ToolTipManager.sharedInstance().registerComponent(list);
         list.setCellRenderer(new EntryCellRenderer());
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setFixedCellHeight(36);
@@ -444,7 +460,31 @@ public class Launcher extends JFrame {
         south.setBorder(new EmptyBorder(0, 10, 0, 10));
         south.setBackground(new Color(0xF0, 0xF0, 0xF0));
 
-        add(header, BorderLayout.NORTH);
+        // ── Toolbar ──────────────────────────────────────────────────────────
+        JToolBar toolbar = new JToolBar();
+        toolbar.setFloatable(false);
+        toolbar.setBackground(new Color(0xF0, 0xF2, 0xF5));
+        toolbar.setBorder(new MatteBorder(0, 0, 1, 0, new Color(0xCC, 0xCC, 0xCC)));
+
+        ImageIcon svnIcon = loadScaledIcon("apps-add.png", 20, 20);
+        JButton svnButton = svnIcon != null
+                ? new JButton(svnIcon)
+                : new JButton("SVN");
+        svnButton.setToolTipText("SVN Checkout – check out a repository into the selected folder");
+        svnButton.setFocusPainted(false);
+        svnButton.addActionListener(ev -> {
+            LaunchEntry sel = list.getSelectedValue();
+            File target = (sel != null && sel.type != EntryType.SCRIPT) ? sel.file : baseFolder;
+            svnCheckout(target);
+        });
+        toolbar.add(svnButton);
+
+        // ── Combine header + toolbar in a single north area ───────────────────
+        JPanel topArea = new JPanel(new BorderLayout());
+        topArea.add(header, BorderLayout.NORTH);
+        topArea.add(toolbar, BorderLayout.SOUTH);
+
+        add(topArea, BorderLayout.NORTH);
         add(scroll,  BorderLayout.CENTER);
         add(south,   BorderLayout.SOUTH);
 
