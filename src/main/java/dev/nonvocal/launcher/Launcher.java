@@ -36,6 +36,10 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.awt.Image;
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -149,6 +153,14 @@ public class Launcher extends JFrame {
             "Delete"
         };
 
+        /** PNG icons for the four action buttons (null → fall back to ACT_TEXT). */
+        private static final ImageIcon[] ACT_ICON_IMGS = {
+            Launcher.loadScaledIcon("folder.png",        14, 14),  // 0 – Explorer
+            Launcher.loadScaledIcon("edit-document.png", 14, 14),  // 1 – VS Code
+            Launcher.loadScaledIcon("copy.png",          14, 14),  // 2 – Robocopy
+            Launcher.loadScaledIcon("bin.png",           14, 14),  // 3 – Delete
+        };
+
         private final JLabel nameLabel = new JLabel();
         private final JPanel actionBar  = new JPanel(new FlowLayout(FlowLayout.LEFT, ACT_HGAP, 0));
         private final JLabel[] actIcons = new JLabel[4];
@@ -169,7 +181,10 @@ public class Launcher extends JFrame {
             actionBar.setBorder(new EmptyBorder(9, 0, 9, 0));
 
             for (int i = 0; i < 4; i++) {
-                JLabel lbl = new JLabel(ACT_TEXT[i], JLabel.CENTER);
+                ImageIcon img = ACT_ICON_IMGS[i];
+                JLabel lbl = (img != null)
+                        ? new JLabel(img, JLabel.CENTER)
+                        : new JLabel(ACT_TEXT[i], JLabel.CENTER);
                 lbl.setFont(ACT_FONT);
                 lbl.setForeground(i == 3 ? ACT_DEL : ACT_FG);
                 lbl.setBackground(ACT_BG);
@@ -281,6 +296,10 @@ public class Launcher extends JFrame {
         setSize(560, 680);
         setMinimumSize(new Dimension(320, 200));
         setLocationRelativeTo(null);
+
+        // Application window icon
+        ImageIcon appIcon = loadScaledIcon("apps.png", 32, 32);
+        if (appIcon != null) setIconImage(appIcon.getImage());
 
         // ── Header bar ───────────────────────────────────────────────────────
         JPanel header = new JPanel(new BorderLayout());
@@ -469,16 +488,24 @@ public class Launcher extends JFrame {
             return;
         }
 
-        // Build a small 16x16 icon programmatically (blue rounded square with white "L")
-        BufferedImage img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = img.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setColor(new Color(0x00, 0x78, 0xD7));
-        g.fillRoundRect(0, 0, 15, 15, 4, 4);
-        g.setColor(Color.WHITE);
-        g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));
-        g.drawString("L", 4, 12);
-        g.dispose();
+        // Load apps.png as the tray icon; fall back to programmatic icon if unavailable
+        Image trayImage;
+        ImageIcon trayIconRes = loadScaledIcon("apps.png", 16, 16);
+        if (trayIconRes != null) {
+            trayImage = trayIconRes.getImage();
+        } else {
+            // Programmatic fallback: blue rounded square with white "L"
+            BufferedImage img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = img.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(new Color(0x00, 0x78, 0xD7));
+            g.fillRoundRect(0, 0, 15, 15, 4, 4);
+            g.setColor(Color.WHITE);
+            g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));
+            g.drawString("L", 4, 12);
+            g.dispose();
+            trayImage = img;
+        }
 
         PopupMenu popup = new PopupMenu();
         MenuItem showItem = new MenuItem("Show / Hide");
@@ -489,7 +516,7 @@ public class Launcher extends JFrame {
         popup.addSeparator();
         popup.add(exitItem);
 
-        TrayIcon trayIcon = new TrayIcon(img,
+        TrayIcon trayIcon = new TrayIcon(trayImage,
                 "Launcher – " + baseFolder.getName(), popup);
         trayIcon.setImageAutoSize(true);
         trayIcon.addMouseListener(new MouseAdapter() {
@@ -536,6 +563,27 @@ public class Launcher extends JFrame {
         lbl.setForeground(color);
         lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
         return lbl;
+    }
+
+    // =========================================================================
+    //  Icon loading
+    // =========================================================================
+
+    /**
+     * Loads a PNG resource from the classpath, scales it to {@code w × h} pixels,
+     * and returns it as an {@link ImageIcon}.  Returns {@code null} if the resource
+     * cannot be found or read (callers should fall back to text labels).
+     */
+    static ImageIcon loadScaledIcon(String resourceName, int w, int h) {
+        try (InputStream is = Launcher.class.getResourceAsStream("/" + resourceName)) {
+            if (is == null) return null;
+            BufferedImage raw = ImageIO.read(is);
+            if (raw == null) return null;
+            Image scaled = raw.getScaledInstance(w, h, Image.SCALE_SMOOTH);
+            return new ImageIcon(scaled);
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     // =========================================================================

@@ -181,10 +181,12 @@ All other sub-folders are treated as **plain folders**.
 | File | Description |
 |---|---|
 | `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (~1 000 lines) |
+| `src/main/resources/` | PNG icon files used for action buttons, window and tray |
 | `pom.xml` | Maven configuration (JDK 26, JUnit 5) |
 | `scripts/build.bat` | Compiles the source with `javac` |
 | `scripts/run.bat` | Runs the app with an optional folder argument |
 | `example_start_at_logon_in_apps_folder.bat` | Example launcher batch file for starting minimized to the tray |
+| `icon-attribution.md` | Icon licence credits (Flaticon) |
 | `README.md` | This file |
 | `LICENSE` | License information |
 
@@ -389,4 +391,11 @@ Alternatively, ensure `basis\sys\win\bin\dsc_StartPlm.exe` exists in your applic
 ## License
 
 See the `LICENSE` file in this project.
+
+---
+
+## Icon Attribution
+
+Icons used in this application are provided by [Flaticon](https://www.flaticon.com/).
+See [`icon-attribution.md`](icon-attribution.md) for the full list of credits.
 
