@@ -4,7 +4,10 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 
 ## Features
 
-- **Lists** scripts and sub-folders found at the **top level** of a chosen root folder
+- **Lists** scripts and sub-folders found at the **top level** of a chosen root folder, divided into three categories:
+  - **Scripts** – recognized script files (.bat, .cmd, .ps1, etc.)
+  - **Application folders** – sub-folders that contain a `.lnk` shortcut or a known fallback executable
+  - **Folders** – all other sub-folders (displayed in a distinct color; double-click opens in File Explorer)
 - **Double-click / Enter** to run a script or launch an application
 - **Right-click context menu** (app folders only) with quick actions:
   - *Open in File Explorer* – browse the folder in Windows Explorer
@@ -84,9 +87,9 @@ example_start_at_logon_in_apps_folder.bat
   - **Scripts** (.bat, .cmd, .ps1, .vbs, .sh, .js) open in their respective interpreter/shell
   - **Application folders** search for and launch `.lnk` shortcuts or the fallback executable
 
-### Right-Click Context Menu (App Folders Only)
+### Right-Click Context Menu (Folders Only)
 
-Right-click any application folder to access:
+Right-click any **application folder** or **plain folder** to access (scripts are excluded):
 
 #### **Open in File Explorer**
 Opens the folder in Windows File Explorer for browsing and file management.
@@ -111,29 +114,44 @@ Opens the folder in Visual Studio Code. Requires `code` command on your `PATH`.
 #### **SVN Checkout...**
 - Prompts you to enter an SVN repository URL
 - Automatically derives the checkout folder name from the URL
-- Checks out into a new subfolder inside the selected app folder
+- Checks out into a new subfolder inside the selected folder
 - Shows real-time command output in a dedicated window that stays open
 - After the checkout finishes, a prompt asks whether to refresh the file list
 - Requires `svn` command on your `PATH`
 
 ## How Application Launching Works
 
-When you double-click an application folder, Launcher uses the following search strategy:
+When you double-click a list item, the behaviour depends on its category:
+
+### Scripts
+Executed in the appropriate interpreter — see *Supported Script Types* for details.
+
+### Application Folders
+Launcher uses the following two-stage strategy:
 
 1. **Search for Windows shortcuts** – Looks for the first `.lnk` shortcut at the folder's top level
    - If found, executes it via the Windows shell
 2. **Fallback executable** – If no shortcut is found, looks for:
    - `basis\sys\win\bin\dsc_StartPlm.exe` inside the application folder
    - If found, executes it directly
-3. **Error handling** – If neither method succeeds, shows a warning dialog with diagnostic information
+3. **Error handling** – If neither is present the folder will be shown as a *plain folder* rather than an application folder (it would not have been classified as one to begin with)
 
-This two-stage approach gives you flexibility in how applications are structured.
+### Plain Folders
+Double-clicking a plain folder opens it in **Windows File Explorer**. All right-click actions (copy, delete, SVN checkout, open in VS Code) are still available.
+
+### Folder Classification
+
+A sub-folder is classified as an **Application folder** when it meets at least one of these criteria:
+- Contains a `.lnk` shortcut file at its **top level**
+- Contains `basis\sys\win\bin\dsc_StartPlm.exe`
+
+All other sub-folders are treated as **plain folders**.
 
 ## File Overview
 
 | File | Description |
 |---|---|
-| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (771 lines) |
+| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (801 lines) |
 | `pom.xml` | Maven configuration (JDK 26, JUnit 5) |
 | `scripts/build.bat` | Compiles the source with `javac` |
 | `scripts/run.bat` | Runs the app with an optional folder argument |
@@ -153,6 +171,14 @@ Launcher recognizes and launches the following script file types:
 | `.vbs` | Windows Script Host | VBScript |
 | `.js` | Windows Script Host | JavaScript |
 | `.sh` | Bash | Requires WSL or Git Bash on PATH |
+
+## Color Legend
+
+| Color | Category | Double-click behaviour |
+|---|---|---|
+| 🟦 Dark teal | Scripts | Execute in appropriate interpreter/shell |
+| 🟩 Dark green | Application folders | Launch via `.lnk` shortcut or fallback executable |
+| 🟫 Warm dark gray | Plain folders | Open in Windows File Explorer |
 
 ## Keyboard Shortcuts & Tips
 
@@ -289,17 +315,19 @@ For best results, structure your launcher folder like this:
 
 ```
 C:\MyApps\
-├── app1\
-│   ├── app1.lnk         (shortcut to executable)
+├── app1\                          ← Application folder (has app1.lnk)
+│   ├── app1.lnk
 │   └── ... (app files)
-├── app2\
+├── app2\                          ← Application folder (has fallback exe)
 │   ├── basis\
 │   │   └── sys\win\bin\
 │   │       └── dsc_StartPlm.exe
 │   └── ... (app files)
-├── setup.bat
-├── deploy.ps1
-└── build.cmd
+├── docs\                          ← Plain folder (no .lnk, no fallback exe)
+│   └── ... (documents)
+├── setup.bat                      ← Script
+├── deploy.ps1                     ← Script
+└── build.cmd                      ← Script
 ```
 
 ### Creating Shortcuts for Applications

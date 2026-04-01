@@ -78,7 +78,7 @@ public class Launcher extends JFrame {
     //  Data model
     // =========================================================================
 
-    enum EntryType { SCRIPT, APP_FOLDER }
+    enum EntryType { SCRIPT, APP_FOLDER, PLAIN_FOLDER }
 
     static final class LaunchEntry {
         final File      file;
@@ -105,6 +105,7 @@ public class Launcher extends JFrame {
         // Foreground colours by type
         private static final Color FG_SCRIPT = new Color(0x1A, 0x5F, 0x7A); // dark teal
         private static final Color FG_FOLDER = new Color(0x2E, 0x6B, 0x2E); // dark green
+        private static final Color FG_PLAIN  = new Color(0x66, 0x55, 0x44); // warm dark gray
         // Selection
         private static final Color SEL_BG    = new Color(0x00, 0x78, 0xD7); // Windows blue
 
@@ -134,7 +135,9 @@ public class Launcher extends JFrame {
                 setForeground(Color.WHITE);
             } else {
                 setBackground(index % 2 == 0 ? ROW_EVEN : ROW_ODD);
-                setForeground(e.type == EntryType.SCRIPT ? FG_SCRIPT : FG_FOLDER);
+                setForeground(e.type == EntryType.SCRIPT ? FG_SCRIPT
+                            : e.type == EntryType.APP_FOLDER ? FG_FOLDER
+                            : FG_PLAIN);
             }
             return this;
         }
@@ -195,7 +198,7 @@ public class Launcher extends JFrame {
                 if (idx < 0) return;
                 list.setSelectedIndex(idx);
                 LaunchEntry sel = listModel.getElementAt(idx);
-                if (sel.type != EntryType.APP_FOLDER) return;
+                if (sel.type == EntryType.SCRIPT) return;
 
                 JPopupMenu menu = new JPopupMenu();
 
@@ -259,6 +262,7 @@ public class Launcher extends JFrame {
 
         legend.add(coloredLabel("Scripts", new Color(0x1A, 0x5F, 0x7A)));
         legend.add(coloredLabel("Application folders", new Color(0x2E, 0x6B, 0x2E)));
+        legend.add(coloredLabel("Folders", new Color(0x66, 0x55, 0x44)));
 
         hintLabel = new JLabel(listModel.size() + " entries   |   "
                 + "Double-click or Enter to launch");
@@ -360,11 +364,13 @@ public class Launcher extends JFrame {
 
     /**
      * Scans the base folder one level deep and returns:
-     *   scripts first (sorted A-Z), then application folders (sorted A-Z).
+     *   scripts first (sorted A-Z), then application folders (sorted A-Z),
+     *   then plain folders (sorted A-Z).
      */
     private List<LaunchEntry> loadEntries() {
         List<LaunchEntry> scripts = new ArrayList<>();
         List<LaunchEntry> apps    = new ArrayList<>();
+        List<LaunchEntry> plain   = new ArrayList<>();
 
         File[] children = baseFolder.listFiles();
         if (children != null) {
@@ -372,7 +378,11 @@ public class Launcher extends JFrame {
                     Comparator.comparing(f -> f.getName().toLowerCase(Locale.ROOT)));
             for (File f : children) {
                 if (f.isDirectory()) {
-                    apps.add(new LaunchEntry(f, EntryType.APP_FOLDER));
+                    if (isAppFolder(f)) {
+                        apps.add(new LaunchEntry(f, EntryType.APP_FOLDER));
+                    } else {
+                        plain.add(new LaunchEntry(f, EntryType.PLAIN_FOLDER));
+                    }
                 } else if (isScript(f)) {
                     scripts.add(new LaunchEntry(f, EntryType.SCRIPT));
                 }
@@ -381,7 +391,24 @@ public class Launcher extends JFrame {
 
         List<LaunchEntry> all = new ArrayList<>(scripts);
         all.addAll(apps);
+        all.addAll(plain);
         return all;
+    }
+
+    /**
+     * Returns true if the directory qualifies as an application folder:
+     * it contains a .lnk shortcut at its top level, or the fallback executable.
+     */
+    private static boolean isAppFolder(File dir) {
+        File[] children = dir.listFiles();
+        if (children != null) {
+            for (File f : children) {
+                if (f.isFile() && f.getName().toLowerCase(Locale.ROOT).endsWith(".lnk")) {
+                    return true;
+                }
+            }
+        }
+        return new File(dir, FALLBACK_EXE).isFile();
     }
 
     /** Returns true for files with a recognised script extension. */
@@ -400,8 +427,11 @@ public class Launcher extends JFrame {
         try {
             if (entry.type == EntryType.SCRIPT) {
                 launchScript(entry.file);
-            } else {
+            } else if (entry.type == EntryType.APP_FOLDER) {
                 launchAppFolder(entry.file);
+            } else {
+                // PLAIN_FOLDER – no launcher found; open in File Explorer
+                openInExplorer(entry.file);
             }
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this,
