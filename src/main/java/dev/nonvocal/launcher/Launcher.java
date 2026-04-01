@@ -145,10 +145,19 @@ public class Launcher extends JFrame {
     // =========================================================================
 
     private final File baseFolder;
+    private DefaultListModel<LaunchEntry> listModel;
+    private JLabel hintLabel;
 
     Launcher(File baseFolder, boolean startMinimized) {
         this.baseFolder = baseFolder;
         buildUI();
+    }
+
+    /** Reloads all entries from disk and refreshes the list and entry-count label. */
+    private void refreshList() {
+        listModel.clear();
+        loadEntries().forEach(listModel::addElement);
+        hintLabel.setText(listModel.size() + " entries   |   Double-click or Enter to launch");
     }
 
     private void buildUI() {
@@ -170,10 +179,10 @@ public class Launcher extends JFrame {
         header.add(dirLabel, BorderLayout.CENTER);
 
         // ── Entry list ───────────────────────────────────────────────────────
-        DefaultListModel<LaunchEntry> model = new DefaultListModel<>();
-        loadEntries().forEach(model::addElement);
+        listModel = new DefaultListModel<>();
+        loadEntries().forEach(listModel::addElement);
 
-        JList<LaunchEntry> list = new JList<>(model);
+        JList<LaunchEntry> list = new JList<>(listModel);
         list.setCellRenderer(new EntryCellRenderer());
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setFixedCellHeight(36);
@@ -185,7 +194,7 @@ public class Launcher extends JFrame {
                 int idx = list.locationToIndex(e.getPoint());
                 if (idx < 0) return;
                 list.setSelectedIndex(idx);
-                LaunchEntry sel = model.getElementAt(idx);
+                LaunchEntry sel = listModel.getElementAt(idx);
                 if (sel.type != EntryType.APP_FOLDER) return;
 
                 JPopupMenu menu = new JPopupMenu();
@@ -197,6 +206,22 @@ public class Launcher extends JFrame {
                 JMenuItem miVSCode = new JMenuItem("Open in VS Code");
                 miVSCode.addActionListener(ev -> openInVSCode(sel.file));
                 menu.add(miVSCode);
+
+                menu.addSeparator();
+
+                JMenuItem miCopy = new JMenuItem("Copy with Robocopy...");
+                miCopy.addActionListener(ev -> copyWithRobocopy(sel.file));
+                menu.add(miCopy);
+
+                JMenuItem miDelete = new JMenuItem("Delete");
+                miDelete.addActionListener(ev -> deleteFolder(sel.file));
+                menu.add(miDelete);
+
+                menu.addSeparator();
+
+                JMenuItem miSVNCheckout = new JMenuItem("SVN Checkout...");
+                miSVNCheckout.addActionListener(ev -> svnCheckout(sel.file));
+                menu.add(miSVNCheckout);
 
                 menu.show(list, e.getX(), e.getY());
             }
@@ -235,14 +260,14 @@ public class Launcher extends JFrame {
         legend.add(coloredLabel("Scripts", new Color(0x1A, 0x5F, 0x7A)));
         legend.add(coloredLabel("Application folders", new Color(0x2E, 0x6B, 0x2E)));
 
-        JLabel hint = new JLabel(model.size() + " entries   |   "
+        hintLabel = new JLabel(listModel.size() + " entries   |   "
                 + "Double-click or Enter to launch");
-        hint.setForeground(Color.GRAY);
-        hint.setFont(hint.getFont().deriveFont(11f));
+        hintLabel.setForeground(Color.GRAY);
+        hintLabel.setFont(hintLabel.getFont().deriveFont(11f));
 
         JPanel south = new JPanel(new BorderLayout());
         south.add(legend, BorderLayout.WEST);
-        south.add(hint,   BorderLayout.EAST);
+        south.add(hintLabel, BorderLayout.EAST);
         south.setBorder(new EmptyBorder(0, 10, 0, 10));
         south.setBackground(new Color(0xF0, 0xF0, 0xF0));
 
@@ -483,6 +508,202 @@ public class Launcher extends JFrame {
                     + "Make sure 'code' is on your PATH.\n\n" + ex.getMessage(),
                     "Launcher Error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    /**
+     * Copies the selected application folder using robocopy into the active launcher folder.
+     * Prompts the user for a new name and validates that it doesn't already exist.
+     */
+    private void copyWithRobocopy(File srcFolder) {
+        String newName = JOptionPane.showInputDialog(this,
+                "Enter new folder name for the copy:",
+                srcFolder.getName() + "_copy");
+
+        if (newName == null || newName.trim().isEmpty()) {
+            return;
+        }
+
+        newName = newName.trim();
+
+        // Check if name already exists in the active launcher folder
+        File destPath = new File(baseFolder, newName);
+        if (destPath.exists()) {
+            JOptionPane.showMessageDialog(this,
+                    "<html>A folder with the name <b>" + newName + "</b> already exists<br>"
+                    + "in the active launcher folder:<br><br><b>" + baseFolder.getAbsolutePath() + "</b></html>",
+                    "Name Already Exists", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try {
+            // robocopy source destination /MIR (mirror - copies recursively)
+            ProcessBuilder pb = new ProcessBuilder(
+                    "robocopy", srcFolder.getAbsolutePath(), destPath.getAbsolutePath(), "/MIR");
+            pb.redirectErrorStream(true);
+
+            Process process = pb.start();
+
+            // Show output; auto-close window and refresh list when done
+            showProcessOutput(process, "Robocopy: " + srcFolder.getName() + " → " + newName, this::refreshList);
+
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not start robocopy:\n" + ex.getMessage(),
+                    "Launcher Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Deletes a folder and all its contents after confirmation.
+     * Refreshes the list immediately after successful deletion.
+     */
+    private void deleteFolder(File folder) {
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "<html>Permanently delete:<br><b>" + folder.getAbsolutePath() + "</b><br><br>"
+                + "This cannot be undone.</html>",
+                "Confirm Delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        try {
+            deleteDirectory(folder);
+            refreshList();
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not delete folder:\n" + ex.getMessage(),
+                    "Launcher Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Recursively deletes a directory and all its contents.
+     */
+    private static void deleteDirectory(File dir) throws IOException {
+        if (!dir.exists()) {
+            return;
+        }
+
+        if (dir.isDirectory()) {
+            File[] children = dir.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteDirectory(child);
+                }
+            }
+        }
+
+        if (!dir.delete()) {
+            throw new IOException("Failed to delete: " + dir.getAbsolutePath());
+        }
+    }
+
+    /**
+     * Opens a dialog to enter an SVN repository URL and checks it out
+     * into the application folder (creating a subfolder with the repo name).
+     */
+    private void svnCheckout(File targetFolder) {
+        String url = JOptionPane.showInputDialog(this,
+                "Enter SVN repository URL:",
+                "SVN Checkout",
+                JOptionPane.QUESTION_MESSAGE);
+
+        if (url == null || url.trim().isEmpty()) {
+            return;
+        }
+
+        url = url.trim();
+
+        try {
+            // Extract repository name from URL (last part)
+            String repoName = url.replaceAll(".*/+", "").replaceAll("\\..*", "");
+            if (repoName.isEmpty()) {
+                repoName = "checkout";
+            }
+
+            File checkoutDir = new File(targetFolder, repoName);
+
+            ProcessBuilder pb = new ProcessBuilder("svn", "checkout", url, checkoutDir.getAbsolutePath());
+            pb.redirectErrorStream(true);
+
+            Process process = pb.start();
+
+            // Show output in a new window (keep open; user can close manually)
+            showProcessOutput(process, "SVN Checkout: " + url, null);
+
+            // After SVN completes, offer to refresh the list
+            new Thread(() -> {
+                try {
+                    process.waitFor();
+                    SwingUtilities.invokeLater(() -> {
+                        int refresh = JOptionPane.showConfirmDialog(this,
+                                "Checkout completed. Refresh the file list?",
+                                "SVN Checkout", JOptionPane.YES_NO_OPTION);
+                        if (refresh == JOptionPane.YES_OPTION) {
+                            setTitle("Launcher  \u2013  " + baseFolder.getAbsolutePath());
+                        }
+                    });
+                } catch (InterruptedException ignored) { }
+            }).start();
+
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not start SVN:\n" + ex.getMessage() + "\n\n"
+                    + "Make sure 'svn' is installed and on your PATH.",
+                    "Launcher Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Displays the output of a running process in a new window.
+     * Updates in real-time as the process runs.
+     *
+     * @param onComplete  if non-null, the window is closed automatically when the
+     *                    process finishes and this callback is invoked on the EDT.
+     *                    If null, a "Process completed." line is appended instead.
+     */
+    private static void showProcessOutput(Process process, String title, Runnable onComplete) {
+        SwingUtilities.invokeLater(() -> {
+            JFrame outputFrame = new JFrame(title);
+            outputFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+            outputFrame.setSize(800, 600);
+            outputFrame.setLocationRelativeTo(null);
+
+            JList<String> outputList = new JList<>(new DefaultListModel<>());
+            outputList.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
+            JScrollPane scroll = new JScrollPane(outputList);
+            outputFrame.add(scroll, BorderLayout.CENTER);
+
+            outputFrame.setVisible(true);
+
+            DefaultListModel<String> model = (DefaultListModel<String>) outputList.getModel();
+
+            new Thread(() -> {
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        final String output = line;
+                        SwingUtilities.invokeLater(() -> {
+                            model.addElement(output);
+                            outputList.ensureIndexIsVisible(model.getSize() - 1);
+                        });
+                    }
+                } catch (IOException ignored) { }
+
+                SwingUtilities.invokeLater(() -> {
+                    if (onComplete != null) {
+                        outputFrame.dispose();
+                        onComplete.run();
+                    } else {
+                        model.addElement("");
+                        model.addElement("Process completed.");
+                        outputList.ensureIndexIsVisible(model.getSize() - 1);
+                    }
+                });
+            }).start();
+        });
     }
 
     // =========================================================================
