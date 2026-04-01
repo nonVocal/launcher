@@ -8,8 +8,10 @@ import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
@@ -18,6 +20,7 @@ import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 import javax.swing.filechooser.FileSystemView;
+import java.awt.Desktop;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -175,15 +178,39 @@ public class Launcher extends JFrame {
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setFixedCellHeight(36);
 
-        // Double-click to launch
+        // Double-click to launch; right-click for context menu on app folders
         list.addMouseListener(new MouseAdapter() {
+            private void handlePopup(MouseEvent e) {
+                if (!e.isPopupTrigger()) return;
+                int idx = list.locationToIndex(e.getPoint());
+                if (idx < 0) return;
+                list.setSelectedIndex(idx);
+                LaunchEntry sel = model.getElementAt(idx);
+                if (sel.type != EntryType.APP_FOLDER) return;
+
+                JPopupMenu menu = new JPopupMenu();
+
+                JMenuItem miExplorer = new JMenuItem("Open in File Explorer");
+                miExplorer.addActionListener(ev -> openInExplorer(sel.file));
+                menu.add(miExplorer);
+
+                JMenuItem miVSCode = new JMenuItem("Open in VS Code");
+                miVSCode.addActionListener(ev -> openInVSCode(sel.file));
+                menu.add(miVSCode);
+
+                menu.show(list, e.getX(), e.getY());
+            }
+
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) {
+                if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
                     LaunchEntry sel = list.getSelectedValue();
                     if (sel != null) launch(sel);
                 }
             }
+
+            @Override public void mousePressed(MouseEvent e)  { handlePopup(e); }
+            @Override public void mouseReleased(MouseEvent e) { handlePopup(e); }
         });
 
         // Enter key to launch
@@ -428,6 +455,33 @@ public class Launcher extends JFrame {
                     + "</b><br><br>Fallback executable not found at:<br>&nbsp;&nbsp;<b>"
                     + fallback.getAbsolutePath() + "</b></html>",
                     "Launcher – Nothing to start", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    /** Opens an application folder in Windows File Explorer. */
+    private void openInExplorer(File folder) {
+        try {
+            Desktop.getDesktop().open(folder);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not open File Explorer:\n" + ex.getMessage(),
+                    "Launcher Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /** Opens an application folder in VS Code (requires 'code' on PATH). */
+    private void openInVSCode(File folder) {
+        try {
+            // 'code' is a .cmd script, so it must be invoked via cmd /c;
+            // ProcessBuilder cannot resolve .cmd extensions on its own.
+            new ProcessBuilder("cmd", "/c", "code", folder.getAbsolutePath())
+                    .directory(folder)
+                    .start();
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not open VS Code.\n"
+                    + "Make sure 'code' is on your PATH.\n\n" + ex.getMessage(),
+                    "Launcher Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
