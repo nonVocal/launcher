@@ -9,6 +9,7 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - **Application folders** – sub-folders that contain a `.lnk` shortcut or a known fallback executable; shown with the **application's own icon**
   - **Folders** – all other sub-folders (displayed in a distinct color; double-click opens in File Explorer)
 - **Double-click / Enter** to run a script or launch an application
+- **Configurable entry order** – drag any row to a new position with the mouse; the order is saved automatically to the instance config as a `priorityList` and restored on the next launch. Entries not in the list follow the default sort (scripts A–Z → app folders A–Z → plain folders A–Z)
 - **Toolbar** below the header bar with quick-access buttons:
   - **SVN Checkout** (left) – check out a repository into the selected folder
   - **Settings ⚙** (right) – open the settings dialog
@@ -18,7 +19,7 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - 📋 – Copy with Robocopy
   - 🗑 – Delete
   - The cursor changes to a **hand pointer** when hovering over an icon
-- **Type to search** – just start typing while the window is focused to instantly filter the list; **Backspace** removes the last character, **Escape** clears the filter
+- **Type to search** – just start typing while the window is focused to instantly filter the list; **Backspace** removes the last character, **Escape** clears the filter. Drag-and-drop reordering is automatically suspended while a filter is active and re-enabled once the filter is cleared
 - **Right-click context menu** (folders and app folders) with the same quick actions plus **SVN Checkout**
 - **Real-time output windows** for robocopy and SVN operations
 - **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
@@ -112,11 +113,24 @@ CLI arguments override all config files.
   "rootFolder": "C:\\MyApps",
   "startMinimized": false,
   "windowWidth": 560,
-  "windowHeight": 680
+  "windowHeight": 680,
+  "priorityList": [
+    "my-favourite-app",
+    "another-app",
+    "daily-script.bat"
+  ]
 }
 ```
 
 Any field can be omitted; omitted fields are inherited from the level below.
+
+| Field | Type | Description |
+|---|---|---|
+| `rootFolder` | string | Absolute path to the root folder to browse |
+| `startMinimized` | boolean | `true` to start hidden in the system tray |
+| `windowWidth` | integer | Initial window width in pixels |
+| `windowHeight` | integer | Initial window height in pixels |
+| `priorityList` | string array | Ordered list of entry names. Entries in this list appear at the top in the given order; all remaining entries follow in the default sort (scripts A–Z → app folders A–Z → plain folders A–Z). Updated automatically when you drag and drop entries in the UI. |
 
 ### Launcher ID
 
@@ -187,6 +201,40 @@ Just start typing while the Launcher window is focused — no need to click a se
 - **Backspace** removes the last character
 - **Escape** clears the filter and restores the full list
 - The filter is **case-insensitive** and matches anywhere in the entry name
+- **Drag-and-drop reordering is disabled** while a filter is active (the footer shows a note); clear the filter first to reorder
+
+### Entry Order & Favorites
+
+Entries can be sorted into any order you like using drag-and-drop:
+
+1. **Drag** any row to a new position (grab and move while the list is unfiltered)
+2. **Drop** it between two other entries — the insertion indicator shows where it will land
+3. The new order is **saved immediately** to the instance config (`priorityList` field in `%APPDATA%\nvLauncher\{id}\config.json`) and survives restarts
+
+#### How ordering works
+
+| Priority | Rule |
+|---|---|
+| 1st | Entries whose name appears in `priorityList`, in the order they appear there |
+| 2nd | All remaining entries in the default sort: scripts A–Z → app folders A–Z → plain folders A–Z |
+
+- Only entries listed in `priorityList` are pinned to the top; newly added entries (not yet in the list) appear at the bottom in the default sort order automatically.
+- Entries that were in `priorityList` but have since been deleted from disk are simply skipped.
+- After each drag-and-drop the **entire current order** is written to `priorityList`, so every item's relative position is remembered.
+
+#### Manually editing the priority list
+
+You can also edit `priorityList` directly in the instance config file (see **Settings** dialog for the exact path). Use the exact folder/file names as they appear on disk.
+
+```json
+{
+  "priorityList": [
+    "PriorityApp",
+    "DailyScript.bat",
+    "AnotherApp"
+  ]
+}
+```
 
 ### Right-Click Context Menu (Folders Only)
 
@@ -252,7 +300,7 @@ All other sub-folders are treated as **plain folders**.
 
 | File | Description |
 |---|---|
-| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (~1 660 lines) |
+| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (~1 840 lines) |
 | `src/main/resources/` | PNG icon files used for action buttons, window and tray |
 | `pom.xml` | Maven configuration (JDK 26, JUnit 5) |
 | `scripts/build.bat` | Compiles the source with `javac` |
@@ -288,6 +336,7 @@ Launcher recognizes and launches the following script file types:
 | Action | Keyboard / Mouse |
 |---|---|
 | Launch selected item | **Enter** or **Double-click** |
+| Reorder entry | **Drag & drop** row to a new position (unfiltered list only) |
 | SVN Checkout | **Toolbar button** (left) or right-click → *SVN Checkout…* |
 | Open Settings | **Toolbar ⚙ button** (right) |
 | Open in File Explorer | **Click folder icon** (row right side) or right-click → *Open in File Explorer* |
@@ -485,7 +534,7 @@ Alternatively, ensure `basis\sys\win\bin\dsc_StartPlm.exe` exists in your applic
 
 - Launcher scans **only the top level** of your chosen folder (no recursive scanning)
 - The first time you open a large folder may take a moment
-- List items are sorted alphabetically: scripts first, then app folders
+- List items are sorted by the **priority list** first, then alphabetically: scripts → app folders → plain folders
 - Robocopy operations can be slow for large folders — the output window closes automatically when done and the list updates immediately
 
 ---

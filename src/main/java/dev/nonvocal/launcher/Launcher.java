@@ -8,6 +8,8 @@ import javax.swing.filechooser.FileSystemView;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -87,10 +89,11 @@ public class Launcher extends JFrame
      * Call {@link #withDefaults()} on the final merged config to fill gaps.
      */
     record LauncherConfig(
-            String  rootFolder,
-            Boolean startMinimized,
-            Integer windowWidth,
-            Integer windowHeight)
+            String       rootFolder,
+            Boolean      startMinimized,
+            Integer      windowWidth,
+            Integer      windowHeight,
+            List<String> priorityList)
     {
         // ── Static paths ───────────────────────────────────────────────────
 
@@ -118,13 +121,13 @@ public class Launcher extends JFrame
         /** All fields null – represents "nothing set at this level". */
         static LauncherConfig empty()
         {
-            return new LauncherConfig(null, null, null, null);
+            return new LauncherConfig(null, null, null, null, null);
         }
 
         /** Hardcoded application defaults (all fields non-null). */
         static LauncherConfig defaults()
         {
-            return new LauncherConfig(null, false, 560, 680);
+            return new LauncherConfig(null, false, 560, 680, null);
         }
 
         /**
@@ -158,7 +161,8 @@ public class Launcher extends JFrame
                     rootFolder     != null ? rootFolder     : base.rootFolder,
                     startMinimized != null ? startMinimized : base.startMinimized,
                     windowWidth    != null ? windowWidth    : base.windowWidth,
-                    windowHeight   != null ? windowHeight   : base.windowHeight);
+                    windowHeight   != null ? windowHeight   : base.windowHeight,
+                    priorityList   != null ? priorityList   : base.priorityList);
         }
 
         /**
@@ -171,7 +175,8 @@ public class Launcher extends JFrame
                     rootFolder,
                     startMinimized != null ? startMinimized : false,
                     windowWidth    != null ? windowWidth    : 560,
-                    windowHeight   != null ? windowHeight   : 680);
+                    windowHeight   != null ? windowHeight   : 680,
+                    priorityList);
         }
 
         // ── Persistence ────────────────────────────────────────────────────
@@ -199,6 +204,18 @@ public class Launcher extends JFrame
             if (startMinimized != null) lines.add("  \"startMinimized\": " + startMinimized);
             if (windowWidth    != null) lines.add("  \"windowWidth\": "    + windowWidth);
             if (windowHeight   != null) lines.add("  \"windowHeight\": "   + windowHeight);
+            if (priorityList   != null && !priorityList.isEmpty())
+            {
+                StringBuilder sb = new StringBuilder("  \"priorityList\": [\n");
+                for (int i = 0; i < priorityList.size(); i++)
+                {
+                    sb.append("    ").append(jsonStr(priorityList.get(i)));
+                    if (i < priorityList.size() - 1) sb.append(",");
+                    sb.append("\n");
+                }
+                sb.append("  ]");
+                lines.add(sb.toString());
+            }
             return "{\n" + String.join(",\n", lines) + "\n}";
         }
 
@@ -213,10 +230,11 @@ public class Launcher extends JFrame
         private static LauncherConfig parse(String json)
         {
             return new LauncherConfig(
-                    parseStr (json, "rootFolder"),
-                    parseBool(json, "startMinimized"),
-                    parseInt (json, "windowWidth"),
-                    parseInt (json, "windowHeight"));
+                    parseStr    (json, "rootFolder"),
+                    parseBool   (json, "startMinimized"),
+                    parseInt    (json, "windowWidth"),
+                    parseInt    (json, "windowHeight"),
+                    parseStrList(json, "priorityList"));
         }
 
         private static String parseStr(String json, String key)
@@ -238,6 +256,23 @@ public class Launcher extends JFrame
         {
             Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+)").matcher(json);
             return m.find() ? Integer.parseInt(m.group(1)) : null;
+        }
+
+        private static List<String> parseStrList(String json, String key)
+        {
+            Matcher m = Pattern.compile(
+                    "\"" + key + "\"\\s*:\\s*\\[([^\\]]*?)\\]",
+                    Pattern.DOTALL).matcher(json);
+            if (!m.find()) return null;
+            String inner = m.group(1).trim();
+            if (inner.isEmpty()) return new ArrayList<>();
+            List<String> result = new ArrayList<>();
+            Matcher em = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(inner);
+            while (em.find())
+            {
+                result.add(em.group(1).replace("\\\\", "\\").replace("\\\"", "\""));
+            }
+            return result;
         }
     }
 
@@ -408,6 +443,7 @@ public class Launcher extends JFrame
     private LauncherConfig config;
     private final String launcherId;
     private DefaultListModel<LaunchEntry> listModel;
+    private JList<LaunchEntry> list;
     private JLabel hintLabel;
     private JLabel searchLabel;
     private transient String searchQuery = "";
@@ -433,6 +469,7 @@ public class Launcher extends JFrame
 
     /**
      * Filters listModel to entries whose name contains searchQuery (case-insensitive).
+     * Drag-and-drop reordering is disabled while a filter is active.
      */
     private void applyFilter()
     {
@@ -453,8 +490,10 @@ public class Launcher extends JFrame
         else
         {
             searchLabel.setText("  Filter: " + searchQuery + "\u258C");
-            hintLabel.setText(listModel.size() + " of " + allEntries.size() + "   |   Esc to clear");
+            hintLabel.setText(listModel.size() + " of " + allEntries.size() + "   |   Esc to clear  ·  DnD disabled while filtering");
         }
+        // DnD reordering only makes sense on the unfiltered full list
+        if (list != null) list.setDragEnabled(searchQuery.isEmpty());
     }
 
     /**
@@ -505,7 +544,7 @@ public class Launcher extends JFrame
         allEntries.addAll(loadEntries());
         allEntries.forEach(listModel::addElement);
 
-        JList<LaunchEntry> list = new JList<>(listModel)
+        JList<LaunchEntry> list = this.list = new JList<>(listModel)
         {
             @Override
             public String getToolTipText(MouseEvent e)
@@ -625,6 +664,101 @@ public class Launcher extends JFrame
         };
         list.addMouseListener(mouseHandler);
         list.addMouseMotionListener(mouseHandler);
+
+        // ── Drag-and-drop reordering ─────────────────────────────────────────
+        list.setDragEnabled(true);
+        list.setDropMode(DropMode.INSERT);
+        list.setTransferHandler(new TransferHandler()
+        {
+            private final DataFlavor entryFlavor =
+                    new DataFlavor(Integer.class, "Row Index");
+            private int dragIndex = -1;
+
+            @Override
+            public int getSourceActions(JComponent c)
+            {
+                return MOVE;
+            }
+
+            @Override
+            protected Transferable createTransferable(JComponent c)
+            {
+                dragIndex = list.getSelectedIndex();
+                final int idx = dragIndex;
+                return new Transferable()
+                {
+                    @Override
+                    public DataFlavor[] getTransferDataFlavors()
+                    {
+                        return new DataFlavor[]{entryFlavor};
+                    }
+
+                    @Override
+                    public boolean isDataFlavorSupported(DataFlavor flavor)
+                    {
+                        return entryFlavor.equals(flavor);
+                    }
+
+                    @Override
+                    public Object getTransferData(DataFlavor flavor)
+                    {
+                        return idx;
+                    }
+                };
+            }
+
+            @Override
+            public boolean canImport(TransferSupport support)
+            {
+                // Only allow reordering when no search filter is active
+                return support.isDrop()
+                        && searchQuery.isEmpty()
+                        && support.isDataFlavorSupported(entryFlavor);
+            }
+
+            @Override
+            public boolean importData(TransferSupport support)
+            {
+                if (!canImport(support)) return false;
+                try
+                {
+                    JList.DropLocation dl = (JList.DropLocation) support.getDropLocation();
+                    int dropIndex = dl.getIndex();
+                    int src = dragIndex;
+                    if (src < 0 || src >= listModel.getSize()) return false;
+
+                    LaunchEntry moved = listModel.getElementAt(src);
+                    listModel.remove(src);
+
+                    int target = dropIndex;
+                    if (src < dropIndex) target--;   // adjust for removed element
+                    if (target < 0) target = 0;
+                    if (target > listModel.getSize()) target = listModel.getSize();
+                    listModel.add(target, moved);
+
+                    // Rebuild allEntries to match the new list order
+                    allEntries.clear();
+                    for (int i = 0; i < listModel.getSize(); i++)
+                    {
+                        allEntries.add(listModel.getElementAt(i));
+                    }
+
+                    savePriorityList();
+                    list.setSelectedIndex(target);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    return false;
+                }
+            }
+
+            @Override
+            protected void exportDone(JComponent source, Transferable data, int action)
+            {
+                dragIndex = -1;
+            }
+        });
 
         // Enter key to launch
         list.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "launch");
@@ -857,7 +991,28 @@ public class Launcher extends JFrame
                 baseFolder.getAbsolutePath(),
                 config.startMinimized(),
                 getWidth(),
-                getHeight());
+                getHeight(),
+                config.priorityList());
+        config.save(LauncherConfig.instanceConfigFile(launcherId));
+    }
+
+    /**
+     * Persists the current allEntries order as the priority list in the instance config.
+     * Called after a DnD reorder so the new order survives restarts.
+     */
+    private void savePriorityList()
+    {
+        List<String> names = new ArrayList<>();
+        for (LaunchEntry e : allEntries)
+        {
+            names.add(e.file.getName());
+        }
+        config = new LauncherConfig(
+                config.rootFolder(),
+                config.startMinimized(),
+                config.windowWidth(),
+                config.windowHeight(),
+                names);
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -919,7 +1074,8 @@ public class Launcher extends JFrame
                     config.rootFolder(),
                     cbMinimized.isSelected(),
                     config.windowWidth(),
-                    config.windowHeight());
+                    config.windowHeight(),
+                    config.priorityList());
             config.save(LauncherConfig.instanceConfigFile(launcherId));
             dlg.dispose();
         });
@@ -1094,10 +1250,32 @@ public class Launcher extends JFrame
             }
         }
 
-        List<LaunchEntry> all = new ArrayList<>(scripts);
-        all.addAll(apps);
-        all.addAll(plain);
-        return all;
+        List<LaunchEntry> natural = new ArrayList<>(scripts);
+        natural.addAll(apps);
+        natural.addAll(plain);
+
+        // Apply priority list: listed items come first (in priority order),
+        // all remaining items follow in their natural order.
+        List<String> priority = config.priorityList();
+        if (priority == null || priority.isEmpty())
+        {
+            return natural;
+        }
+
+        Map<String, LaunchEntry> byName = new LinkedHashMap<>();
+        for (LaunchEntry e : natural)
+        {
+            byName.put(e.file.getName(), e);
+        }
+
+        List<LaunchEntry> result = new ArrayList<>();
+        for (String name : priority)
+        {
+            LaunchEntry e = byName.remove(name);
+            if (e != null) result.add(e);
+        }
+        result.addAll(byName.values());  // remainder in natural order
+        return result;
     }
 
     /**
@@ -1640,7 +1818,8 @@ public class Launcher extends JFrame
                 resolvedFolder.getAbsolutePath(),
                 startMinimized,
                 merged.windowWidth(),
-                merged.windowHeight());
+                merged.windowHeight(),
+                merged.priorityList());
         resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
 
         final boolean minimized = startMinimized;
