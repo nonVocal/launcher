@@ -9,13 +9,14 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - **Application folders** – sub-folders that contain a `.lnk` shortcut or a known fallback executable; shown with the **application's own icon**
   - **Folders** – all other sub-folders (displayed in a distinct color; double-click opens in File Explorer)
 - **Double-click / Enter** to run a script or launch an application
+- **Inline action icons** (right side of each folder row) for one-click access to common actions — no right-click required:
+  - **E** – Open in File Explorer
+  - **VS** – Open in VS Code
+  - **C** – Copy with Robocopy
+  - **✕** – Delete
+  - The cursor changes to a **hand pointer** when hovering over an icon
 - **Type to search** – just start typing while the window is focused to instantly filter the list; **Backspace** removes the last character, **Escape** clears the filter
-- **Right-click context menu** (folders and app folders) with quick actions:
-  - *Open in File Explorer* – browse the folder in Windows Explorer
-  - *Open in VS Code* – open the folder in Visual Studio Code
-  - *Copy with Robocopy* – duplicate the folder within the active launcher directory (with validation)
-  - *Delete* – permanently delete the folder (with confirmation)
-  - *SVN Checkout* – check out a repository into the folder
+- **Right-click context menu** (folders and app folders) with the same quick actions plus **SVN Checkout**
 - **Real-time output windows** for robocopy and SVN operations
 - Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
 - **Folder-chooser dialog** when no path is supplied on startup
@@ -88,6 +89,21 @@ example_start_at_logon_in_apps_folder.bat
   - **Scripts** (.bat, .cmd, .ps1, .vbs, .sh, .js) open in their respective interpreter/shell
   - **Application folders** search for and launch `.lnk` shortcuts or the fallback executable
   - **Plain folders** open in Windows File Explorer
+
+### Inline Action Icons
+
+Every **application folder** and **plain folder** row shows four small icon buttons on the **right-hand side** of the row. Scripts do not have action icons.
+
+| Icon | Action | Description |
+|---|---|---|
+| **E** | Open in File Explorer | Browse the folder in Windows Explorer |
+| **VS** | Open in VS Code | Open the folder in Visual Studio Code (`code` must be on `PATH`) |
+| **C** | Copy with Robocopy… | Duplicate the folder within the active launcher directory |
+| **✕** | Delete | Permanently delete the folder (requires confirmation) |
+
+- **Single-click** any icon to trigger the action immediately
+- The **cursor changes to a hand pointer** when you hover over an icon
+- A double-click inside the icon area does **not** accidentally launch the entry
 
 ### Type-to-Search
 
@@ -164,7 +180,7 @@ All other sub-folders are treated as **plain folders**.
 
 | File | Description |
 |---|---|
-| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (880 lines) |
+| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (~1 000 lines) |
 | `pom.xml` | Maven configuration (JDK 26, JUnit 5) |
 | `scripts/build.bat` | Compiles the source with `javac` |
 | `scripts/run.bat` | Runs the app with an optional folder argument |
@@ -198,6 +214,10 @@ Launcher recognizes and launches the following script file types:
 | Action | Keyboard / Mouse |
 |---|---|
 | Launch selected item | **Enter** or **Double-click** |
+| Open in File Explorer | **Click E icon** (row right side) or right-click → *Open in File Explorer* |
+| Open in VS Code | **Click VS icon** (row right side) or right-click → *Open in VS Code* |
+| Copy with Robocopy | **Click C icon** (row right side) or right-click → *Copy with Robocopy…* |
+| Delete folder | **Click ✕ icon** (row right side) or right-click → *Delete* |
 | Open context menu | **Right-click** (all folders; scripts excluded) |
 | Navigate list | **↑ ↓** Arrow keys |
 | Start filtering | **Type any character** |

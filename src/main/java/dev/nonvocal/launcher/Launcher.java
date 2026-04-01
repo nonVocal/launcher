@@ -2,7 +2,6 @@ package dev.nonvocal.launcher;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
-import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -14,6 +13,7 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.KeyStroke;
+import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -28,6 +28,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.KeyboardFocusManager;
+import java.awt.Rectangle;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
@@ -41,8 +42,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.awt.AWTException;
+import java.awt.Cursor;
 import java.awt.Graphics2D;
 import java.awt.MenuItem;
+import java.awt.Point;
 import java.awt.PopupMenu;
 import java.awt.RenderingHints;
 import java.awt.SystemTray;
@@ -105,51 +108,121 @@ public class Launcher extends JFrame {
     //  Cell renderer
     // =========================================================================
 
-    static final class EntryCellRenderer extends DefaultListCellRenderer {
+    static final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchEntry> {
 
         private static final long serialVersionUID = 1L;
 
-        // Alternating row colours
+        /** Width of each action-icon button (px). */
+        static final int ACT_W    = 22;
+        /** FlowLayout horizontal gap around / between action icons (px). */
+        static final int ACT_HGAP = 3;
+        /** Total width of the action bar: 5 gaps + 4 icons = 5*3 + 4*22 = 103 px. */
+        static final int ACT_BAR_W = 5 * ACT_HGAP + 4 * ACT_W;
+
+        // Row colours
         private static final Color ROW_EVEN  = new Color(0xF4, 0xF6, 0xF8);
         private static final Color ROW_ODD   = Color.WHITE;
-        // Foreground colours by type
+        // Name foreground colours by entry type
         private static final Color FG_SCRIPT = new Color(0x1A, 0x5F, 0x7A); // dark teal
         private static final Color FG_FOLDER = new Color(0x2E, 0x6B, 0x2E); // dark green
         private static final Color FG_PLAIN  = new Color(0x66, 0x55, 0x44); // warm dark gray
         // Selection
         private static final Color SEL_BG    = new Color(0x00, 0x78, 0xD7); // Windows blue
+        // Action icon colours – normal
+        private static final Color ACT_FG    = new Color(0x33, 0x55, 0x99);
+        private static final Color ACT_DEL   = new Color(0xAA, 0x22, 0x22);
+        private static final Color ACT_BG    = new Color(0xE8, 0xEA, 0xF4);
+        private static final Color ACT_BORD  = new Color(0xBB, 0xBB, 0xCC);
+        // Action icon colours – selected row
+        private static final Color SEL_ACT_BG   = new Color(0x40, 0x90, 0xD7);
+        private static final Color SEL_ACT_BORD = new Color(0x80, 0xB8, 0xFF);
 
-        private static final Font CELL_FONT  = new Font(Font.SANS_SERIF, Font.PLAIN, 13);
+        private static final Font CELL_FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 13);
+        private static final Font ACT_FONT  = new Font(Font.SANS_SERIF, Font.BOLD, 9);
+
+        /** Labels for the four action icons: Explorer · VS Code · Copy · Delete. */
+        private static final String[] ACT_TEXT = { "E", "VS", "C", "\u2715" };
+        private static final String[] ACT_TIPS = {
+            "Open in File Explorer",
+            "Open in VS Code",
+            "Copy with Robocopy\u2026",
+            "Delete"
+        };
+
+        private final JLabel nameLabel = new JLabel();
+        private final JPanel actionBar  = new JPanel(new FlowLayout(FlowLayout.LEFT, ACT_HGAP, 0));
+        private final JLabel[] actIcons = new JLabel[4];
 
         private transient final FileSystemView fsv = FileSystemView.getFileSystemView();
 
+        EntryCellRenderer() {
+            setLayout(new BorderLayout());
+            setOpaque(true);
+
+            nameLabel.setFont(CELL_FONT);
+            nameLabel.setBorder(new EmptyBorder(5, 8, 5, 8));
+            nameLabel.setOpaque(false);
+            add(nameLabel, BorderLayout.CENTER);
+
+            actionBar.setOpaque(false);
+            // EmptyBorder top/bottom = (36 - 18) / 2 = 9 px → centres 18 px icons in 36 px row
+            actionBar.setBorder(new EmptyBorder(9, 0, 9, 0));
+
+            for (int i = 0; i < 4; i++) {
+                JLabel lbl = new JLabel(ACT_TEXT[i], JLabel.CENTER);
+                lbl.setFont(ACT_FONT);
+                lbl.setForeground(i == 3 ? ACT_DEL : ACT_FG);
+                lbl.setBackground(ACT_BG);
+                lbl.setOpaque(true);
+                lbl.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(ACT_BORD, 1),
+                        BorderFactory.createEmptyBorder(1, 3, 1, 3)));
+                lbl.setToolTipText(ACT_TIPS[i]);
+                lbl.setPreferredSize(new Dimension(ACT_W, ACT_W - 4)); // 22 × 18
+                actIcons[i] = lbl;
+                actionBar.add(lbl);
+            }
+            add(actionBar, BorderLayout.EAST);
+        }
+
         @Override
         public Component getListCellRendererComponent(
-                JList<?> list, Object value, int index,
+                JList<? extends LaunchEntry> list, LaunchEntry e, int index,
                 boolean selected, boolean cellHasFocus) {
 
-            super.getListCellRendererComponent(list, value, index, selected, cellHasFocus);
+            nameLabel.setText("  " + e.file.getName());
+            nameLabel.setToolTipText(e.file.getAbsolutePath());
 
-            LaunchEntry e = (LaunchEntry) value;
-            setText("  " + e.file.getName());
-            setFont(CELL_FONT);
-            setToolTipText(e.file.getAbsolutePath());
-            setBorder(new EmptyBorder(5, 8, 5, 8));
-
-            // For app folders use the icon of the .lnk / exe so the application
-            // icon is shown instead of a generic folder icon.
+            // For app folders use the icon of the .lnk / exe
             File iconSrc = (e.iconFile != null) ? e.iconFile : e.file;
-            try { setIcon(fsv.getSystemIcon(iconSrc)); }
-            catch (Exception ignored) { setIcon(null); }
+            try { nameLabel.setIcon(fsv.getSystemIcon(iconSrc)); }
+            catch (Exception ignored) { nameLabel.setIcon(null); }
+
+            // Action icons shown only for folder entries (not scripts)
+            actionBar.setVisible(e.type != EntryType.SCRIPT);
 
             if (selected) {
                 setBackground(SEL_BG);
-                setForeground(Color.WHITE);
+                nameLabel.setForeground(Color.WHITE);
+                for (JLabel icon : actIcons) {
+                    icon.setBackground(SEL_ACT_BG);
+                    icon.setForeground(Color.WHITE);
+                    icon.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(SEL_ACT_BORD, 1),
+                            BorderFactory.createEmptyBorder(1, 3, 1, 3)));
+                }
             } else {
                 setBackground(index % 2 == 0 ? ROW_EVEN : ROW_ODD);
-                setForeground(e.type == EntryType.SCRIPT ? FG_SCRIPT
-                            : e.type == EntryType.APP_FOLDER ? FG_FOLDER
-                            : FG_PLAIN);
+                nameLabel.setForeground(e.type == EntryType.SCRIPT ? FG_SCRIPT
+                                      : e.type == EntryType.APP_FOLDER ? FG_FOLDER
+                                      : FG_PLAIN);
+                for (int i = 0; i < 4; i++) {
+                    actIcons[i].setBackground(ACT_BG);
+                    actIcons[i].setForeground(i == 3 ? ACT_DEL : ACT_FG);
+                    actIcons[i].setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(ACT_BORD, 1),
+                            BorderFactory.createEmptyBorder(1, 3, 1, 3)));
+                }
             }
             return this;
         }
@@ -230,8 +303,8 @@ public class Launcher extends JFrame {
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setFixedCellHeight(36);
 
-        // Double-click to launch; right-click for context menu on app folders
-        list.addMouseListener(new MouseAdapter() {
+        // Click-to-launch, action-icon clicks, right-click context menu
+        MouseAdapter mouseHandler = new MouseAdapter() {
             private void handlePopup(MouseEvent e) {
                 if (!e.isPopupTrigger()) return;
                 int idx = list.locationToIndex(e.getPoint());
@@ -271,15 +344,46 @@ public class Launcher extends JFrame {
 
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
-                    LaunchEntry sel = list.getSelectedValue();
-                    if (sel != null) launch(sel);
+                if (!SwingUtilities.isLeftMouseButton(e)) return;
+                int idx = list.locationToIndex(e.getPoint());
+                if (idx < 0) return;
+                LaunchEntry sel = listModel.getElementAt(idx);
+
+                // Check if a rendered action icon was clicked (folder entries only)
+                if (sel.type != EntryType.SCRIPT) {
+                    int actionIdx = hitActionIcon(e.getPoint(), list, idx);
+                    if (actionIdx >= 0) {
+                        if (e.getClickCount() == 1) {
+                            switch (actionIdx) {
+                                case 0 -> openInExplorer(sel.file);
+                                case 1 -> openInVSCode(sel.file);
+                                case 2 -> copyWithRobocopy(sel.file);
+                                case 3 -> deleteFolder(sel.file);
+                            }
+                        }
+                        return; // never propagate to launch on action-icon area
+                    }
                 }
+
+                if (e.getClickCount() == 2) launch(sel);
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                int idx = list.locationToIndex(e.getPoint());
+                boolean overIcon = idx >= 0
+                        && listModel.getElementAt(idx).type != EntryType.SCRIPT
+                        && hitActionIcon(e.getPoint(), list, idx) >= 0;
+                list.setCursor(overIcon
+                        ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+                        : Cursor.getDefaultCursor());
             }
 
             @Override public void mousePressed(MouseEvent e)  { handlePopup(e); }
             @Override public void mouseReleased(MouseEvent e) { handlePopup(e); }
-        });
+        };
+        list.addMouseListener(mouseHandler);
+        list.addMouseMotionListener(mouseHandler);
 
         // Enter key to launch
         list.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "launch");
@@ -432,6 +536,36 @@ public class Launcher extends JFrame {
         lbl.setForeground(color);
         lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
         return lbl;
+    }
+
+    // =========================================================================
+    //  Action-icon hit testing
+    // =========================================================================
+
+    /**
+     * Returns the index (0 = Explorer, 1 = VS Code, 2 = Copy, 3 = Delete) of the
+     * action icon at the given point in the list coordinate space, or -1 if the
+     * point does not fall on any action icon.
+     *
+     * The action bar occupies the rightmost {@link EntryCellRenderer#ACT_BAR_W}
+     * pixels of a cell.  Inside the bar, FlowLayout places icons as:
+     *   gap | icon0 | gap | icon1 | gap | icon2 | gap | icon3 | gap
+     */
+    private static int hitActionIcon(Point p, JList<LaunchEntry> list, int idx) {
+        Rectangle cell = list.getCellBounds(idx, idx);
+        if (cell == null) return -1;
+        int xInCell = p.x - cell.x;
+        int actionBarStart = cell.width - EntryCellRenderer.ACT_BAR_W;
+        if (xInCell < actionBarStart) return -1;
+        int xInBar = xInCell - actionBarStart;
+        for (int i = 0; i < 4; i++) {
+            int iconStart = EntryCellRenderer.ACT_HGAP
+                    + i * (EntryCellRenderer.ACT_W + EntryCellRenderer.ACT_HGAP);
+            if (xInBar >= iconStart && xInBar < iconStart + EntryCellRenderer.ACT_W) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // =========================================================================
