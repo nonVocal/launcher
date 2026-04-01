@@ -71,6 +71,8 @@ import java.awt.image.BufferedImage;
  */
 public class Launcher extends JFrame {
 
+    private static final long serialVersionUID = 1L;
+
     /** Relative path of the fallback executable inside an application folder. */
     private static final String FALLBACK_EXE = "basis\\sys\\win\\bin\\dsc_StartPlm.exe";
 
@@ -103,6 +105,8 @@ public class Launcher extends JFrame {
 
     static final class EntryCellRenderer extends DefaultListCellRenderer {
 
+        private static final long serialVersionUID = 1L;
+
         // Alternating row colours
         private static final Color ROW_EVEN  = new Color(0xF4, 0xF6, 0xF8);
         private static final Color ROW_ODD   = Color.WHITE;
@@ -115,7 +119,7 @@ public class Launcher extends JFrame {
 
         private static final Font CELL_FONT  = new Font(Font.SANS_SERIF, Font.PLAIN, 13);
 
-        private final FileSystemView fsv = FileSystemView.getFileSystemView();
+        private transient final FileSystemView fsv = FileSystemView.getFileSystemView();
 
         @Override
         public Component getListCellRendererComponent(
@@ -325,7 +329,14 @@ public class Launcher extends JFrame {
         TrayIcon trayIcon = new TrayIcon(img,
                 "Launcher – " + baseFolder.getName(), popup);
         trayIcon.setImageAutoSize(true);
-        trayIcon.addActionListener(e -> toggleVisibility()); // double-click restores
+        trayIcon.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getButton() == MouseEvent.BUTTON1) {
+                    toggleVisibility();
+                }
+            }
+        });
 
         try {
             SystemTray.getSystemTray().add(trayIcon);

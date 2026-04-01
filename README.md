@@ -6,25 +6,26 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 
 - **Lists** scripts and sub-folders found at the **top level** of a chosen root folder, divided into three categories:
   - **Scripts** – recognized script files (.bat, .cmd, .ps1, etc.)
-  - **Application folders** – sub-folders that contain a `.lnk` shortcut or a known fallback executable
+  - **Application folders** – sub-folders that contain a `.lnk` shortcut or a known fallback executable; shown with the **application's own icon**
   - **Folders** – all other sub-folders (displayed in a distinct color; double-click opens in File Explorer)
 - **Double-click / Enter** to run a script or launch an application
-- **Right-click context menu** (app folders only) with quick actions:
+- **Right-click context menu** (folders and app folders) with quick actions:
   - *Open in File Explorer* – browse the folder in Windows Explorer
   - *Open in VS Code* – open the folder in Visual Studio Code
   - *Copy with Robocopy* – duplicate the folder within the active launcher directory (with validation)
   - *Delete* – permanently delete the folder (with confirmation)
   - *SVN Checkout* – check out a repository into the folder
 - **Real-time output windows** for robocopy and SVN operations
-- Optional **system tray** support – start minimized with `--minimized`
+- Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
 - **Folder-chooser dialog** when no path is supplied on startup
-- **Syntax highlighting** for scripts vs. application folders
+- **Color-coded list** for scripts, application folders, and plain folders
 - **Keyboard shortcuts** for common operations
 
 ## Prerequisites
 
-- **Java JDK** (version 8 or later) with `javac` and `javaw` available on your `PATH`
-  - Tested with [SapMachine 26](https://sap.github.io/SapMachine/), but any standard JDK will work
+- **Java JDK 16 or later** with `javac` and `javaw` available on your `PATH`
+  - Records (used internally) require Java 16+
+  - Tested with [SapMachine 26](https://sap.github.io/SapMachine/), but any JDK 16+ will work
 - *(Optional)* **`code`** command (from VS Code) on your `PATH` – only needed for the *Open in VS Code* action
 - *(Optional)* **SVN client** on your `PATH` – only needed for the *SVN Checkout* action
   - `robocopy` is built-in to Windows, so *Copy with Robocopy* works out of the box
@@ -174,21 +175,21 @@ Launcher recognizes and launches the following script file types:
 
 ## Color Legend
 
-| Color | Category | Double-click behaviour |
-|---|---|---|
-| 🟦 Dark teal | Scripts | Execute in appropriate interpreter/shell |
-| 🟩 Dark green | Application folders | Launch via `.lnk` shortcut or fallback executable |
-| 🟫 Warm dark gray | Plain folders | Open in Windows File Explorer |
+| Color | Category | Icon | Double-click behaviour |
+|---|---|---|---|
+| 🟦 Dark teal | Scripts | OS file icon | Execute in appropriate interpreter/shell |
+| 🟩 Dark green | Application folders | **Application's own icon** (from `.lnk` or `.exe`) | Launch via `.lnk` shortcut or fallback executable |
+| 🟫 Warm dark gray | Plain folders | OS folder icon | Open in Windows File Explorer |
 
 ## Keyboard Shortcuts & Tips
 
 | Action | Keyboard / Mouse |
 |---|---|
 | Launch selected item | **Enter** or **Double-click** |
-| Open context menu | **Right-click** (app folders only) |
+| Open context menu | **Right-click** (all folders; scripts excluded) |
 | Navigate list | **↑ ↓** Arrow keys |
 | Minimize to tray | Close window (if started with `--minimized`) |
-| Show/Hide from tray | **Double-click** tray icon |
+| Show/Hide from tray | **Single-click** tray icon |
 
 ## Auto-start on Logon
 
