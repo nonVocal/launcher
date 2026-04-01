@@ -9,6 +9,7 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - **Application folders** – sub-folders that contain a `.lnk` shortcut or a known fallback executable; shown with the **application's own icon**
   - **Folders** – all other sub-folders (displayed in a distinct color; double-click opens in File Explorer)
 - **Double-click / Enter** to run a script or launch an application
+- **Type to search** – just start typing while the window is focused to instantly filter the list; **Backspace** removes the last character, **Escape** clears the filter
 - **Right-click context menu** (folders and app folders) with quick actions:
   - *Open in File Explorer* – browse the folder in Windows Explorer
   - *Open in VS Code* – open the folder in Visual Studio Code
@@ -19,7 +20,6 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 - Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
 - **Folder-chooser dialog** when no path is supplied on startup
 - **Color-coded list** for scripts, application folders, and plain folders
-- **Keyboard shortcuts** for common operations
 
 ## Prerequisites
 
@@ -87,6 +87,18 @@ example_start_at_logon_in_apps_folder.bat
 - **Double-click** or press **Enter** on a list item to launch it:
   - **Scripts** (.bat, .cmd, .ps1, .vbs, .sh, .js) open in their respective interpreter/shell
   - **Application folders** search for and launch `.lnk` shortcuts or the fallback executable
+  - **Plain folders** open in Windows File Explorer
+
+### Type-to-Search
+
+Just start typing while the Launcher window is focused — no need to click a search box first:
+
+- The list is filtered **instantly** as you type
+- The current filter is shown in the **footer** (`Filter: <query>▌`) in blue
+- The entry count updates to show **N of M** (filtered vs. total)
+- **Backspace** removes the last character
+- **Escape** clears the filter and restores the full list
+- The filter is **case-insensitive** and matches anywhere in the entry name
 
 ### Right-Click Context Menu (Folders Only)
 
@@ -152,7 +164,7 @@ All other sub-folders are treated as **plain folders**.
 
 | File | Description |
 |---|---|
-| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (821 lines) |
+| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (880 lines) |
 | `pom.xml` | Maven configuration (JDK 26, JUnit 5) |
 | `scripts/build.bat` | Compiles the source with `javac` |
 | `scripts/run.bat` | Runs the app with an optional folder argument |
@@ -188,6 +200,9 @@ Launcher recognizes and launches the following script file types:
 | Launch selected item | **Enter** or **Double-click** |
 | Open context menu | **Right-click** (all folders; scripts excluded) |
 | Navigate list | **↑ ↓** Arrow keys |
+| Start filtering | **Type any character** |
+| Delete last filter character | **Backspace** |
+| Clear filter | **Escape** |
 | Minimize to tray | Close window (if started with `--minimized`) |
 | Show/Hide from tray | **Single-click** tray icon |
 
