@@ -35,6 +35,16 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.awt.AWTException;
+import java.awt.Graphics2D;
+import java.awt.MenuItem;
+import java.awt.PopupMenu;
+import java.awt.RenderingHints;
+import java.awt.SystemTray;
+import java.awt.TrayIcon;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
 
 /**
  * Launcher – self-contained Java Swing application.
@@ -133,7 +143,7 @@ public class Launcher extends JFrame {
 
     private final File baseFolder;
 
-    Launcher(File baseFolder) {
+    Launcher(File baseFolder, boolean startMinimized) {
         this.baseFolder = baseFolder;
         buildUI();
     }
@@ -212,6 +222,76 @@ public class Launcher extends JFrame {
         add(header, BorderLayout.NORTH);
         add(scroll,  BorderLayout.CENTER);
         add(south,   BorderLayout.SOUTH);
+    }
+
+    // =========================================================================
+    //  System tray
+    // =========================================================================
+
+    /**
+     * Installs a system-tray icon and starts the window hidden.
+     * Double-clicking the tray icon or choosing "Show / Hide" toggles visibility.
+     * Called when {@code --minimized} is passed on the command line.
+     * Falls back to a normal visible window if the system tray is not supported.
+     */
+    void setupTray() {
+        if (!SystemTray.isSupported()) {
+            setVisible(true);
+            return;
+        }
+
+        // Build a small 16x16 icon programmatically (blue rounded square with white "L")
+        BufferedImage img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(new Color(0x00, 0x78, 0xD7));
+        g.fillRoundRect(0, 0, 15, 15, 4, 4);
+        g.setColor(Color.WHITE);
+        g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));
+        g.drawString("L", 4, 12);
+        g.dispose();
+
+        PopupMenu popup = new PopupMenu();
+        MenuItem showItem = new MenuItem("Show / Hide");
+        showItem.addActionListener(e -> toggleVisibility());
+        MenuItem exitItem = new MenuItem("Exit");
+        exitItem.addActionListener(e -> System.exit(0));
+        popup.add(showItem);
+        popup.addSeparator();
+        popup.add(exitItem);
+
+        TrayIcon trayIcon = new TrayIcon(img,
+                "Launcher \u2013 " + baseFolder.getName(), popup);
+        trayIcon.setImageAutoSize(true);
+        trayIcon.addActionListener(e -> toggleVisibility()); // double-click restores
+
+        try {
+            SystemTray.getSystemTray().add(trayIcon);
+        } catch (AWTException ex) {
+            setVisible(true);
+            return;
+        }
+
+        // Clicking the window's close button hides to tray instead of exiting
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            @Override public void windowClosing(WindowEvent e) { setVisible(false); }
+        });
+
+        // Start hidden in the tray
+        setVisible(false);
+    }
+
+    /** Toggles the main window between visible (restored) and hidden. */
+    private void toggleVisibility() {
+        if (isVisible()) {
+            setVisible(false);
+        } else {
+            setVisible(true);
+            setExtendedState(NORMAL);
+            toFront();
+            requestFocus();
+        }
     }
 
     /** Small coloured label for the legend. */
@@ -362,10 +442,26 @@ public class Launcher extends JFrame {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception ignored) { /* fall back to Metal */ }
 
+        // ── Parse CLI flags ──────────────────────────────────────────────────
+        // Usage:
+        //   java Launcher [<rootFolder>] [--minimized]
+        //
+        //   --minimized   Start hidden in the system tray.
+        //                 Double-click the tray icon or use its menu to show/exit.
+        boolean startMinimized = false;
+        String  folderArg      = null;
+        for (String arg : args) {
+            if (arg.equalsIgnoreCase("--minimized") || arg.equalsIgnoreCase("-minimized")) {
+                startMinimized = true;
+            } else if (folderArg == null) {
+                folderArg = arg;
+            }
+        }
+
         // Determine the root folder
         final File folder;
 
-        if (args.length == 0) {
+        if (folderArg == null) {
             // No argument supplied → open a folder-chooser dialog
             JFileChooser chooser = new JFileChooser();
             chooser.setDialogTitle("Select launcher root folder");
@@ -376,7 +472,7 @@ public class Launcher extends JFrame {
             }
             folder = chooser.getSelectedFile();
         } else {
-            folder = new File(args[0]);
+            folder = new File(folderArg);
         }
 
         if (!folder.isDirectory()) {
@@ -386,6 +482,14 @@ public class Launcher extends JFrame {
             System.exit(1);
         }
 
-        SwingUtilities.invokeLater(() -> new Launcher(folder).setVisible(true));
+        final boolean minimized = startMinimized;
+        SwingUtilities.invokeLater(() -> {
+            Launcher launcher = new Launcher(folder, minimized);
+            if (minimized) {
+                launcher.setupTray();   // starts hidden; tray icon allows show/exit
+            } else {
+                launcher.setVisible(true);
+            }
+        });
     }
 }

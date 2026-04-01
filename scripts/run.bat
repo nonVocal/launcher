@@ -5,7 +5,7 @@
 ::   run.bat  C:\path\to\folder   – opens that folder directly
 
 if "%~1"=="" (
-    java Launcher
+    javaw Launcher
 ) else (
-    java Launcher "%~1"
+    javaw Launcher "%~1"
 )
