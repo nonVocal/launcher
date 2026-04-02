@@ -96,6 +96,14 @@ public class Launcher extends JFrame
     private JButton svnCheckoutBtn;
     private JButton svnBrowserBtn;
 
+    // Themed UI elements – stored so refreshThemeColors() can update them
+    private JPanel      legendPanel;
+    private JScrollPane mainScrollPane;
+    private JToolBar    mainToolbar;
+    private JLabel      legendScriptLabel;
+    private JLabel      legendFolderLabel;
+    private JLabel      legendPlainLabel;
+
     // ── Constructor ──────────────────────────────────────────────────────────
 
     Launcher(File baseFolder, LauncherConfig config, String launcherId)
@@ -155,7 +163,8 @@ public class Launcher extends JFrame
         showContextMenu         = resolveShowContextMenu(cfg);
         cellRenderer            = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle,
                                                         effectiveCustomActionMap);
-        applyTheme(cfg.theme());   // ← re-apply theme whenever config changes
+        applyTheme(cfg.theme());        // apply L&F first …
+        refreshThemeColors();           // … then update explicitly-styled components
         if (list != null)
         {
             list.setCellRenderer(cellRenderer);
@@ -334,18 +343,19 @@ public class Launcher extends JFrame
         });
 
         JScrollPane scroll = new JScrollPane(list);
-        scroll.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, new Color(0xCC, 0xCC, 0xCC)));
+        mainScrollPane = scroll;   // stored for theme refresh
 
         // ── Footer ───────────────────────────────────────────────────────────
         JPanel legend = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 4));
-        legend.setBackground(new Color(0xF0, 0xF0, 0xF0));
-        legend.setBorder(new MatteBorder(1, 0, 0, 0, new Color(0xCC, 0xCC, 0xCC)));
-        legend.add(coloredLabel("Scripts",             new Color(0x1A, 0x5F, 0x7A)));
-        legend.add(coloredLabel("Application folders", new Color(0x2E, 0x6B, 0x2E)));
-        legend.add(coloredLabel("Folders",             new Color(0x66, 0x55, 0x44)));
+        legendPanel = legend;   // stored for theme refresh
+        legendScriptLabel = coloredLabel("Scripts",             new Color(0x1A, 0x5F, 0x7A));
+        legendFolderLabel = coloredLabel("Application folders", new Color(0x2E, 0x6B, 0x2E));
+        legendPlainLabel  = coloredLabel("Folders",             new Color(0x66, 0x55, 0x44));
+        legend.add(legendScriptLabel);
+        legend.add(legendFolderLabel);
+        legend.add(legendPlainLabel);
 
         searchLabel = new JLabel();
-        searchLabel.setForeground(new Color(0x00, 0x50, 0xA0));
         searchLabel.setFont(searchLabel.getFont().deriveFont(Font.BOLD | Font.ITALIC, 11f));
         searchLabel.setHorizontalAlignment(JLabel.CENTER);
 
@@ -358,13 +368,11 @@ public class Launcher extends JFrame
         south.add(searchLabel, BorderLayout.CENTER);
         south.add(hintLabel,   BorderLayout.EAST);
         south.setBorder(new EmptyBorder(0, 10, 0, 10));
-        south.setBackground(new Color(0xF0, 0xF0, 0xF0));
 
         // ── Toolbar ──────────────────────────────────────────────────────────
         JToolBar toolbar = new JToolBar();
+        mainToolbar = toolbar;   // stored for theme refresh
         toolbar.setFloatable(false);
-        toolbar.setBackground(new Color(0xF0, 0xF2, 0xF5));
-        toolbar.setBorder(new MatteBorder(0, 0, 1, 0, new Color(0xCC, 0xCC, 0xCC)));
 
         // Configurable left-side panel – repopulated by updateToolbarButtons()
         toolbarLeftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
@@ -412,6 +420,8 @@ public class Launcher extends JFrame
         add(topArea, BorderLayout.NORTH);
         add(scroll,  BorderLayout.CENTER);
         add(south,   BorderLayout.SOUTH);
+
+        refreshThemeColors();   // apply initial theme-dependent colours
 
         // ── Type-to-search ───────────────────────────────────────────────────
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(event ->
@@ -660,6 +670,42 @@ public class Launcher extends JFrame
             catch (Exception ignored) {}
         }
         return false;
+    }
+
+    /**
+     * Updates all explicitly-styled UI components to match the current theme.
+     * Called from {@link #applyConfig} after {@link #applyTheme} has switched the L&F.
+     */
+    private void refreshThemeColors()
+    {
+        if (legendPanel == null) return;   // buildUI not yet called
+
+        boolean dark   = EntryCellRenderer.isDark();
+        Color sepColor = UIManager.getColor("Separator.foreground");
+        if (sepColor == null) sepColor = dark ? new Color(0x4A, 0x4A, 0x4A) : new Color(0xCC, 0xCC, 0xCC);
+
+        // Legend / footer border – background follows panel default via L&F
+        legendPanel.setBorder(new MatteBorder(1, 0, 0, 0, sepColor));
+
+        // Scroll-pane border
+        if (mainScrollPane != null)
+            mainScrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, sepColor));
+
+        // Toolbar border (background is left to the L&F)
+        if (mainToolbar != null)
+            mainToolbar.setBorder(new MatteBorder(0, 0, 1, 0, sepColor));
+
+        // Legend label foreground colours (same semantic palette as the renderer)
+        Color fgScript = dark ? new Color(0x4F, 0xC1, 0xDA) : new Color(0x1A, 0x5F, 0x7A);
+        Color fgFolder = dark ? new Color(0x85, 0xBE, 0x6C) : new Color(0x2E, 0x6B, 0x2E);
+        Color fgPlain  = dark ? new Color(0xC8, 0xB8, 0xA6) : new Color(0x66, 0x55, 0x44);
+        if (legendScriptLabel != null) legendScriptLabel.setForeground(fgScript);
+        if (legendFolderLabel != null) legendFolderLabel.setForeground(fgFolder);
+        if (legendPlainLabel  != null) legendPlainLabel.setForeground(fgPlain);
+
+        // Search label foreground
+        if (searchLabel != null)
+            searchLabel.setForeground(dark ? new Color(0x66, 0xAA, 0xFF) : new Color(0x00, 0x50, 0xA0));
     }
 
     /** Creates a small coloured legend label. */

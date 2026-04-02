@@ -921,7 +921,9 @@ class SettingsDialog extends JDialog
     {
         JLabel lbl = new JLabel(text);
         lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
-        lbl.setForeground(new Color(0x00, 0x50, 0x99));
+        lbl.setForeground(EntryCellRenderer.isDark()
+                ? new Color(0x66, 0xAA, 0xFF)   // bright blue for dark backgrounds
+                : new Color(0x00, 0x50, 0x99));  // deep blue for light backgrounds
         lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
         return lbl;
     }
