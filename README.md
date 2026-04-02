@@ -358,18 +358,32 @@ All other sub-folders are treated as **plain folders**.
 
 ## File Overview
 
+### Source files
+
 | File | Description |
 |---|---|
-| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application class – UI construction, mouse handling, launching, settings dialog (~640 lines) |
-| `src/main/java/dev/nonvocal/launcher/LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic |
-| `src/main/java/dev/nonvocal/launcher/EntryCellRenderer.java` | Swing list-cell renderer – supports ICONS and HAMBURGER button styles |
-| `src/main/java/dev/nonvocal/launcher/LaunchEntry.java` | Record representing a single list entry (file, type, icon source) |
-| `src/main/java/dev/nonvocal/launcher/EntryType.java` | Enum: `SCRIPT`, `APP_FOLDER`, `PLAIN_FOLDER` |
-| `src/main/resources/` | PNG icon files used for action buttons, window and tray |
+| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Application entry point and UI shell – constructs the window, wires all helper classes together, manages config state (~600 lines) |
+| `src/main/java/dev/nonvocal/launcher/LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic (`empty` → `defaults` → `mergeOver` → `withDefaults`) |
+| `src/main/java/dev/nonvocal/launcher/EntryType.java` | Enum with three values: `SCRIPT`, `APP_FOLDER`, `PLAIN_FOLDER` |
+| `src/main/java/dev/nonvocal/launcher/LaunchEntry.java` | Immutable record representing one list row: `file()`, `type()`, `iconFile()` |
+| `src/main/java/dev/nonvocal/launcher/EntryLoader.java` | Scans the root folder, classifies entries into the three types, and applies priority-list sorting |
+| `src/main/java/dev/nonvocal/launcher/EntryLauncher.java` | Launches scripts (bat, cmd, ps1, …) and application folders (via `.lnk` or fallback executable) |
+| `src/main/java/dev/nonvocal/launcher/FolderActions.java` | Folder-level operations: open in File Explorer, open in Editor, copy with Robocopy, delete, SVN checkout |
+| `src/main/java/dev/nonvocal/launcher/EntryCellRenderer.java` | Swing list-cell renderer – draws entry rows with inline icon buttons (`ICONS`) or a single hamburger button (`HAMBURGER`) |
+| `src/main/java/dev/nonvocal/launcher/ListMouseHandler.java` | `MouseAdapter` – handles single-click on action buttons, double-click to launch, hover cursor changes, and right-click context menu |
+| `src/main/java/dev/nonvocal/launcher/EntryListTransferHandler.java` | `TransferHandler` for drag-and-drop reordering of list entries (disabled while a search filter is active) |
+| `src/main/java/dev/nonvocal/launcher/SettingsDialog.java` | Modal settings `JDialog` – config-file paths, startup options, EXPLORER/EDITOR commands, action-button order/visibility, button style, context-menu toggle |
+| `src/main/java/dev/nonvocal/launcher/ProcessOutputWindow.java` | Utility that streams real-time process output (robocopy, SVN) into a dedicated, auto-closing window |
+
+### Other files
+
+| File | Description |
+|---|---|
+| `src/main/resources/` | PNG icon files used for action buttons, window icon, and system tray |
 | `pom.xml` | Maven configuration (JDK 26, JUnit 5) |
 | `scripts/build.bat` | Compiles the source with `javac` |
 | `scripts/run.bat` | Runs the app with an optional folder argument |
-| `example_start_at_logon_in_apps_folder.bat` | Example launcher batch file for starting minimized to the tray |
+| `example_start_at_logon_in_apps_folder.bat` | Example batch file for starting Launcher minimized to the tray at logon |
 | `icon-attribution.md` | Icon licence credits (Flaticon) |
 | `README.md` | This file |
 | `LICENSE` | License information |
