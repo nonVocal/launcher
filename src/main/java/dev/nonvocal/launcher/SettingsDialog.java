@@ -98,6 +98,51 @@ class SettingsDialog extends JDialog
         tabGeneral.add(rbThemeSystem);
         tabGeneral.add(rbThemeLight);
         tabGeneral.add(rbThemeDark);
+        tabGeneral.add(Box.createVerticalStrut(6));
+
+        // ── Accent colour ─────────────────────────────────────────────────────
+        final Color defaultAccent = new Color(0x00, 0x78, 0xD7);
+        final Color[] selectedAccent = { Launcher.parseHexColor(config.accentColor(), null) };
+
+        JLabel accentLbl = new JLabel("Accent color:");
+        accentLbl.setFont(accentLbl.getFont().deriveFont(Font.BOLD, 11f));
+        accentLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        // Swatch – shows the current (or default) colour
+        JPanel accentSwatch = new JPanel()
+        {
+            @Override protected void paintComponent(Graphics g)
+            {
+                super.paintComponent(g);
+                g.setColor(selectedAccent[0] != null ? selectedAccent[0] : defaultAccent);
+                g.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        accentSwatch.setPreferredSize(new Dimension(22, 22));
+        accentSwatch.setMinimumSize(new Dimension(22, 22));
+        accentSwatch.setMaximumSize(new Dimension(22, 22));
+        accentSwatch.setBorder(BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor") != null
+                ? UIManager.getColor("Component.borderColor") : Color.GRAY));
+        accentSwatch.setOpaque(false);
+
+        JButton accentChooseBtn = new JButton("Choose\u2026");
+        accentChooseBtn.addActionListener(ev ->
+        {
+            Color initial = selectedAccent[0] != null ? selectedAccent[0] : defaultAccent;
+            Color chosen  = JColorChooser.showDialog(this, "Choose Accent Color", initial);
+            if (chosen != null) { selectedAccent[0] = chosen; accentSwatch.repaint(); }
+        });
+
+        JButton accentResetBtn = new JButton("Reset to default");
+        accentResetBtn.addActionListener(ev -> { selectedAccent[0] = null; accentSwatch.repaint(); });
+
+        JPanel accentRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        accentRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        accentRow.add(accentLbl);
+        accentRow.add(accentSwatch);
+        accentRow.add(accentChooseBtn);
+        accentRow.add(accentResetBtn);
+        tabGeneral.add(accentRow);
         tabGeneral.add(separator());
 
         tabGeneral.add(sectionLabel("Commands"));
@@ -567,6 +612,8 @@ class SettingsDialog extends JDialog
             String newTheme = rbThemeDark.isSelected()   ? Launcher.THEME_DARK
                             : rbThemeLight.isSelected()  ? Launcher.THEME_LIGHT
                             :                              Launcher.THEME_SYSTEM;
+            String newAccent = selectedAccent[0] == null ? null
+                    : String.format("#%06X", selectedAccent[0].getRGB() & 0xFFFFFF);
 
             onSave.accept(new LauncherConfig(
                     config.rootFolder(), cbMinimized.isSelected(),
@@ -580,7 +627,7 @@ class SettingsDialog extends JDialog
                     newCustomActions.isEmpty()   ? null : newCustomActions,
                     newAppTypes.isEmpty()        ? null : newAppTypes,
                     newAssignments.isEmpty()     ? null : newAssignments,
-                    newTheme));
+                    newTheme, newAccent));
             dispose();
         });
         btnCancel.addActionListener(e -> dispose());

@@ -97,6 +97,7 @@ public class Launcher extends JFrame
     private JButton svnBrowserBtn;
 
     // Themed UI elements – stored so refreshThemeColors() can update them
+    private JPanel      headerPanel;
     private JPanel      legendPanel;
     private JScrollPane mainScrollPane;
     private JToolBar    mainToolbar;
@@ -164,7 +165,7 @@ public class Launcher extends JFrame
 
         // Apply the L&F FIRST so that isDark() returns the correct value
         // when the EntryCellRenderer constructor reads it to compute its colour palette.
-        applyTheme(cfg.theme());
+        applyTheme(cfg.theme(), cfg.accentColor());
         refreshThemeColors();
 
         // Create the renderer AFTER the theme is active so its colours are correct.
@@ -278,7 +279,7 @@ public class Launcher extends JFrame
 
         // ── Header ───────────────────────────────────────────────────────────
         JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(new Color(0x00, 0x78, 0xD7));
+        headerPanel = header;   // stored – background set by refreshThemeColors()
         header.setBorder(new EmptyBorder(10, 14, 10, 14));
         JLabel dirLabel = new JLabel(baseFolder.getName() + "   \u2014   " + baseFolder.getAbsolutePath());
         dirLabel.setFont(dirLabel.getFont().deriveFont(Font.BOLD, 13f));
@@ -584,7 +585,7 @@ public class Launcher extends JFrame
                 config.priorityList(), config.explorer(), config.editor(),
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
                 config.toolbarActions(), config.customActions(),
-                config.appTypes(), config.appTypeAssignments(), config.theme());
+                config.appTypes(), config.appTypeAssignments(), config.theme(), config.accentColor());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -598,19 +599,27 @@ public class Launcher extends JFrame
                 names, config.explorer(), config.editor(),
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
                 config.toolbarActions(), config.customActions(),
-                config.appTypes(), config.appTypeAssignments(), config.theme());
+                config.appTypes(), config.appTypeAssignments(), config.theme(), config.accentColor());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
     // ── Static utilities ──────────────────────────────────────────────────────
 
     /**
-     * Applies the Look-and-Feel matching the given theme key.
-     * {@code null} or {@code "system"} follows the OS dark/light preference.
+     * Applies the Look-and-Feel matching the given theme key and registers the
+     * accent colour with FlatLaf before installing the L&F.
+     * {@code null} or {@code "system"} theme follows the OS dark/light preference.
+     * {@code null} accent uses FlatLaf's built-in default.
      * Refreshes all open windows after switching.
      */
-    public static void applyTheme(String theme)
+    public static void applyTheme(String theme, String accentColor)
     {
+        // Register accent colour before setup() so the LAF picks it up immediately
+        if (accentColor != null && !accentColor.isBlank())
+            com.formdev.flatlaf.FlatLaf.setGlobalExtraDefaults(Map.of("@accentColor", accentColor));
+        else
+            com.formdev.flatlaf.FlatLaf.setGlobalExtraDefaults(Map.of());   // clear → LAF default
+
         try
         {
             if (THEME_DARK.equals(theme))
@@ -632,6 +641,17 @@ public class Launcher extends JFrame
         // Refresh every open window so the new L&F takes effect immediately
         for (Window w : Window.getWindows())
             SwingUtilities.updateComponentTreeUI(w);
+    }
+
+    /**
+     * Parses a CSS-style hex colour string (e.g. {@code "#0078D7"}) into a {@link Color}.
+     * Returns {@code fallback} if the string is {@code null}, blank, or unparseable.
+     */
+    static Color parseHexColor(String hex, Color fallback)
+    {
+        if (hex == null || hex.isBlank()) return fallback;
+        try   { return Color.decode(hex); }
+        catch (NumberFormatException ignored) { return fallback; }
     }
 
     /**
@@ -688,6 +708,15 @@ public class Launcher extends JFrame
         boolean dark   = EntryCellRenderer.isDark();
         Color sepColor = UIManager.getColor("Separator.foreground");
         if (sepColor == null) sepColor = dark ? new Color(0x4A, 0x4A, 0x4A) : new Color(0xCC, 0xCC, 0xCC);
+
+        // Header – use configured accent colour, fall back to the default Windows blue
+        if (headerPanel != null)
+        {
+            Color accent = (config != null)
+                    ? parseHexColor(config.accentColor(), new Color(0x00, 0x78, 0xD7))
+                    : new Color(0x00, 0x78, 0xD7);
+            headerPanel.setBackground(accent);
+        }
 
         // Legend / footer border – background follows panel default via L&F
         legendPanel.setBorder(new MatteBorder(1, 0, 0, 0, sepColor));
@@ -764,7 +793,7 @@ public class Launcher extends JFrame
     {
         // Apply a safe default L&F early so the folder-chooser dialog looks reasonable.
         // The definitive theme is applied again after loading the merged config.
-        applyTheme(null);
+        applyTheme(null, null);
 
         boolean minimizedCli  = false;
         String  folderArg     = null;
@@ -832,13 +861,13 @@ public class Launcher extends JFrame
                 merged.priorityList(), merged.explorer(), merged.editor(),
                 merged.actionOrder(), merged.entryButtonStyle(), merged.showContextMenu(),
                 merged.toolbarActions(), merged.customActions(),
-                merged.appTypes(), merged.appTypeAssignments(), merged.theme());
+                merged.appTypes(), merged.appTypeAssignments(), merged.theme(), merged.accentColor());
         resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
 
         final boolean minimized = startMinimized;
         SwingUtilities.invokeLater(() ->
         {
-            applyTheme(resolvedConfig.theme());   // apply configured theme on the EDT
+            applyTheme(resolvedConfig.theme(), resolvedConfig.accentColor());   // apply configured theme on the EDT
             Launcher launcher = new Launcher(resolvedFolder, resolvedConfig, launcherId);
             if (minimized) launcher.setupTray();
             else           launcher.setVisible(true);

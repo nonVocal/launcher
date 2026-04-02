@@ -36,7 +36,8 @@ record LauncherConfig(
         List<CustomAction>  customActions,
         List<AppType>       appTypes,
         Map<String, String> appTypeAssignments,   // folderName → appType id
-        String              theme)                // "light", "dark", null/"system"
+        String              theme,                // "light", "dark", null/"system"
+        String              accentColor)          // hex string e.g. "#0078D7", null = default
 {
     // ── Static paths ───────────────────────────────────────────────────────────
 
@@ -64,13 +65,13 @@ record LauncherConfig(
     /** All fields null – represents "nothing set at this level". */
     static LauncherConfig empty()
     {
-        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /** Hardcoded application defaults (all fields non-null). */
     static LauncherConfig defaults()
     {
-        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -115,7 +116,8 @@ record LauncherConfig(
                 customActions       != null ? customActions       : base.customActions,
                 appTypes            != null ? appTypes            : base.appTypes,
                 appTypeAssignments  != null ? appTypeAssignments  : base.appTypeAssignments,
-                theme               != null ? theme               : base.theme);
+                theme               != null ? theme               : base.theme,
+                accentColor         != null ? accentColor         : base.accentColor);
     }
 
     /**
@@ -139,7 +141,8 @@ record LauncherConfig(
                 customActions,
                 appTypes,
                 appTypeAssignments,
-                theme);
+                theme,
+                accentColor);
     }
 
     // ── Persistence ────────────────────────────────────────────────────────────
@@ -172,6 +175,7 @@ record LauncherConfig(
         if (entryButtonStyle != null) lines.add("  \"entryButtonStyle\": " + jsonStr(entryButtonStyle));
         if (showContextMenu  != null) lines.add("  \"showContextMenu\": "  + showContextMenu);
         if (theme            != null) lines.add("  \"theme\": "            + jsonStr(theme));
+        if (accentColor      != null) lines.add("  \"accentColor\": "      + jsonStr(accentColor));
         if (priorityList != null && !priorityList.isEmpty())
         {
             lines.add(jsonStrList("priorityList", priorityList));
@@ -312,7 +316,8 @@ record LauncherConfig(
                 parseCustomActions    (json),
                 parseAppTypes         (json),
                 parseAppTypeAssignments(json),
-                parseStr              (json, "theme"));
+                parseStr              (json, "theme"),
+                parseStr              (json, "accentColor"));
     }
 
     // ── CustomAction deserialisation ──────────────────────────────────────────
