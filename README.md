@@ -23,7 +23,6 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - The cursor changes to a **hand pointer** when hovering over an icon
 - **Right-click context menu** (folders and app folders) with the same configurable quick actions plus **SVN Checkout**
   - The context menu can be **disabled** via the Settings dialog or the `showContextMenu` config field
-- **Right-click context menu** (folders and app folders) with the same configurable quick actions plus **SVN Checkout**
 - **Real-time output windows** for robocopy and SVN operations
 - **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
 - **Settings dialog** to inspect active config paths, toggle startup options, configure commands (`EXPLORER`, `EDITOR`), and customize the action button bar
@@ -67,7 +66,7 @@ This compiles the project and creates a JAR file in the `target/` folder.
 build.bat
 ```
 
-This compiles `Launcher.java` into `Launcher.class` in the same directory.
+This compiles all `.java` source files in the `launcher` package into `.class` files in the same directory. Note: Maven (`mvn clean package`) is recommended as it handles all source files automatically.
 
 ### 3. Run
 
@@ -347,7 +346,7 @@ Launcher uses the following two-stage strategy:
 3. **Error handling** – If neither is present the folder will be shown as a *plain folder* rather than an application folder (it would not have been classified as one to begin with)
 
 ### Plain Folders
-Double-clicking a plain folder opens it in **Windows File Explorer**. All right-click actions (copy, delete, SVN checkout, open in VS Code) are still available.
+Double-clicking a plain folder opens it in **Windows File Explorer**. All right-click actions (copy, delete, SVN checkout, open in editor) are still available.
 
 ### Folder Classification
 
@@ -361,7 +360,11 @@ All other sub-folders are treated as **plain folders**.
 
 | File | Description |
 |---|---|
-| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application source (~2 120 lines) |
+| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Main application class – UI construction, mouse handling, launching, settings dialog (~640 lines) |
+| `src/main/java/dev/nonvocal/launcher/LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic |
+| `src/main/java/dev/nonvocal/launcher/EntryCellRenderer.java` | Swing list-cell renderer – supports ICONS and HAMBURGER button styles |
+| `src/main/java/dev/nonvocal/launcher/LaunchEntry.java` | Record representing a single list entry (file, type, icon source) |
+| `src/main/java/dev/nonvocal/launcher/EntryType.java` | Enum: `SCRIPT`, `APP_FOLDER`, `PLAIN_FOLDER` |
 | `src/main/resources/` | PNG icon files used for action buttons, window and tray |
 | `pom.xml` | Maven configuration (JDK 26, JUnit 5) |
 | `scripts/build.bat` | Compiles the source with `javac` |
