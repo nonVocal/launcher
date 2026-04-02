@@ -282,7 +282,7 @@ public class Launcher extends JFrame
 
         ImageIcon svnIcon = loadScaledIcon("apps-add.png", 20, 20);
         JButton svnButton = svnIcon != null ? new JButton(svnIcon) : new JButton("SVN");
-        svnButton.setToolTipText("SVN Repository Browser \u2013 browse the repository and check out projects");
+        svnButton.setToolTipText("SVN Checkout \u2013 check out a repository into the selected folder");
         svnButton.setFocusPainted(false);
         svnButton.addActionListener(ev ->
         {
@@ -291,6 +291,17 @@ public class Launcher extends JFrame
                     (sel != null && sel.type() != EntryType.SCRIPT) ? sel.file() : baseFolder);
         });
         toolbar.add(svnButton);
+
+        JButton svnRepoBrowserButton = svnIcon != null ? new JButton(svnIcon) : new JButton("SVN Browser");
+        svnRepoBrowserButton.setToolTipText("SVN Repository Browser \u2013 browse the repository and check out projects");
+        svnRepoBrowserButton.setFocusPainted(false);
+        svnRepoBrowserButton.addActionListener(ev ->
+        {
+            LaunchEntry sel = list.getSelectedValue();
+            folderActions.svnCheckoutWithRepoBrowser(
+                    (sel != null && sel.type() != EntryType.SCRIPT) ? sel.file() : baseFolder);
+        });
+        toolbar.add(svnRepoBrowserButton);
         toolbar.add(Box.createHorizontalGlue());
 
         ImageIcon settingsIcon = loadScaledIcon("setting.png", 20, 20);
@@ -330,7 +341,7 @@ public class Launcher extends JFrame
 
     // ── Actions popup ────────────────────────────────────────────────────────
 
-    /** Builds and shows a popup menu with all currently enabled actions plus SVN Checkout. */
+    /** Builds and shows a popup menu with all currently enabled actions. */
     private void showActionsPopup(LaunchEntry sel, int x, int y)
     {
         JPopupMenu menu = new JPopupMenu();
@@ -354,10 +365,6 @@ public class Launcher extends JFrame
             }
             menu.add(mi);
         }
-        menu.addSeparator();
-        JMenuItem miSVN = new JMenuItem("SVN Repository Browser...");
-        miSVN.addActionListener(e -> folderActions.svnCheckout(sel.file()));
-        menu.add(miSVN);
         menu.show(list, x, y);
     }
 

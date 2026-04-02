@@ -125,6 +125,48 @@ class FolderActions
         }
     }
 
+    void svnCheckout(File targetFolder)
+    {
+        String url = JOptionPane.showInputDialog(parent,
+                "Enter SVN repository URL:", "SVN Checkout", JOptionPane.QUESTION_MESSAGE);
+        if (url == null || url.trim().isEmpty()) return;
+        url = url.trim();
+        try
+        {
+            String repoName = url.replaceAll(".*/+", "").replaceAll("\\..*", "");
+            if (repoName.isEmpty()) repoName = "checkout";
+
+            ProcessBuilder pb = new ProcessBuilder(
+                    "svn", "checkout", url, new File(targetFolder, repoName).getAbsolutePath());
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            ProcessOutputWindow.show(process, "SVN Checkout: " + url, null);
+
+            new Thread(() ->
+            {
+                try
+                {
+                    process.waitFor();
+                    SwingUtilities.invokeLater(() ->
+                    {
+                        int r = JOptionPane.showConfirmDialog(parent,
+                                "Checkout completed. Refresh the file list?",
+                                "SVN Checkout", JOptionPane.YES_NO_OPTION);
+                        if (r == JOptionPane.YES_OPTION) onRefresh.run();
+                    });
+                }
+                catch (InterruptedException ignored) {}
+            }).start();
+        }
+        catch (IOException ex)
+        {
+            JOptionPane.showMessageDialog(parent,
+                    "Could not start SVN:\n" + ex.getMessage()
+                            + "\n\nMake sure 'svn' is installed and on your PATH.",
+                    "Launcher Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     /**
      * Opens the TortoiseSVN repository browser at the given URL so the user can
      * navigate the repository and check out any sub-path they choose.
@@ -134,7 +176,7 @@ class FolderActions
      * directories.  As soon as one appears the application list is refreshed
      * automatically.
      */
-    void svnCheckout(File targetFolder)
+    void svnCheckoutWithRepoBrowser(File targetFolder)
     {
         File tortoiseProc = findTortoiseSVN();
         if (tortoiseProc == null)
@@ -148,18 +190,9 @@ class FolderActions
             return;
         }
 
-        String url = (String) JOptionPane.showInputDialog(parent,
-                "<html>Enter the SVN repository root URL to browse:<br>"
-                + "<small>(leave blank to open the browser without a predefined URL)</small></html>",
-                "SVN Repository Browser",
-                JOptionPane.QUESTION_MESSAGE, null, null, "");
-        if (url == null) return;   // user cancelled
-        url = url.trim();
-
         List<String> cmd = new ArrayList<>();
         cmd.add(tortoiseProc.getAbsolutePath());
         cmd.add("/command:repobrowser");
-        if (!url.isEmpty()) cmd.add("/path:" + url);
 
         Process repoBrowserProcess;
         try
