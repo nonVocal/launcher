@@ -77,6 +77,29 @@ class SettingsDialog extends JDialog
         tabGeneral.add(cbMinimized);
         tabGeneral.add(separator());
 
+        tabGeneral.add(sectionLabel("Appearance"));
+        tabGeneral.add(Box.createVerticalStrut(4));
+        JLabel themeHint = new JLabel("Choose between light mode, dark mode, or follow the system setting");
+        themeHint.setFont(themeHint.getFont().deriveFont(Font.ITALIC, 10f));
+        themeHint.setForeground(Color.GRAY);
+        themeHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabGeneral.add(themeHint);
+        tabGeneral.add(Box.createVerticalStrut(4));
+        JRadioButton rbThemeSystem = new JRadioButton("System default  \u2013  follow the OS dark/light preference");
+        JRadioButton rbThemeLight  = new JRadioButton("Light mode");
+        JRadioButton rbThemeDark   = new JRadioButton("Dark mode");
+        new ButtonGroup() {{ add(rbThemeSystem); add(rbThemeLight); add(rbThemeDark); }};
+        if      (Launcher.THEME_DARK.equals(config.theme()))  rbThemeDark.setSelected(true);
+        else if (Launcher.THEME_LIGHT.equals(config.theme())) rbThemeLight.setSelected(true);
+        else                                                   rbThemeSystem.setSelected(true);
+        rbThemeSystem.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rbThemeLight.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rbThemeDark.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabGeneral.add(rbThemeSystem);
+        tabGeneral.add(rbThemeLight);
+        tabGeneral.add(rbThemeDark);
+        tabGeneral.add(separator());
+
         tabGeneral.add(sectionLabel("Commands"));
         tabGeneral.add(Box.createVerticalStrut(6));
         JTextField tfExplorer = new JTextField(config.explorer() != null ? config.explorer() : "", 30);
@@ -541,6 +564,9 @@ class SettingsDialog extends JDialog
             String editorVal      = tfEditor.getText().trim();
             String newButtonStyle = rbHamburger.isSelected()
                     ? Launcher.BUTTON_STYLE_HAMBURGER : Launcher.BUTTON_STYLE_ICONS;
+            String newTheme = rbThemeDark.isSelected()   ? Launcher.THEME_DARK
+                            : rbThemeLight.isSelected()  ? Launcher.THEME_LIGHT
+                            :                              Launcher.THEME_SYSTEM;
 
             onSave.accept(new LauncherConfig(
                     config.rootFolder(), cbMinimized.isSelected(),
@@ -553,7 +579,8 @@ class SettingsDialog extends JDialog
                     newToolbarActions.isEmpty()  ? null : newToolbarActions,
                     newCustomActions.isEmpty()   ? null : newCustomActions,
                     newAppTypes.isEmpty()        ? null : newAppTypes,
-                    newAssignments.isEmpty()     ? null : newAssignments));
+                    newAssignments.isEmpty()     ? null : newAssignments,
+                    newTheme));
             dispose();
         });
         btnCancel.addActionListener(e -> dispose());

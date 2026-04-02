@@ -35,7 +35,8 @@ record LauncherConfig(
         List<String>        toolbarActions,
         List<CustomAction>  customActions,
         List<AppType>       appTypes,
-        Map<String, String> appTypeAssignments)   // folderName → appType id
+        Map<String, String> appTypeAssignments,   // folderName → appType id
+        String              theme)                // "light", "dark", null/"system"
 {
     // ── Static paths ───────────────────────────────────────────────────────────
 
@@ -63,13 +64,13 @@ record LauncherConfig(
     /** All fields null – represents "nothing set at this level". */
     static LauncherConfig empty()
     {
-        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /** Hardcoded application defaults (all fields non-null). */
     static LauncherConfig defaults()
     {
-        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -113,7 +114,8 @@ record LauncherConfig(
                 toolbarActions      != null ? toolbarActions      : base.toolbarActions,
                 customActions       != null ? customActions       : base.customActions,
                 appTypes            != null ? appTypes            : base.appTypes,
-                appTypeAssignments  != null ? appTypeAssignments  : base.appTypeAssignments);
+                appTypeAssignments  != null ? appTypeAssignments  : base.appTypeAssignments,
+                theme               != null ? theme               : base.theme);
     }
 
     /**
@@ -136,7 +138,8 @@ record LauncherConfig(
                 toolbarActions,
                 customActions,
                 appTypes,
-                appTypeAssignments);
+                appTypeAssignments,
+                theme);
     }
 
     // ── Persistence ────────────────────────────────────────────────────────────
@@ -168,6 +171,7 @@ record LauncherConfig(
         if (editor           != null) lines.add("  \"editor\": "           + jsonStr(editor));
         if (entryButtonStyle != null) lines.add("  \"entryButtonStyle\": " + jsonStr(entryButtonStyle));
         if (showContextMenu  != null) lines.add("  \"showContextMenu\": "  + showContextMenu);
+        if (theme            != null) lines.add("  \"theme\": "            + jsonStr(theme));
         if (priorityList != null && !priorityList.isEmpty())
         {
             lines.add(jsonStrList("priorityList", priorityList));
@@ -307,7 +311,8 @@ record LauncherConfig(
                 parseStrList          (json, "toolbarActions"),
                 parseCustomActions    (json),
                 parseAppTypes         (json),
-                parseAppTypeAssignments(json));
+                parseAppTypeAssignments(json),
+                parseStr              (json, "theme"));
     }
 
     // ── CustomAction deserialisation ──────────────────────────────────────────

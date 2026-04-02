@@ -224,7 +224,7 @@ class EntryLoaderTest
         touch(dir, "a.bat");
 
         LauncherConfig cfg = new LauncherConfig(
-                null, null, null, null, List.of(), null, null, null, null, null, null, null, null, null);
+                null, null, null, null, List.of(), null, null, null, null, null, null, null, null, null, null);
 
         List<LaunchEntry> entries = EntryLoader.load(dir, cfg);
 
@@ -270,7 +270,7 @@ class EntryLoaderTest
     /** Builds a config that has only the given priority list set. */
     private static LauncherConfig withPriority(String... names)
     {
-        return new LauncherConfig(null, null, null, null, List.of(names), null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, null, null, null, List.of(names), null, null, null, null, null, null, null, null, null, null);
     }
 }
 

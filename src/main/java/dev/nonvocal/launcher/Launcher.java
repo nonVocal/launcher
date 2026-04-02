@@ -57,6 +57,12 @@ public class Launcher extends JFrame
     public static final String BUTTON_STYLE_ICONS     = "ICONS";
     public static final String BUTTON_STYLE_HAMBURGER = "HAMBURGER";
 
+    // ── Theme keys ───────────────────────────────────────────────────────────
+
+    public static final String THEME_LIGHT  = "light";
+    public static final String THEME_DARK   = "dark";
+    public static final String THEME_SYSTEM = "system";
+
     // ── Instance state ───────────────────────────────────────────────────────
 
     private final File   baseFolder;
@@ -149,6 +155,7 @@ public class Launcher extends JFrame
         showContextMenu         = resolveShowContextMenu(cfg);
         cellRenderer            = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle,
                                                         effectiveCustomActionMap);
+        applyTheme(cfg.theme());   // ← re-apply theme whenever config changes
         if (list != null)
         {
             list.setCellRenderer(cellRenderer);
@@ -562,7 +569,7 @@ public class Launcher extends JFrame
                 config.priorityList(), config.explorer(), config.editor(),
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
                 config.toolbarActions(), config.customActions(),
-                config.appTypes(), config.appTypeAssignments());
+                config.appTypes(), config.appTypeAssignments(), config.theme());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -576,11 +583,84 @@ public class Launcher extends JFrame
                 names, config.explorer(), config.editor(),
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
                 config.toolbarActions(), config.customActions(),
-                config.appTypes(), config.appTypeAssignments());
+                config.appTypes(), config.appTypeAssignments(), config.theme());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
     // ── Static utilities ──────────────────────────────────────────────────────
+
+    /**
+     * Applies the Look-and-Feel matching the given theme key.
+     * {@code null} or {@code "system"} follows the OS dark/light preference.
+     * Refreshes all open windows after switching.
+     */
+    public static void applyTheme(String theme)
+    {
+        try
+        {
+            if (THEME_DARK.equals(theme))
+                com.formdev.flatlaf.FlatDarkLaf.setup();
+            else if (THEME_LIGHT.equals(theme))
+                com.formdev.flatlaf.FlatLightLaf.setup();
+            else
+            {
+                // System default: detect the OS dark-mode preference
+                if (isSystemDarkMode()) com.formdev.flatlaf.FlatDarkLaf.setup();
+                else                    com.formdev.flatlaf.FlatLightLaf.setup();
+            }
+        }
+        catch (Exception e)
+        {
+            try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); }
+            catch (Exception ignored) {}
+        }
+        // Refresh every open window so the new L&F takes effect immediately
+        for (Window w : Window.getWindows())
+            SwingUtilities.updateComponentTreeUI(w);
+    }
+
+    /**
+     * Detects whether the operating system is currently in dark mode.
+     * <ul>
+     *   <li>Windows: reads {@code AppsUseLightTheme} from the registry.</li>
+     *   <li>macOS:   reads {@code AppleInterfaceStyle} via {@code defaults read}.</li>
+     *   <li>Other:   returns {@code false} (light assumed).</li>
+     * </ul>
+     */
+    private static boolean isSystemDarkMode()
+    {
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        if (os.contains("win"))
+        {
+            try
+            {
+                Process process = new ProcessBuilder("reg", "query",
+                        "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                        "/v", "AppsUseLightTheme")
+                        .redirectErrorStream(true)
+                        .start();
+                String output = new String(process.getInputStream().readAllBytes());
+                process.waitFor();
+                // AppsUseLightTheme = 0x0 means dark mode is active
+                return output.contains("0x0");
+            }
+            catch (Exception ignored) {}
+        }
+        else if (os.contains("mac"))
+        {
+            try
+            {
+                Process process = new ProcessBuilder("defaults", "read", "-g", "AppleInterfaceStyle")
+                        .redirectErrorStream(true)
+                        .start();
+                String output = new String(process.getInputStream().readAllBytes()).trim();
+                process.waitFor();
+                return "Dark".equalsIgnoreCase(output);
+            }
+            catch (Exception ignored) {}
+        }
+        return false;
+    }
 
     /** Creates a small coloured legend label. */
     private static JLabel coloredLabel(String text, Color color)
@@ -631,8 +711,9 @@ public class Launcher extends JFrame
 
     public static void main(String[] args)
     {
-        try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); }
-        catch (Exception ignored) {}
+        // Apply a safe default L&F early so the folder-chooser dialog looks reasonable.
+        // The definitive theme is applied again after loading the merged config.
+        applyTheme(null);
 
         boolean minimizedCli  = false;
         String  folderArg     = null;
@@ -700,12 +781,13 @@ public class Launcher extends JFrame
                 merged.priorityList(), merged.explorer(), merged.editor(),
                 merged.actionOrder(), merged.entryButtonStyle(), merged.showContextMenu(),
                 merged.toolbarActions(), merged.customActions(),
-                merged.appTypes(), merged.appTypeAssignments());
+                merged.appTypes(), merged.appTypeAssignments(), merged.theme());
         resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
 
         final boolean minimized = startMinimized;
         SwingUtilities.invokeLater(() ->
         {
+            applyTheme(resolvedConfig.theme());   // apply configured theme on the EDT
             Launcher launcher = new Launcher(resolvedFolder, resolvedConfig, launcherId);
             if (minimized) launcher.setupTray();
             else           launcher.setVisible(true);
