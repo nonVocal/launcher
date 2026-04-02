@@ -964,16 +964,45 @@ class SettingsDialog extends JDialog
 
     // ── Static UI helpers ─────────────────────────────────────────────────────
 
-    private static JLabel sectionLabel(String text)
+    private JLabel sectionLabel(String text)
     {
         JLabel lbl = new JLabel(text);
         lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, 11f));
-        lbl.setForeground(EntryCellRenderer.isDark()
-                ? new Color(0x66, 0xAA, 0xFF)   // bright blue for dark backgrounds
-                : new Color(0x00, 0x50, 0x99));  // deep blue for light backgrounds
+        lbl.setForeground(sectionLabelColor());
         lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
         return lbl;
     }
+
+    /**
+     * Derives an appropriate section-label foreground colour from the current accent colour.
+     * <ul>
+     *   <li>Dark mode  – blends the accent 40 % toward white so it stays readable on dark panels.</li>
+     *   <li>Light mode – blends the accent 35 % toward black so it contrasts on white/light panels.</li>
+     * </ul>
+     * Falls back to the Windows-blue default ({@code #0078D7}) when no accent is configured.
+     */
+    private Color sectionLabelColor()
+    {
+        Color accent = Launcher.parseHexColor(config.accentColor(), new Color(0x00, 0x78, 0xD7));
+        if (EntryCellRenderer.isDark())
+        {
+            // Lighten: blend 40 % toward white
+            int r = (int) (accent.getRed()   + (255 - accent.getRed())   * 0.4);
+            int g = (int) (accent.getGreen() + (255 - accent.getGreen()) * 0.4);
+            int b = (int) (accent.getBlue()  + (255 - accent.getBlue())  * 0.4);
+            return new Color(clamp(r), clamp(g), clamp(b));
+        }
+        else
+        {
+            // Darken: blend 35 % toward black
+            int r = (int) (accent.getRed()   * 0.65);
+            int g = (int) (accent.getGreen() * 0.65);
+            int b = (int) (accent.getBlue()  * 0.65);
+            return new Color(clamp(r), clamp(g), clamp(b));
+        }
+    }
+
+    private static int clamp(int v) { return Math.max(0, Math.min(255, v)); }
 
     private static JSeparator separator()
     {
