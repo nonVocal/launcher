@@ -1,0 +1,245 @@
+package dev.nonvocal.launcher;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Immutable configuration record with three-level override support.
+ * <ol>
+ *   <li>Global:   {@code %APPDATA%\nvLauncher\config.json}</li>
+ *   <li>Instance: {@code %APPDATA%\nvLauncher\{launcherId}\config.json}</li>
+ *   <li>Explicit: path supplied via {@code --config=<path>}</li>
+ * </ol>
+ * Each level overrides only the fields that are explicitly present.
+ * All fields are nullable; {@code null} means "not set at this level".
+ * Call {@link #withDefaults()} on the final merged config to fill gaps.
+ */
+record LauncherConfig(
+        String       rootFolder,
+        Boolean      startMinimized,
+        Integer      windowWidth,
+        Integer      windowHeight,
+        List<String> priorityList,
+        String       explorer,
+        String       editor,
+        List<String> actionOrder,
+        String       entryButtonStyle,
+        Boolean      showContextMenu)
+{
+    // ── Static paths ───────────────────────────────────────────────────────────
+
+    /** Base config directory: {@code %APPDATA%\nvLauncher} */
+    static final File CONFIG_DIR;
+    static
+    {
+        String appData = System.getenv("APPDATA");
+        if (appData == null) appData = System.getProperty("user.home");
+        CONFIG_DIR = new File(appData, "nvLauncher");
+    }
+
+    static File globalConfigFile()
+    {
+        return new File(CONFIG_DIR, "config.json");
+    }
+
+    static File instanceConfigFile(String launcherId)
+    {
+        return new File(new File(CONFIG_DIR, launcherId), "config.json");
+    }
+
+    // ── Factory methods ────────────────────────────────────────────────────────
+
+    /** All fields null – represents "nothing set at this level". */
+    static LauncherConfig empty()
+    {
+        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null);
+    }
+
+    /** Hardcoded application defaults (all fields non-null). */
+    static LauncherConfig defaults()
+    {
+        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null);
+    }
+
+    /**
+     * Loads a config from {@code file}.
+     * Returns {@link #empty()} if the file does not exist or cannot be read.
+     * Fields missing in the file are left null.
+     */
+    static LauncherConfig loadFile(File file)
+    {
+        if (!file.exists()) return empty();
+        try
+        {
+            return parse(Files.readString(file.toPath()));
+        }
+        catch (IOException e)
+        {
+            return empty();
+        }
+    }
+
+    // ── Merging ────────────────────────────────────────────────────────────────
+
+    /**
+     * Returns a new config in which every non-null field of {@code this}
+     * overrides the corresponding field from {@code base}.
+     * Use as: {@code override.mergeOver(base)}.
+     */
+    LauncherConfig mergeOver(LauncherConfig base)
+    {
+        return new LauncherConfig(
+                rootFolder        != null ? rootFolder        : base.rootFolder,
+                startMinimized    != null ? startMinimized    : base.startMinimized,
+                windowWidth       != null ? windowWidth       : base.windowWidth,
+                windowHeight      != null ? windowHeight      : base.windowHeight,
+                priorityList      != null ? priorityList      : base.priorityList,
+                explorer          != null ? explorer          : base.explorer,
+                editor            != null ? editor            : base.editor,
+                actionOrder       != null ? actionOrder       : base.actionOrder,
+                entryButtonStyle  != null ? entryButtonStyle  : base.entryButtonStyle,
+                showContextMenu   != null ? showContextMenu   : base.showContextMenu);
+    }
+
+    /**
+     * Returns a new config where every field that is still null is filled
+     * with the hardcoded application default.
+     */
+    LauncherConfig withDefaults()
+    {
+        return new LauncherConfig(
+                rootFolder,
+                startMinimized != null ? startMinimized : false,
+                windowWidth    != null ? windowWidth    : 560,
+                windowHeight   != null ? windowHeight   : 680,
+                priorityList,
+                explorer,
+                editor,
+                actionOrder,
+                entryButtonStyle,
+                showContextMenu);
+    }
+
+    // ── Persistence ────────────────────────────────────────────────────────────
+
+    /**
+     * Saves this config to {@code file}, creating parent directories as needed.
+     * Only non-null fields are written; silently ignores I/O errors.
+     */
+    void save(File file)
+    {
+        try
+        {
+            file.getParentFile().mkdirs();
+            Files.writeString(file.toPath(), toJson());
+        }
+        catch (IOException ignored) {}
+    }
+
+    // ── Serialisation ──────────────────────────────────────────────────────────
+
+    private String toJson()
+    {
+        List<String> lines = new ArrayList<>();
+        if (rootFolder       != null) lines.add("  \"rootFolder\": "       + jsonStr(rootFolder));
+        if (startMinimized   != null) lines.add("  \"startMinimized\": "   + startMinimized);
+        if (windowWidth      != null) lines.add("  \"windowWidth\": "      + windowWidth);
+        if (windowHeight     != null) lines.add("  \"windowHeight\": "     + windowHeight);
+        if (explorer         != null) lines.add("  \"explorer\": "         + jsonStr(explorer));
+        if (editor           != null) lines.add("  \"editor\": "           + jsonStr(editor));
+        if (entryButtonStyle != null) lines.add("  \"entryButtonStyle\": " + jsonStr(entryButtonStyle));
+        if (showContextMenu  != null) lines.add("  \"showContextMenu\": "  + showContextMenu);
+        if (priorityList != null && !priorityList.isEmpty())
+        {
+            StringBuilder sb = new StringBuilder("  \"priorityList\": [\n");
+            for (int i = 0; i < priorityList.size(); i++)
+            {
+                sb.append("    ").append(jsonStr(priorityList.get(i)));
+                if (i < priorityList.size() - 1) sb.append(",");
+                sb.append("\n");
+            }
+            sb.append("  ]");
+            lines.add(sb.toString());
+        }
+        if (actionOrder != null && !actionOrder.isEmpty())
+        {
+            StringBuilder sb = new StringBuilder("  \"actionOrder\": [\n");
+            for (int i = 0; i < actionOrder.size(); i++)
+            {
+                sb.append("    ").append(jsonStr(actionOrder.get(i)));
+                if (i < actionOrder.size() - 1) sb.append(",");
+                sb.append("\n");
+            }
+            sb.append("  ]");
+            lines.add(sb.toString());
+        }
+        return "{\n" + String.join(",\n", lines) + "\n}";
+    }
+
+    private static String jsonStr(String s)
+    {
+        if (s == null) return "null";
+        return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
+    // ── Deserialisation (no external library) ─────────────────────────────────
+
+    private static LauncherConfig parse(String json)
+    {
+        return new LauncherConfig(
+                parseStr    (json, "rootFolder"),
+                parseBool   (json, "startMinimized"),
+                parseInt    (json, "windowWidth"),
+                parseInt    (json, "windowHeight"),
+                parseStrList(json, "priorityList"),
+                parseStr    (json, "explorer"),
+                parseStr    (json, "editor"),
+                parseStrList(json, "actionOrder"),
+                parseStr    (json, "entryButtonStyle"),
+                parseBool   (json, "showContextMenu"));
+    }
+
+    private static String parseStr(String json, String key)
+    {
+        Matcher m = Pattern.compile(
+                "\"" + key + "\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\")").matcher(json);
+        if (!m.find()) return null;
+        String g = m.group(1);
+        return g == null ? null : g.replace("\\\\", "\\").replace("\\\"", "\"");
+    }
+
+    private static Boolean parseBool(String json, String key)
+    {
+        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*(true|false)").matcher(json);
+        return m.find() ? Boolean.parseBoolean(m.group(1)) : null;
+    }
+
+    private static Integer parseInt(String json, String key)
+    {
+        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+)").matcher(json);
+        return m.find() ? Integer.parseInt(m.group(1)) : null;
+    }
+
+    private static List<String> parseStrList(String json, String key)
+    {
+        Matcher m = Pattern.compile(
+                "\"" + key + "\"\\s*:\\s*\\[([^]]*?)\\]",
+                Pattern.DOTALL).matcher(json);
+        if (!m.find()) return null;
+        String inner = m.group(1).trim();
+        if (inner.isEmpty()) return new ArrayList<>();
+        List<String> result = new ArrayList<>();
+        Matcher em = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(inner);
+        while (em.find())
+        {
+            result.add(em.group(1).replace("\\\\", "\\").replace("\\\"", "\""));
+        }
+        return result;
+    }
+}
+
