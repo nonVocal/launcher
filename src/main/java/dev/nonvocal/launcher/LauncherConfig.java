@@ -187,6 +187,7 @@ record LauncherConfig(
             CustomAction a = actions.get(i);
             sb.append("    {");
             sb.append("\"id\": ").append(jsonStr(a.id()));
+            sb.append(", \"scope\": ").append(jsonStr(a.scope() != null ? a.scope() : CustomAction.SCOPE_BOTH));
             sb.append(", \"icon\": ").append(jsonStr(a.iconPath()));
             sb.append(", \"script\": ").append(jsonStr(a.scriptPath()));
             if (a.label()   != null) sb.append(", \"label\": ")   .append(jsonStr(a.label()));
@@ -270,6 +271,7 @@ record LauncherConfig(
             if (id != null && !id.isBlank())
             {
                 result.add(new CustomAction(id,
+                        parseStr(obj, "scope"),
                         parseStr(obj, "icon"),
                         parseStr(obj, "script"),
                         parseStr(obj, "label"),

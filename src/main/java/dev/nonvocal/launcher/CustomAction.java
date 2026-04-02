@@ -8,10 +8,11 @@ import java.io.File;
 import java.io.IOException;
 
 /**
- * A user-defined action that can appear in the entry action bar or the toolbar.
+ * A user-defined action that can appear in the entry action bar, the toolbar, or both.
  *
  * <ul>
  *   <li>{@code id}         – unique key; referenced in {@code actionOrder} / {@code toolbarActions}</li>
+ *   <li>{@code scope}      – where the action may appear: {@code "ENTRY"}, {@code "TOOLBAR"}, or {@code "BOTH"}</li>
  *   <li>{@code iconPath}   – absolute path to a PNG/JPG/GIF icon file (may be {@code null})</li>
  *   <li>{@code scriptPath} – absolute path to the script or executable to run</li>
  *   <li>{@code label}      – display name; falls back to {@code id} when blank or {@code null}</li>
@@ -24,11 +25,39 @@ import java.io.IOException;
  */
 record CustomAction(
         String id,
+        String scope,
         String iconPath,
         String scriptPath,
         String label,
         String tooltip)
 {
+    // ── Scope constants ───────────────────────────────────────────────────────
+
+    /** Action appears only in the per-entry action bar. */
+    static final String SCOPE_ENTRY   = "ENTRY";
+
+    /** Action appears only in the toolbar. */
+    static final String SCOPE_TOOLBAR = "TOOLBAR";
+
+    /** Action appears in both the per-entry action bar and the toolbar. */
+    static final String SCOPE_BOTH    = "BOTH";
+
+    // ── Scope helpers ─────────────────────────────────────────────────────────
+
+    /** {@code true} when this action may appear in the per-entry action bar. */
+    boolean appliesToEntry()
+    {
+        return scope == null || SCOPE_ENTRY.equals(scope) || SCOPE_BOTH.equals(scope);
+    }
+
+    /** {@code true} when this action may appear in the toolbar. */
+    boolean appliesToToolbar()
+    {
+        return scope == null || SCOPE_TOOLBAR.equals(scope) || SCOPE_BOTH.equals(scope);
+    }
+
+    // ── Label / tooltip helpers ───────────────────────────────────────────────
+
     /** Display name – falls back to {@code id} when {@code label} is blank or {@code null}. */
     String effectiveLabel()
     {
@@ -57,4 +86,3 @@ record CustomAction(
         catch (IOException e) { return null; }
     }
 }
-

@@ -144,6 +144,7 @@ CLI arguments override all config files.
   "customActions": [
     {
       "id": "my-deploy-action",
+      "scope": "ENTRY",
       "iconPath": "C:\\icons\\deploy.png",
       "scriptPath": "C:\\scripts\\deploy.bat",
       "label": "Deploy",
@@ -151,6 +152,7 @@ CLI arguments override all config files.
     },
     {
       "id": "my-build-action",
+      "scope": "TOOLBAR",
       "iconPath": "C:\\icons\\build.png",
       "scriptPath": "C:\\scripts\\build.bat",
       "label": "Build All"
@@ -219,6 +221,7 @@ Custom actions let you hook your own scripts or executables into the launcher UI
 | Field | Required | Description |
 |---|---|---|
 | `id` | ✅ yes | Unique identifier. Used as the key in `actionOrder` and `toolbarActions`. Must not clash with built-in keys. |
+| `scope` | ✅ yes | Where the action may appear: `"ENTRY"` (entry action bar only), `"TOOLBAR"` (toolbar only), or `"BOTH"` (entry bar and toolbar). Only actions whose scope matches will appear in the respective list in the Settings dialog. |
 | `scriptPath` | ✅ yes | Full path to the script or executable to run. When triggered from the **entry action bar**, the selected folder's absolute path is passed as the first argument. When triggered from the **toolbar**, the launcher root folder path is passed instead. |
 | `iconPath` | ❌ optional | Full path to a PNG or JPEG image file used as the button icon. If omitted, a short text label is shown instead. |
 | `label` | ❌ optional | Display label for the button and context menu item. Falls back to the `id` if omitted. |
@@ -231,6 +234,7 @@ Custom actions let you hook your own scripts or executables into the launcher UI
   "customActions": [
     {
       "id": "my-deploy",
+      "scope": "BOTH",
       "scriptPath": "C:\\scripts\\deploy.bat",
       "iconPath": "C:\\icons\\deploy.png",
       "label": "Deploy",
@@ -305,7 +309,7 @@ Open by clicking the **⚙ gear icon** on the right side of the toolbar.
 | Startup | Start minimized | Checkbox – saves to instance config; takes effect on next launch |
 | Commands | EXPLORER | File explorer command. Leave blank to use the system default. |
 | Commands | EDITOR | Editor command (e.g. `code`, `notepad++`). Leave blank to default to `code`. |
-| Custom Actions | Action list | Add, edit, or remove user-defined custom actions. Each action has an ID, script path, optional icon, label, and tooltip. Custom action IDs can then be added to the **Toolbar Buttons** or **Action Buttons** lists. |
+| Custom Actions | Action list | Add, edit, or remove user-defined custom actions. Each action has an ID, a mandatory **scope** (`Entry`, `Toolbar`, or `Both`), script path, optional icon, label, and tooltip. Only actions with a matching scope appear in the Toolbar Buttons or Action Buttons lists below. |
 | Toolbar Buttons | Toolbar list | Checkboxes to show/hide each toolbar button (built-in SVN buttons and any custom actions added here); **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
 | Action Buttons | Action list | Checkboxes to show/hide each entry action (built-in actions and any custom actions added here); **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
 | Button Style | Style radio buttons | Choose **Inline icons** (one button per action, default) or **Hamburger menu** (single ☰ button that opens a popup). Takes effect immediately. |

@@ -102,7 +102,10 @@ class SettingsDialog extends JDialog
         caList.setFixedCellHeight(24);
         caList.setCellRenderer((lst, value, index, isSelected, focus) ->
         {
-            JLabel lbl = new JLabel(value.effectiveLabel() + "  (" + value.id() + ")");
+            String scopeTag = CustomAction.SCOPE_ENTRY.equals(value.scope())   ? " [entry]"
+                            : CustomAction.SCOPE_TOOLBAR.equals(value.scope()) ? " [toolbar]"
+                            :                                                    " [both]";
+            JLabel lbl = new JLabel(value.effectiveLabel() + "  (" + value.id() + ")" + scopeTag);
             lbl.setFont(lst.getFont().deriveFont(11f));
             lbl.setOpaque(true);
             lbl.setBorder(new EmptyBorder(2, 6, 2, 6));
@@ -169,10 +172,10 @@ class SettingsDialog extends JDialog
         List<String> tbOrdered = new ArrayList<>(effectiveToolbarActions);
         for (String k : Launcher.DEFAULT_TOOLBAR_ACTIONS)
             if (!tbOrdered.contains(k)) tbOrdered.add(k);
-        // Include any custom toolbar action keys already referenced in config
+        // Include only custom actions whose scope allows toolbar use
         if (config.customActions() != null)
             for (CustomAction ca : config.customActions())
-                if (!tbOrdered.contains(ca.id())) tbOrdered.add(ca.id());
+                if (ca.appliesToToolbar() && !tbOrdered.contains(ca.id())) tbOrdered.add(ca.id());
         final Set<String> tbChecked = new HashSet<>(effectiveToolbarActions);
 
         DefaultListModel<String> tbModel = new DefaultListModel<>();
@@ -240,10 +243,10 @@ class SettingsDialog extends JDialog
         List<String> orderedKeys = new ArrayList<>(effectiveActionOrder);
         for (String k : Launcher.DEFAULT_ACTION_ORDER)
             if (!orderedKeys.contains(k)) orderedKeys.add(k);
-        // Include any custom action keys already referenced in config
+        // Include only custom actions whose scope allows entry-bar use
         if (config.customActions() != null)
             for (CustomAction ca : config.customActions())
-                if (!orderedKeys.contains(ca.id())) orderedKeys.add(ca.id());
+                if (ca.appliesToEntry() && !orderedKeys.contains(ca.id())) orderedKeys.add(ca.id());
         final Set<String> checked = new HashSet<>(effectiveActionOrder);
 
         DefaultListModel<String> actModel = new DefaultListModel<>();
@@ -375,17 +378,23 @@ class SettingsDialog extends JDialog
 
     // ── Static UI helpers ─────────────────────────────────────────────────────
 
-    private static String toolbarLabel(String key)
+    private String toolbarLabel(String key)
     {
         return switch (key)
         {
             case Launcher.SVN_CHECKOUT_ACTION -> "SVN Checkout";
             case Launcher.SVN_BROWSER_ACTION  -> "SVN Repository Browser";
-            default -> key;
+            default ->
+            {
+                if (config.customActions() != null)
+                    for (CustomAction ca : config.customActions())
+                        if (ca.id().equals(key)) yield ca.effectiveLabel() + "  (" + key + ")";
+                yield key;
+            }
         };
     }
 
-    private static String actionLabel(String key)
+    private String actionLabel(String key)
     {
         return switch (key)
         {
@@ -393,7 +402,13 @@ class SettingsDialog extends JDialog
             case Launcher.EDITOR_ACTION  -> "Open in Editor";
             case Launcher.COPY_ACTION    -> "Copy with Robocopy";
             case Launcher.DELETE_ACTION  -> "Delete";
-            default -> key;
+            default ->
+            {
+                if (config.customActions() != null)
+                    for (CustomAction ca : config.customActions())
+                        if (ca.id().equals(key)) yield ca.effectiveLabel() + "  (" + key + ")";
+                yield key;
+            }
         };
     }
 
@@ -415,6 +430,23 @@ class SettingsDialog extends JDialog
         JTextField tfTip    = new JTextField(isNew ? "" : nvl(existing.tooltip()),    32);
 
         if (!isNew) tfId.setEditable(false); // ID must stay stable once created
+
+        // Scope radio buttons
+        JRadioButton rbEntry   = new JRadioButton("Entry action bar only");
+        JRadioButton rbToolbar = new JRadioButton("Toolbar only");
+        JRadioButton rbBoth    = new JRadioButton("Both (entry bar and toolbar)");
+        ButtonGroup  bgScope   = new ButtonGroup();
+        bgScope.add(rbEntry); bgScope.add(rbToolbar); bgScope.add(rbBoth);
+
+        String currentScope = isNew ? null : existing.scope();
+        if      (CustomAction.SCOPE_ENTRY.equals(currentScope))   rbEntry.setSelected(true);
+        else if (CustomAction.SCOPE_TOOLBAR.equals(currentScope)) rbToolbar.setSelected(true);
+        else                                                       rbBoth.setSelected(true);
+
+        JPanel scopePanel = new JPanel(new GridLayout(3, 1, 0, 2));
+        scopePanel.add(rbEntry);
+        scopePanel.add(rbToolbar);
+        scopePanel.add(rbBoth);
 
         JButton browseScript = new JButton("\u2026");
         browseScript.setToolTipText("Browse\u2026");
@@ -448,7 +480,7 @@ class SettingsDialog extends JDialog
 
         JPanel p = new JPanel(new GridBagLayout());
         GridBagConstraints lc = new GridBagConstraints();
-        lc.anchor  = GridBagConstraints.WEST;
+        lc.anchor  = GridBagConstraints.NORTHWEST;
         lc.insets  = new Insets(3, 0, 3, 8);
         lc.gridx   = 0;
 
@@ -458,8 +490,8 @@ class SettingsDialog extends JDialog
         fc2.insets  = new Insets(3, 0, 3, 0);
         fc2.gridx   = 1;
 
-        String[] lbls = {"ID (unique key):", "Label:", "Script / Executable:", "Icon image path:", "Tooltip:"};
-        Component[] flds = {tfId, tfLabel, scriptRow, iconRow, tfTip};
+        String[]    lbls = {"ID (unique key):", "Scope *:", "Label:", "Script / Executable:", "Icon image path:", "Tooltip:"};
+        Component[] flds = {tfId, scopePanel, tfLabel, scriptRow, iconRow, tfTip};
         for (int i = 0; i < lbls.length; i++)
         {
             lc.gridy = i; fc2.gridy = i;
@@ -480,12 +512,22 @@ class SettingsDialog extends JDialog
                     "Validation Error", JOptionPane.ERROR_MESSAGE);
             return null;
         }
+        if (!rbEntry.isSelected() && !rbToolbar.isSelected() && !rbBoth.isSelected())
+        {
+            JOptionPane.showMessageDialog(this, "Please select a scope.",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        String scope      = rbEntry.isSelected()   ? CustomAction.SCOPE_ENTRY
+                          : rbToolbar.isSelected() ? CustomAction.SCOPE_TOOLBAR
+                          :                          CustomAction.SCOPE_BOTH;
         String scriptPath = tfScript.getText().trim();
         String iconPath   = tfIcon.getText().trim();
         String label      = tfLabel.getText().trim();
         String tooltip    = tfTip.getText().trim();
 
-        return new CustomAction(id,
+        return new CustomAction(id, scope,
                 iconPath.isEmpty()   ? null : iconPath,
                 scriptPath.isEmpty() ? null : scriptPath,
                 label.isEmpty()      ? null : label,

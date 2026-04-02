@@ -107,7 +107,10 @@ public class Launcher extends JFrame
         List<String> order = cfg.actionOrder();
         if (order == null) return new ArrayList<>(DEFAULT_ACTION_ORDER);
         Set<String> valid = new HashSet<>(DEFAULT_ACTION_ORDER);
-        if (cfg.customActions() != null) cfg.customActions().forEach(a -> valid.add(a.id()));
+        if (cfg.customActions() != null)
+            cfg.customActions().stream()
+               .filter(CustomAction::appliesToEntry)
+               .forEach(a -> valid.add(a.id()));
         return order.stream().filter(valid::contains).collect(Collectors.toList());
     }
 
@@ -116,7 +119,10 @@ public class Launcher extends JFrame
         List<String> order = cfg.toolbarActions();
         if (order == null) return new ArrayList<>(DEFAULT_TOOLBAR_ACTIONS);
         Set<String> valid = new HashSet<>(DEFAULT_TOOLBAR_ACTIONS);
-        if (cfg.customActions() != null) cfg.customActions().forEach(a -> valid.add(a.id()));
+        if (cfg.customActions() != null)
+            cfg.customActions().stream()
+               .filter(CustomAction::appliesToToolbar)
+               .forEach(a -> valid.add(a.id()));
         return order.stream().filter(valid::contains).collect(Collectors.toList());
     }
 
