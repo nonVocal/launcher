@@ -671,3 +671,16 @@ Instance configs override only the fields they explicitly set.
 
 - Launcher scans **only the top level** of your chosen folder (no recursive scanning)
 - Robocopy operations show real-time output; the list refreshes automatically when done
+
+---
+
+## License
+
+See the `LICENSE` file in this project.
+
+---
+
+## Icon Attribution
+
+Icons used in this application are provided by [Flaticon](https://www.flaticon.com/).
+See [`icon-attribution.md`](icon-attribution.md) for the full list of credits.
