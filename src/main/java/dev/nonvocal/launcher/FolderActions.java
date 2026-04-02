@@ -105,8 +105,7 @@ class FolderActions
         }
     }
 
-    void deleteFolder(File folder)
-    {
+    void deleteFolder(File folder)    {
         int confirm = JOptionPane.showConfirmDialog(parent,
                 "<html>Permanently delete:<br><b>" + folder.getAbsolutePath()
                 + "</b><br><br>This cannot be undone.</html>",
@@ -121,6 +120,35 @@ class FolderActions
         {
             JOptionPane.showMessageDialog(parent,
                     "Could not delete folder:\n" + ex.getMessage(),
+                    "Launcher Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Executes a user-defined {@link CustomAction} with {@code targetFolder} as the
+     * first command-line argument.  The process output is streamed in a dedicated window.
+     */
+    void executeCustomAction(CustomAction action, File targetFolder)
+    {
+        if (action.scriptPath() == null || action.scriptPath().isBlank())
+        {
+            JOptionPane.showMessageDialog(parent,
+                    "Action \"" + action.effectiveLabel() + "\" has no script path configured.",
+                    "Launcher \u2013 Custom Action", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        try
+        {
+            ProcessBuilder pb = new ProcessBuilder(
+                    action.scriptPath(), targetFolder.getAbsolutePath());
+            pb.redirectErrorStream(true);
+            ProcessOutputWindow.show(pb.start(), action.effectiveLabel(), null);
+        }
+        catch (IOException ex)
+        {
+            JOptionPane.showMessageDialog(parent,
+                    "Could not run \"" + action.effectiveLabel() + "\":\n" + ex.getMessage()
+                    + "\n\nCheck that the script path is correct and the file is executable.",
                     "Launcher Error", JOptionPane.ERROR_MESSAGE);
         }
     }

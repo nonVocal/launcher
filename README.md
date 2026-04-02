@@ -26,7 +26,8 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - The context menu can be **disabled** via the Settings dialog or the `showContextMenu` config field
 - **Real-time output windows** for robocopy and SVN Checkout operations
 - **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
-- **Settings dialog** to inspect active config paths, toggle startup options, configure commands (`EXPLORER`, `EDITOR`), customize the action button bar, and **configure toolbar buttons** (show/hide/reorder the SVN buttons)
+- **User-defined custom actions** – define your own actions (script/executable + icon + label) and assign them to the entry action bar and/or the toolbar; fully manageable from the Settings dialog
+- **Settings dialog** to inspect active config paths, toggle startup options, configure commands (`EXPLORER`, `EDITOR`), manage custom actions, customize the action button bar, and **configure toolbar buttons** (show/hide/reorder)
 - Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
 - **Folder-chooser dialog** when no path is supplied on startup
 - **Color-coded list** for scripts, application folders, and plain folders
@@ -132,11 +133,28 @@ CLI arguments override all config files.
     "EXPLORE_ACTION",
     "EDITOR_ACTION",
     "COPY_ACTION",
-    "DELETE_ACTION"
+    "DELETE_ACTION",
+    "my-deploy-action"
   ],
   "toolbarActions": [
     "SVN_CHECKOUT_ACTION",
-    "SVN_BROWSER_ACTION"
+    "SVN_BROWSER_ACTION",
+    "my-build-action"
+  ],
+  "customActions": [
+    {
+      "id": "my-deploy-action",
+      "iconPath": "C:\\icons\\deploy.png",
+      "scriptPath": "C:\\scripts\\deploy.bat",
+      "label": "Deploy",
+      "tooltip": "Deploy this application"
+    },
+    {
+      "id": "my-build-action",
+      "iconPath": "C:\\icons\\build.png",
+      "scriptPath": "C:\\scripts\\build.bat",
+      "label": "Build All"
+    }
   ]
 }
 ```
@@ -154,12 +172,13 @@ Any field can be omitted; omitted fields are inherited from the level below.
 | `entryButtonStyle` | string | Controls how entry action buttons appear. `"ICONS"` (default) shows one small button per action. `"HAMBURGER"` shows a single ☰ button that opens a popup. |
 | `showContextMenu` | boolean | `true` (default) to show the right-click context menu on folder entries. Set to `false` to disable it. |
 | `priorityList` | string array | Ordered list of entry names. Entries in this list appear at the top in the given order; all remaining entries follow in the default sort (scripts A–Z → app folders A–Z → plain folders A–Z). Updated automatically when you drag and drop entries in the UI. |
-| `actionOrder` | string array | Ordered list of **action keys** that determines which action buttons are shown and in what order. Omit to show all four actions in the default order. |
-| `toolbarActions` | string array | Ordered list of **toolbar button keys** that determines which toolbar buttons are shown and in what order. Omit to show both SVN buttons in the default order. |
+| `actionOrder` | string array | Ordered list of **action keys** that determines which action buttons are shown and in what order. May include built-in keys and custom action IDs. Omit to show all four built-in actions in the default order. |
+| `toolbarActions` | string array | Ordered list of **toolbar button keys** that determines which toolbar buttons are shown and in what order. May include built-in keys and custom action IDs. Omit to show both SVN buttons in the default order. |
+| `customActions` | object array | List of user-defined custom actions. Each object defines an action that can be referenced in `actionOrder` (entry bar) and/or `toolbarActions` (toolbar). See [Custom Actions](#custom-actions) below. |
 
 ### Action Keys
 
-The `actionOrder` field uses the following keys:
+The `actionOrder` field accepts both **built-in action keys** and **custom action IDs**:
 
 | Key | Action |
 |---|---|
@@ -167,15 +186,17 @@ The `actionOrder` field uses the following keys:
 | `EDITOR_ACTION` | Open in Editor |
 | `COPY_ACTION` | Copy with Robocopy |
 | `DELETE_ACTION` | Delete |
+| `<custom action id>` | Any ID defined in `customActions` |
 
 ### Toolbar Button Keys
 
-The `toolbarActions` field uses the following keys:
+The `toolbarActions` field accepts both **built-in toolbar keys** and **custom action IDs**:
 
 | Key | Button |
 |---|---|
 | `SVN_CHECKOUT_ACTION` | SVN Checkout (CLI) |
 | `SVN_BROWSER_ACTION` | SVN Repository Browser (TortoiseSVN) |
+| `<custom action id>` | Any ID defined in `customActions` |
 
 **Examples:**
 
@@ -188,6 +209,40 @@ Hide all toolbar SVN buttons:
 ```json
 { "toolbarActions": [] }
 ```
+
+### Custom Actions
+
+Custom actions let you hook your own scripts or executables into the launcher UI. Define them once in `customActions`, then reference their IDs in `actionOrder` (to show them in the per-entry action bar) and/or in `toolbarActions` (to show them in the toolbar).
+
+#### Custom action fields
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | ✅ yes | Unique identifier. Used as the key in `actionOrder` and `toolbarActions`. Must not clash with built-in keys. |
+| `scriptPath` | ✅ yes | Full path to the script or executable to run. When triggered from the **entry action bar**, the selected folder's absolute path is passed as the first argument. When triggered from the **toolbar**, the launcher root folder path is passed instead. |
+| `iconPath` | ❌ optional | Full path to a PNG or JPEG image file used as the button icon. If omitted, a short text label is shown instead. |
+| `label` | ❌ optional | Display label for the button and context menu item. Falls back to the `id` if omitted. |
+| `tooltip` | ❌ optional | Tooltip text shown on hover. Falls back to `label` (or `id`) if omitted. |
+
+#### Example – one custom action in entry bar and toolbar
+
+```json
+{
+  "customActions": [
+    {
+      "id": "my-deploy",
+      "scriptPath": "C:\\scripts\\deploy.bat",
+      "iconPath": "C:\\icons\\deploy.png",
+      "label": "Deploy",
+      "tooltip": "Deploy the selected application"
+    }
+  ],
+  "actionOrder": ["EXPLORE_ACTION", "my-deploy"],
+  "toolbarActions": ["SVN_BROWSER_ACTION", "my-deploy"]
+}
+```
+
+When a user clicks the *Deploy* button next to a folder row, `deploy.bat` is called with that folder's path as the first argument. When clicked from the toolbar, the launcher root folder path is passed.
 
 **Examples:**
 
@@ -250,8 +305,9 @@ Open by clicking the **⚙ gear icon** on the right side of the toolbar.
 | Startup | Start minimized | Checkbox – saves to instance config; takes effect on next launch |
 | Commands | EXPLORER | File explorer command. Leave blank to use the system default. |
 | Commands | EDITOR | Editor command (e.g. `code`, `notepad++`). Leave blank to default to `code`. |
-| Toolbar Buttons | Toolbar list | Checkboxes to show/hide each SVN toolbar button; **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
-| Action Buttons | Action list | Checkboxes to show/hide each action; **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
+| Custom Actions | Action list | Add, edit, or remove user-defined custom actions. Each action has an ID, script path, optional icon, label, and tooltip. Custom action IDs can then be added to the **Toolbar Buttons** or **Action Buttons** lists. |
+| Toolbar Buttons | Toolbar list | Checkboxes to show/hide each toolbar button (built-in SVN buttons and any custom actions added here); **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
+| Action Buttons | Action list | Checkboxes to show/hide each entry action (built-in actions and any custom actions added here); **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
 | Button Style | Style radio buttons | Choose **Inline icons** (one button per action, default) or **Hamburger menu** (single ☰ button that opens a popup). Takes effect immediately. |
 | Button Style | Show context menu | Checkbox – uncheck to disable the right-click context menu on folder entries. |
 
@@ -385,18 +441,19 @@ All other sub-folders are treated as **plain folders**.
 
 | File | Description |
 |---|---|
-| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Application entry point and UI shell – constructs the window, wires all helper classes together, manages config state (~600 lines) |
-| `src/main/java/dev/nonvocal/launcher/LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic (`empty` → `defaults` → `mergeOver` → `withDefaults`); fields include `actionOrder`, `toolbarActions`, `entryButtonStyle`, `showContextMenu` |
+| `src/main/java/dev/nonvocal/launcher/Launcher.java` | Application entry point and UI shell – constructs the window, wires all helper classes together, manages config state (~700 lines) |
+| `src/main/java/dev/nonvocal/launcher/LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic (`empty` → `defaults` → `mergeOver` → `withDefaults`); fields include `actionOrder`, `toolbarActions`, `entryButtonStyle`, `showContextMenu`, `customActions` |
+| `src/main/java/dev/nonvocal/launcher/CustomAction.java` | Immutable record representing a user-defined custom action: `id`, `iconPath`, `scriptPath`, `label` (optional), `tooltip` (optional); helper methods `effectiveLabel()`, `effectiveTooltip()`, `loadIcon()` |
 | `src/main/java/dev/nonvocal/launcher/EntryType.java` | Enum with three values: `SCRIPT`, `APP_FOLDER`, `PLAIN_FOLDER` |
 | `src/main/java/dev/nonvocal/launcher/LaunchEntry.java` | Immutable record representing one list row: `file()`, `type()`, `iconFile()` |
 | `src/main/java/dev/nonvocal/launcher/EntryLoader.java` | Scans the root folder, classifies entries into the three types, and applies priority-list sorting |
 | `src/main/java/dev/nonvocal/launcher/EntryLauncher.java` | Launches scripts (bat, cmd, ps1, …) and application folders (via `.lnk` or fallback executable) |
-| `src/main/java/dev/nonvocal/launcher/FolderActions.java` | Folder-level operations: open in File Explorer, open in Editor, copy with Robocopy, delete; **SVN Checkout** (CLI via `svn`); **SVN Repository Browser** (opens TortoiseSVN `repobrowser`, watches launcher folder for new checkouts, auto-refreshes list) |
-| `src/main/java/dev/nonvocal/launcher/EntryCellRenderer.java` | Swing list-cell renderer – draws entry rows with inline icon buttons (`ICONS`) or a single hamburger button (`HAMBURGER`) |
-| `src/main/java/dev/nonvocal/launcher/ListMouseHandler.java` | `MouseAdapter` – handles single-click on action buttons, double-click to launch, hover cursor changes, and right-click context menu |
+| `src/main/java/dev/nonvocal/launcher/FolderActions.java` | Folder-level operations: open in File Explorer, open in Editor, copy with Robocopy, delete; **SVN Checkout** (CLI via `svn`); **SVN Repository Browser** (opens TortoiseSVN `repobrowser`, watches launcher folder for new checkouts, auto-refreshes list); **custom action execution** (runs user-defined script with target folder path as argument) |
+| `src/main/java/dev/nonvocal/launcher/EntryCellRenderer.java` | Swing list-cell renderer – draws entry rows with inline icon buttons (`ICONS`) or a single hamburger button (`HAMBURGER`); supports custom action icons and labels |
+| `src/main/java/dev/nonvocal/launcher/ListMouseHandler.java` | `MouseAdapter` – handles single-click on action buttons (built-in and custom), double-click to launch, hover cursor changes, and right-click context menu |
 | `src/main/java/dev/nonvocal/launcher/EntryListTransferHandler.java` | `TransferHandler` for drag-and-drop reordering of list entries (disabled while a search filter is active) |
-| `src/main/java/dev/nonvocal/launcher/SettingsDialog.java` | Modal settings `JDialog` – config-file paths, startup options, EXPLORER/EDITOR commands, action-button order/visibility, button style, context-menu toggle |
-| `src/main/java/dev/nonvocal/launcher/ProcessOutputWindow.java` | Utility that streams real-time process output (robocopy, SVN) into a dedicated, auto-closing window |
+| `src/main/java/dev/nonvocal/launcher/SettingsDialog.java` | Modal settings `JDialog` – config-file paths, startup options, EXPLORER/EDITOR commands, custom action management (add/edit/delete), action-button order/visibility, toolbar button order/visibility, button style, context-menu toggle |
+| `src/main/java/dev/nonvocal/launcher/ProcessOutputWindow.java` | Utility that streams real-time process output (robocopy, SVN, custom actions) into a dedicated, auto-closing window |
 
 ### Test files
 

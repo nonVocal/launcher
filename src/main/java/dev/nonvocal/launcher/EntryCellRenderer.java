@@ -80,7 +80,8 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
 
     private final transient FileSystemView fsv = FileSystemView.getFileSystemView();
 
-    EntryCellRenderer(List<String> actionOrder, String buttonStyle)
+    EntryCellRenderer(List<String> actionOrder, String buttonStyle,
+                      Map<String, CustomAction> customActionMap)
     {
         this.actionOrder = actionOrder;
         this.buttonStyle = buttonStyle;
@@ -114,11 +115,28 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
             {
                 String key = actionOrder.get(i);
                 ImageIcon img = ACT_ICON_MAP.get(key);
+                String    tip = ACT_TIP_MAP.getOrDefault(key, key);
+                String    txt = ACT_TEXT_MAP.getOrDefault(key, "?");
+                boolean isDel = Launcher.DELETE_ACTION.equals(key);
+
+                // Fall back to custom action definition when not a built-in key
+                if (img == null && !ACT_ICON_MAP.containsKey(key))
+                {
+                    CustomAction ca = customActionMap.get(key);
+                    if (ca != null)
+                    {
+                        img  = ca.loadIcon(14, 14);
+                        tip  = ca.effectiveTooltip();
+                        txt  = ca.effectiveLabel().length() <= 3
+                               ? ca.effectiveLabel()
+                               : ca.effectiveLabel().substring(0, 2) + "…";
+                        isDel = false;
+                    }
+                }
+
                 JLabel lbl = (img != null)
-                        ? makeIconButton(img, ACT_TIP_MAP.getOrDefault(key, key))
-                        : makeButton(ACT_TEXT_MAP.getOrDefault(key, "?"),
-                                     ACT_TIP_MAP.getOrDefault(key, key),
-                                     Launcher.DELETE_ACTION.equals(key));
+                        ? makeIconButton(img, tip)
+                        : makeButton(txt, tip, isDel);
                 actIcons[i] = lbl;
                 actionBar.add(lbl);
             }

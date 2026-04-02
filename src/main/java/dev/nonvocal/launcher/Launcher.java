@@ -76,6 +76,7 @@ public class Launcher extends JFrame
     private String          effectiveButtonStyle;
     private boolean         showContextMenu;
     private EntryCellRenderer cellRenderer;
+    private Map<String, CustomAction> effectiveCustomActionMap = new LinkedHashMap<>();
 
     /** Registered in buildUI (save + exit). Removed by setupTray() so only the tray adapter fires. */
     private WindowAdapter defaultCloseAdapter;
@@ -105,14 +106,18 @@ public class Launcher extends JFrame
     {
         List<String> order = cfg.actionOrder();
         if (order == null) return new ArrayList<>(DEFAULT_ACTION_ORDER);
-        return order.stream().filter(DEFAULT_ACTION_ORDER::contains).collect(Collectors.toList());
+        Set<String> valid = new HashSet<>(DEFAULT_ACTION_ORDER);
+        if (cfg.customActions() != null) cfg.customActions().forEach(a -> valid.add(a.id()));
+        return order.stream().filter(valid::contains).collect(Collectors.toList());
     }
 
     private List<String> resolveToolbarActions(LauncherConfig cfg)
     {
         List<String> order = cfg.toolbarActions();
         if (order == null) return new ArrayList<>(DEFAULT_TOOLBAR_ACTIONS);
-        return order.stream().filter(DEFAULT_TOOLBAR_ACTIONS::contains).collect(Collectors.toList());
+        Set<String> valid = new HashSet<>(DEFAULT_TOOLBAR_ACTIONS);
+        if (cfg.customActions() != null) cfg.customActions().forEach(a -> valid.add(a.id()));
+        return order.stream().filter(valid::contains).collect(Collectors.toList());
     }
 
     private static String resolveButtonStyle(LauncherConfig cfg)
@@ -129,11 +134,15 @@ public class Launcher extends JFrame
     private void applyConfig(LauncherConfig cfg)
     {
         config                  = cfg;
+        effectiveCustomActionMap = new LinkedHashMap<>();
+        if (cfg.customActions() != null)
+            cfg.customActions().forEach(a -> effectiveCustomActionMap.put(a.id(), a));
         effectiveActionOrder    = resolveActionOrder(cfg);
         effectiveToolbarActions = resolveToolbarActions(cfg);
         effectiveButtonStyle    = resolveButtonStyle(cfg);
         showContextMenu         = resolveShowContextMenu(cfg);
-        cellRenderer            = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle);
+        cellRenderer            = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle,
+                                                        effectiveCustomActionMap);
         if (list != null)
         {
             list.setCellRenderer(cellRenderer);
@@ -156,6 +165,27 @@ public class Launcher extends JFrame
                 toolbarLeftPanel.add(svnCheckoutBtn);
             else if (SVN_BROWSER_ACTION.equals(key) && svnBrowserBtn != null)
                 toolbarLeftPanel.add(svnBrowserBtn);
+            else
+            {
+                CustomAction ca = effectiveCustomActionMap.get(key);
+                if (ca != null)
+                {
+                    ImageIcon icon = ca.loadIcon(20, 20);
+                    String    lbl  = ca.effectiveLabel();
+                    String    btnText = lbl.length() <= 4 ? lbl : lbl.substring(0, 3) + "\u2026";
+                    JButton   btn  = icon != null ? new JButton(icon) : new JButton(btnText);
+                    btn.setToolTipText(ca.effectiveTooltip());
+                    btn.setFocusPainted(false);
+                    btn.addActionListener(ev ->
+                    {
+                        LaunchEntry sel = list.getSelectedValue();
+                        File target = (sel != null && sel.type() != EntryType.SCRIPT)
+                                ? sel.file() : baseFolder;
+                        folderActions.executeCustomAction(ca, target);
+                    });
+                    toolbarLeftPanel.add(btn);
+                }
+            }
         }
         toolbarLeftPanel.revalidate();
         toolbarLeftPanel.repaint();
@@ -268,7 +298,8 @@ public class Launcher extends JFrame
                 () -> showContextMenu,
                 this::showActionsPopup,
                 sel -> entryLauncher.launch(sel, folderActions::openInExplorer),
-                folderActions);
+                folderActions,
+                () -> effectiveCustomActionMap);
         list.addMouseListener(mouseHandler);
         list.addMouseMotionListener(mouseHandler);
 
@@ -403,15 +434,25 @@ public class Launcher extends JFrame
                 case EDITOR_ACTION  -> new JMenuItem("Open in Editor");
                 case COPY_ACTION    -> new JMenuItem("Copy with Robocopy...");
                 case DELETE_ACTION  -> new JMenuItem("Delete");
-                default -> null;
+                default ->
+                {
+                    CustomAction ca = effectiveCustomActionMap.get(key);
+                    yield ca != null ? new JMenuItem(ca.effectiveLabel()) : null;
+                }
             };
             if (mi == null) continue;
+            final String k = key;
             switch (key)
             {
                 case EXPLORE_ACTION -> mi.addActionListener(e -> folderActions.openInExplorer(sel.file()));
                 case EDITOR_ACTION  -> mi.addActionListener(e -> folderActions.openInEditor(sel.file()));
                 case COPY_ACTION    -> mi.addActionListener(e -> folderActions.copyWithRobocopy(sel.file()));
                 case DELETE_ACTION  -> mi.addActionListener(e -> folderActions.deleteFolder(sel.file()));
+                default ->
+                {
+                    CustomAction ca = effectiveCustomActionMap.get(k);
+                    if (ca != null) mi.addActionListener(e -> folderActions.executeCustomAction(ca, sel.file()));
+                }
             }
             menu.add(mi);
         }
@@ -506,7 +547,7 @@ public class Launcher extends JFrame
                 getWidth(), getHeight(),
                 config.priorityList(), config.explorer(), config.editor(),
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
-                config.toolbarActions());
+                config.toolbarActions(), config.customActions());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -519,7 +560,7 @@ public class Launcher extends JFrame
                 config.windowWidth(), config.windowHeight(),
                 names, config.explorer(), config.editor(),
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
-                config.toolbarActions());
+                config.toolbarActions(), config.customActions());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -642,7 +683,7 @@ public class Launcher extends JFrame
                 merged.windowWidth(), merged.windowHeight(),
                 merged.priorityList(), merged.explorer(), merged.editor(),
                 merged.actionOrder(), merged.entryButtonStyle(), merged.showContextMenu(),
-                merged.toolbarActions());
+                merged.toolbarActions(), merged.customActions());
         resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
 
         final boolean minimized = startMinimized;

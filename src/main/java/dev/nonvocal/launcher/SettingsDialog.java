@@ -82,7 +82,81 @@ class SettingsDialog extends JDialog
                 "Editor command \u2013 blank defaults to 'code'"));
         root.add(separator());
 
-        // ── Toolbar Buttons ───────────────────────────────────────────────────
+        // ── Custom Actions ────────────────────────────────────────────────────
+        root.add(sectionLabel("Custom Actions"));
+        root.add(Box.createVerticalStrut(4));
+        JLabel caHint = new JLabel("User-defined actions \u2013 appear in action bar and/or toolbar when added to those lists");
+        caHint.setFont(caHint.getFont().deriveFont(Font.ITALIC, 10f));
+        caHint.setForeground(Color.GRAY);
+        caHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        root.add(caHint);
+        root.add(Box.createVerticalStrut(4));
+
+        List<CustomAction> customActionsList = config.customActions() != null
+                ? new ArrayList<>(config.customActions()) : new ArrayList<>();
+        DefaultListModel<CustomAction> caModel = new DefaultListModel<>();
+        customActionsList.forEach(caModel::addElement);
+
+        JList<CustomAction> caList = new JList<>(caModel);
+        caList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        caList.setFixedCellHeight(24);
+        caList.setCellRenderer((lst, value, index, isSelected, focus) ->
+        {
+            JLabel lbl = new JLabel(value.effectiveLabel() + "  (" + value.id() + ")");
+            lbl.setFont(lst.getFont().deriveFont(11f));
+            lbl.setOpaque(true);
+            lbl.setBorder(new EmptyBorder(2, 6, 2, 6));
+            lbl.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
+            lbl.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            return lbl;
+        });
+
+        JButton caBtnAdd    = new JButton("Add");
+        JButton caBtnEdit   = new JButton("Edit");
+        JButton caBtnRemove = new JButton("Remove");
+
+        caBtnAdd.addActionListener(ev ->
+        {
+            CustomAction newAction = showCustomActionEditor(null);
+            if (newAction == null) return;
+            for (int i = 0; i < caModel.getSize(); i++)
+            {
+                if (caModel.getElementAt(i).id().equals(newAction.id()))
+                {
+                    JOptionPane.showMessageDialog(this,
+                            "An action with ID \"" + newAction.id() + "\" already exists.",
+                            "Duplicate ID", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+            }
+            caModel.addElement(newAction);
+        });
+        caBtnEdit.addActionListener(ev ->
+        {
+            int idx = caList.getSelectedIndex();
+            if (idx < 0) return;
+            CustomAction edited = showCustomActionEditor(caModel.getElementAt(idx));
+            if (edited != null) caModel.set(idx, edited);
+        });
+        caBtnRemove.addActionListener(ev ->
+        {
+            int idx = caList.getSelectedIndex();
+            if (idx >= 0) caModel.remove(idx);
+        });
+
+        JPanel caBtnPanel = new JPanel(new GridLayout(3, 1, 0, 2));
+        caBtnPanel.add(caBtnAdd);
+        caBtnPanel.add(caBtnEdit);
+        caBtnPanel.add(caBtnRemove);
+
+        JPanel caPanel = new JPanel(new BorderLayout(6, 0));
+        caPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        caPanel.add(new JScrollPane(caList), BorderLayout.CENTER);
+        caPanel.add(caBtnPanel, BorderLayout.EAST);
+        caPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 24 + 8));
+        root.add(caPanel);
+        root.add(Box.createVerticalStrut(8));
+        root.add(separator());
         root.add(sectionLabel("Toolbar Buttons"));
         root.add(Box.createVerticalStrut(4));
         JLabel tbHint = new JLabel("Check to show \u00b7 drag up/down to reorder");
@@ -95,6 +169,10 @@ class SettingsDialog extends JDialog
         List<String> tbOrdered = new ArrayList<>(effectiveToolbarActions);
         for (String k : Launcher.DEFAULT_TOOLBAR_ACTIONS)
             if (!tbOrdered.contains(k)) tbOrdered.add(k);
+        // Include any custom toolbar action keys already referenced in config
+        if (config.customActions() != null)
+            for (CustomAction ca : config.customActions())
+                if (!tbOrdered.contains(ca.id())) tbOrdered.add(ca.id());
         final Set<String> tbChecked = new HashSet<>(effectiveToolbarActions);
 
         DefaultListModel<String> tbModel = new DefaultListModel<>();
@@ -162,6 +240,10 @@ class SettingsDialog extends JDialog
         List<String> orderedKeys = new ArrayList<>(effectiveActionOrder);
         for (String k : Launcher.DEFAULT_ACTION_ORDER)
             if (!orderedKeys.contains(k)) orderedKeys.add(k);
+        // Include any custom action keys already referenced in config
+        if (config.customActions() != null)
+            for (CustomAction ca : config.customActions())
+                if (!orderedKeys.contains(ca.id())) orderedKeys.add(ca.id());
         final Set<String> checked = new HashSet<>(effectiveActionOrder);
 
         DefaultListModel<String> actModel = new DefaultListModel<>();
@@ -266,6 +348,9 @@ class SettingsDialog extends JDialog
                 String k = tbModel.getElementAt(i);
                 if (tbChecked.contains(k)) newToolbarActions.add(k);
             }
+            List<CustomAction> newCustomActions = new ArrayList<>();
+            for (int i = 0; i < caModel.getSize(); i++) newCustomActions.add(caModel.getElementAt(i));
+
             String explorerVal    = tfExplorer.getText().trim();
             String editorVal      = tfEditor.getText().trim();
             String newButtonStyle = rbHamburger.isSelected()
@@ -279,7 +364,8 @@ class SettingsDialog extends JDialog
                     editorVal.isEmpty()   ? null : editorVal,
                     newOrder.isEmpty()    ? null : newOrder,
                     newButtonStyle, cbContextMenu.isSelected(),
-                    newToolbarActions.isEmpty() ? null : newToolbarActions));
+                    newToolbarActions.isEmpty()  ? null : newToolbarActions,
+                    newCustomActions.isEmpty()   ? null : newCustomActions));
             dispose();
         });
         btnCancel.addActionListener(e -> dispose());
@@ -310,6 +396,103 @@ class SettingsDialog extends JDialog
             default -> key;
         };
     }
+
+    // ── Custom action editor ──────────────────────────────────────────────────
+
+    /**
+     * Shows a dialog for adding or editing a {@link CustomAction}.
+     * Pass {@code null} to create a new action.
+     * Returns the updated/new action, or {@code null} if the user cancelled.
+     */
+    private CustomAction showCustomActionEditor(CustomAction existing)
+    {
+        boolean isNew = (existing == null);
+
+        JTextField tfId     = new JTextField(isNew ? "" : existing.id(), 24);
+        JTextField tfLabel  = new JTextField(isNew ? "" : nvl(existing.label()),  24);
+        JTextField tfScript = new JTextField(isNew ? "" : nvl(existing.scriptPath()), 32);
+        JTextField tfIcon   = new JTextField(isNew ? "" : nvl(existing.iconPath()),   32);
+        JTextField tfTip    = new JTextField(isNew ? "" : nvl(existing.tooltip()),    32);
+
+        if (!isNew) tfId.setEditable(false); // ID must stay stable once created
+
+        JButton browseScript = new JButton("\u2026");
+        browseScript.setToolTipText("Browse\u2026");
+        browseScript.addActionListener(ev ->
+        {
+            JFileChooser fc = new JFileChooser(tfScript.getText().trim().isEmpty()
+                    ? System.getProperty("user.home") : tfScript.getText().trim());
+            fc.setDialogTitle("Select Script or Executable");
+            if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION)
+                tfScript.setText(fc.getSelectedFile().getAbsolutePath());
+        });
+
+        JButton browseIcon = new JButton("\u2026");
+        browseIcon.setToolTipText("Browse\u2026");
+        browseIcon.addActionListener(ev ->
+        {
+            JFileChooser fc = new JFileChooser(tfIcon.getText().trim().isEmpty()
+                    ? System.getProperty("user.home") : tfIcon.getText().trim());
+            fc.setDialogTitle("Select Icon Image");
+            if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION)
+                tfIcon.setText(fc.getSelectedFile().getAbsolutePath());
+        });
+
+        JPanel scriptRow = new JPanel(new BorderLayout(4, 0));
+        scriptRow.add(tfScript, BorderLayout.CENTER);
+        scriptRow.add(browseScript, BorderLayout.EAST);
+
+        JPanel iconRow = new JPanel(new BorderLayout(4, 0));
+        iconRow.add(tfIcon, BorderLayout.CENTER);
+        iconRow.add(browseIcon, BorderLayout.EAST);
+
+        JPanel p = new JPanel(new GridBagLayout());
+        GridBagConstraints lc = new GridBagConstraints();
+        lc.anchor  = GridBagConstraints.WEST;
+        lc.insets  = new Insets(3, 0, 3, 8);
+        lc.gridx   = 0;
+
+        GridBagConstraints fc2 = new GridBagConstraints();
+        fc2.fill    = GridBagConstraints.HORIZONTAL;
+        fc2.weightx = 1;
+        fc2.insets  = new Insets(3, 0, 3, 0);
+        fc2.gridx   = 1;
+
+        String[] lbls = {"ID (unique key):", "Label:", "Script / Executable:", "Icon image path:", "Tooltip:"};
+        Component[] flds = {tfId, tfLabel, scriptRow, iconRow, tfTip};
+        for (int i = 0; i < lbls.length; i++)
+        {
+            lc.gridy = i; fc2.gridy = i;
+            p.add(new JLabel(lbls[i]), lc);
+            p.add(flds[i], fc2);
+        }
+
+        int result = JOptionPane.showConfirmDialog(this, p,
+                isNew ? "Add Custom Action" : "Edit Custom Action",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        if (result != JOptionPane.OK_OPTION) return null;
+
+        String id = tfId.getText().trim();
+        if (id.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this, "ID cannot be empty.",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+        String scriptPath = tfScript.getText().trim();
+        String iconPath   = tfIcon.getText().trim();
+        String label      = tfLabel.getText().trim();
+        String tooltip    = tfTip.getText().trim();
+
+        return new CustomAction(id,
+                iconPath.isEmpty()   ? null : iconPath,
+                scriptPath.isEmpty() ? null : scriptPath,
+                label.isEmpty()      ? null : label,
+                tooltip.isEmpty()    ? null : tooltip);
+    }
+
+    private static String nvl(String s) { return s != null ? s : ""; }
 
     private static JLabel sectionLabel(String text)
     {

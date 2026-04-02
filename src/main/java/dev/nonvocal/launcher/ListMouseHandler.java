@@ -5,6 +5,7 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -32,6 +33,7 @@ class ListMouseHandler extends MouseAdapter
     private final PopupShower                popupShower;
     private final Consumer<LaunchEntry>      launcher;
     private final FolderActions              folderActions;
+    private final Supplier<Map<String, CustomAction>> customActions;
 
     ListMouseHandler(JList<LaunchEntry> list,
                      DefaultListModel<LaunchEntry> listModel,
@@ -40,7 +42,8 @@ class ListMouseHandler extends MouseAdapter
                      BooleanSupplier contextMenuEnabled,
                      PopupShower popupShower,
                      Consumer<LaunchEntry> launcher,
-                     FolderActions folderActions)
+                     FolderActions folderActions,
+                     Supplier<Map<String, CustomAction>> customActions)
     {
         this.list              = list;
         this.listModel         = listModel;
@@ -50,6 +53,7 @@ class ListMouseHandler extends MouseAdapter
         this.popupShower       = popupShower;
         this.launcher          = launcher;
         this.folderActions     = folderActions;
+        this.customActions     = customActions;
     }
 
     // ── MouseListener ─────────────────────────────────────────────────────────
@@ -131,6 +135,11 @@ class ListMouseHandler extends MouseAdapter
             case Launcher.EDITOR_ACTION  -> folderActions.openInEditor(sel.file());
             case Launcher.COPY_ACTION    -> folderActions.copyWithRobocopy(sel.file());
             case Launcher.DELETE_ACTION  -> folderActions.deleteFolder(sel.file());
+            default ->
+            {
+                CustomAction ca = customActions.get().get(key);
+                if (ca != null) folderActions.executeCustomAction(ca, sel.file());
+            }
         }
     }
 

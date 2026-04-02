@@ -30,7 +30,8 @@ record LauncherConfig(
         List<String> actionOrder,
         String       entryButtonStyle,
         Boolean      showContextMenu,
-        List<String> toolbarActions)   // ordered list of enabled toolbar button keys
+        List<String> toolbarActions,
+        List<CustomAction> customActions)   // user-defined custom actions
 {
     // ── Static paths ───────────────────────────────────────────────────────────
 
@@ -58,13 +59,13 @@ record LauncherConfig(
     /** All fields null – represents "nothing set at this level". */
     static LauncherConfig empty()
     {
-        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /** Hardcoded application defaults (all fields non-null). */
     static LauncherConfig defaults()
     {
-        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -105,7 +106,8 @@ record LauncherConfig(
                 actionOrder       != null ? actionOrder       : base.actionOrder,
                 entryButtonStyle  != null ? entryButtonStyle  : base.entryButtonStyle,
                 showContextMenu   != null ? showContextMenu   : base.showContextMenu,
-                toolbarActions    != null ? toolbarActions    : base.toolbarActions);
+                toolbarActions    != null ? toolbarActions    : base.toolbarActions,
+                customActions     != null ? customActions     : base.customActions);
     }
 
     /**
@@ -125,7 +127,8 @@ record LauncherConfig(
                 actionOrder,
                 entryButtonStyle,
                 showContextMenu,
-                toolbarActions);
+                toolbarActions,
+                customActions);
     }
 
     // ── Persistence ────────────────────────────────────────────────────────────
@@ -169,7 +172,31 @@ record LauncherConfig(
         {
             lines.add(jsonStrList("toolbarActions", toolbarActions));
         }
+        if (customActions != null && !customActions.isEmpty())
+        {
+            lines.add(jsonCustomActions(customActions));
+        }
         return "{\n" + String.join(",\n", lines) + "\n}";
+    }
+
+    private static String jsonCustomActions(List<CustomAction> actions)
+    {
+        StringBuilder sb = new StringBuilder("  \"customActions\": [\n");
+        for (int i = 0; i < actions.size(); i++)
+        {
+            CustomAction a = actions.get(i);
+            sb.append("    {");
+            sb.append("\"id\": ").append(jsonStr(a.id()));
+            sb.append(", \"icon\": ").append(jsonStr(a.iconPath()));
+            sb.append(", \"script\": ").append(jsonStr(a.scriptPath()));
+            if (a.label()   != null) sb.append(", \"label\": ")   .append(jsonStr(a.label()));
+            if (a.tooltip() != null) sb.append(", \"tooltip\": ") .append(jsonStr(a.tooltip()));
+            sb.append("}");
+            if (i < actions.size() - 1) sb.append(",");
+            sb.append("\n");
+        }
+        sb.append("  ]");
+        return sb.toString();
     }
 
     private static String jsonStrList(String key, List<String> values)
@@ -196,17 +223,77 @@ record LauncherConfig(
     private static LauncherConfig parse(String json)
     {
         return new LauncherConfig(
-                parseStr    (json, "rootFolder"),
-                parseBool   (json, "startMinimized"),
-                parseInt    (json, "windowWidth"),
-                parseInt    (json, "windowHeight"),
-                parseStrList(json, "priorityList"),
-                parseStr    (json, "explorer"),
-                parseStr    (json, "editor"),
-                parseStrList(json, "actionOrder"),
-                parseStr    (json, "entryButtonStyle"),
-                parseBool   (json, "showContextMenu"),
-                parseStrList(json, "toolbarActions"));
+                parseStr          (json, "rootFolder"),
+                parseBool         (json, "startMinimized"),
+                parseInt          (json, "windowWidth"),
+                parseInt          (json, "windowHeight"),
+                parseStrList      (json, "priorityList"),
+                parseStr          (json, "explorer"),
+                parseStr          (json, "editor"),
+                parseStrList      (json, "actionOrder"),
+                parseStr          (json, "entryButtonStyle"),
+                parseBool         (json, "showContextMenu"),
+                parseStrList      (json, "toolbarActions"),
+                parseCustomActions(json));
+    }
+
+    // ── CustomAction deserialisation ──────────────────────────────────────────
+
+    private static List<CustomAction> parseCustomActions(String json)
+    {
+        // Locate the customActions array
+        int keyIdx = json.indexOf("\"customActions\"");
+        if (keyIdx < 0) return null;
+        int arrStart = json.indexOf('[', keyIdx);
+        if (arrStart < 0) return null;
+
+        // Find matching ] counting brackets
+        int depth = 0, arrEnd = arrStart;
+        for (int i = arrStart; i < json.length(); i++)
+        {
+            char c = json.charAt(i);
+            if      (c == '[') depth++;
+            else if (c == ']') { if (--depth == 0) { arrEnd = i; break; } }
+        }
+        String inner = json.substring(arrStart + 1, arrEnd).trim();
+        if (inner.isEmpty()) return new ArrayList<>();
+
+        List<CustomAction> result = new ArrayList<>();
+        for (int i = 0; i < inner.length(); )
+        {
+            int start = inner.indexOf('{', i);
+            if (start < 0) break;
+            int end = findObjectEnd(inner, start);
+            if (end < 0) break;
+            String obj = inner.substring(start + 1, end);
+            String id  = parseStr(obj, "id");
+            if (id != null && !id.isBlank())
+            {
+                result.add(new CustomAction(id,
+                        parseStr(obj, "icon"),
+                        parseStr(obj, "script"),
+                        parseStr(obj, "label"),
+                        parseStr(obj, "tooltip")));
+            }
+            i = end + 1;
+        }
+        return result;
+    }
+
+    /** Finds the index of the closing {@code '}'} for the {@code '{'} at {@code start}. */
+    private static int findObjectEnd(String s, int start)
+    {
+        int depth = 0;
+        boolean inString = false;
+        for (int i = start; i < s.length(); i++)
+        {
+            char c = s.charAt(i);
+            if (inString) { if (c == '\\') { i++; } else if (c == '"') inString = false; }
+            else if (c == '"') inString = true;
+            else if (c == '{') depth++;
+            else if (c == '}') { if (--depth == 0) return i; }
+        }
+        return -1;
     }
 
     private static String parseStr(String json, String key)
