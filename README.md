@@ -28,7 +28,11 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 - **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
 - **User-defined custom actions** – define your own actions (script/executable + icon + label) and assign them to the entry action bar and/or the toolbar; fully manageable from the Settings dialog
 - **Configurable application types** – define your own app type categories with custom executable detection paths, executable names (priority lists), and optional icons; assign specific folders to a type via the Settings dialog or config file
-- **Settings dialog** to inspect active config paths, toggle startup options, configure commands (`EXPLORER`, `EDITOR`), manage custom actions, manage application types and assignments, customize the action button bar, and **configure toolbar buttons** (show/hide/reorder)
+- **Settings dialog** – organized in **four tabs** for easy navigation:
+  - **General** – config-file paths, startup options, `EXPLORER`/`EDITOR` commands, button style, and context-menu toggle
+  - **Custom Actions** – add, edit, and remove user-defined actions
+  - **Action Buttons** – show/hide and reorder toolbar buttons and per-entry action buttons
+  - **App Types** – manage application type definitions and folder assignments
 - Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
 - **Folder-chooser dialog** when no path is supplied on startup
 - **Color-coded list** for scripts, application folders, and plain folders
@@ -363,7 +367,9 @@ A toolbar sits between the blue header and the entry list.
 
 ### Settings Dialog
 
-Open by clicking the **⚙ gear icon** on the right side of the toolbar.
+Open by clicking the **⚙ gear icon** on the right side of the toolbar. The dialog is organized into **four tabs**. The **Save** and **Cancel** buttons are always visible at the bottom, regardless of the active tab.
+
+#### Tab: General
 
 | Section | Field | Description |
 |---|---|---|
@@ -373,15 +379,28 @@ Open by clicking the **⚙ gear icon** on the right side of the toolbar.
 | Startup | Start minimized | Checkbox – saves to instance config; takes effect on next launch |
 | Commands | EXPLORER | File explorer command. Leave blank to use the system default. |
 | Commands | EDITOR | Editor command (e.g. `code`, `notepad++`). Leave blank to default to `code`. |
-| Custom Actions | Action list | Add, edit, or remove user-defined custom actions. Each action has an ID, a mandatory **scope** (`Entry`, `Toolbar`, or `Both`), script path, optional icon, label, and tooltip. Only actions with a matching scope appear in the Toolbar Buttons or Action Buttons lists below. |
-| Application Types | Type list | Add, edit, or remove application type definitions. Each type has an ID, priority-ordered **executable paths** and **executable names** (for detection and launch), and an optional icon path. |
-| Application Type Assignments | Assignment list | Manually assign a specific folder to an application type (overrides auto-detection). Each assignment maps an exact folder name to a type ID. The type dropdown is populated from the Application Types defined above. |
-| Toolbar Buttons | Toolbar list | Checkboxes to show/hide each toolbar button (built-in SVN buttons and any custom actions added here); **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
-| Action Buttons | Action list | Checkboxes to show/hide each entry action (built-in actions and any custom actions added here); **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
-| Button Style | Style radio buttons | Choose **Inline icons** (one button per action, default) or **Hamburger menu** (single ☰ button that opens a popup). Takes effect immediately. |
+| Button Style | Style radio buttons | Choose **Inline icons** (one button per action, default) or **Hamburger menu** (single ☰ button that opens a popup). |
 | Button Style | Show context menu | Checkbox – uncheck to disable the right-click context menu on folder entries. |
 
-Click **Save** to persist changes or **Cancel** to discard.
+#### Tab: Custom Actions
+
+Add, edit, or remove user-defined custom actions. Each action has an ID, a mandatory **scope** (`Entry`, `Toolbar`, or `Both`), script path, optional icon, label, and tooltip. Only actions with a matching scope appear in the **Action Buttons** or **Toolbar** lists on the *Action Buttons* tab.
+
+#### Tab: Action Buttons
+
+| Section | Description |
+|---|---|
+| Toolbar | Checkboxes to show/hide each toolbar button (built-in SVN buttons and any custom actions with a toolbar scope); **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
+| Action Buttons | Checkboxes to show/hide each per-entry action button (built-in actions and any custom actions with an entry scope); **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
+
+#### Tab: App Types
+
+| Section | Description |
+|---|---|
+| Application Types | Add, edit, or remove application type definitions. Each type has an ID, priority-ordered **executable paths** and **executable names** (for detection and launch), and an optional icon path. |
+| Application Type Assignments | Manually assign a specific folder to an application type (overrides auto-detection). Each assignment maps an exact folder name to a type ID. The type dropdown is populated from the Application Types defined on this tab. |
+
+Click **Save** to persist all changes across all tabs, or **Cancel** to discard.
 
 ### Inline Action Icons / Hamburger Menu
 
@@ -523,7 +542,7 @@ All other sub-folders are treated as **plain folders**.
 | `src/main/java/dev/nonvocal/launcher/EntryCellRenderer.java` | Swing list-cell renderer – draws entry rows with inline icon buttons (`ICONS`) or hamburger button (`HAMBURGER`); supports custom action icons and app type icons |
 | `src/main/java/dev/nonvocal/launcher/ListMouseHandler.java` | `MouseAdapter` – handles single-click on action buttons (built-in and custom), double-click to launch, hover cursor changes, and right-click context menu |
 | `src/main/java/dev/nonvocal/launcher/EntryListTransferHandler.java` | `TransferHandler` for drag-and-drop reordering of list entries (disabled while a search filter is active) |
-| `src/main/java/dev/nonvocal/launcher/SettingsDialog.java` | Modal settings `JDialog` – config-file paths, startup options, EXPLORER/EDITOR commands, custom action management, application type management, application type assignment management, action-button/toolbar order/visibility, button style, context-menu toggle |
+| `src/main/java/dev/nonvocal/launcher/SettingsDialog.java` | Modal settings `JDialog` organized in **four tabs**: *General* (config-file paths, startup, EXPLORER/EDITOR commands, button style, context-menu toggle), *Custom Actions* (add/edit/remove user-defined actions), *Action Buttons* (toolbar and per-entry button visibility and order), *App Types* (application type definitions and folder assignments). Save and Cancel buttons are permanently visible below the tabs. |
 | `src/main/java/dev/nonvocal/launcher/ProcessOutputWindow.java` | Utility that streams real-time process output (robocopy, SVN, custom actions) into a dedicated, auto-closing window |
 
 ### Test files
@@ -682,7 +701,7 @@ The instance config will be stored at `%APPDATA%\nvLauncher\myapps\config.json`.
 ### "Could not open editor" Error
 - **Cause:** The configured editor command is not on your `PATH`
 - **Fix:**
-  - Open **Settings ⚙** → **EDITOR** field and enter the full path to the executable, e.g. `C:\Program Files\Microsoft VS Code\bin\code.cmd`
+  - Open **Settings ⚙ → General → EDITOR** field and enter the full path to the executable, e.g. `C:\Program Files\Microsoft VS Code\bin\code.cmd`
   - Or add the editor's folder to your PATH environment variable
   - Or install VS Code from [code.visualstudio.com](https://code.visualstudio.com/) and check "Add to PATH" during installation
 
@@ -723,11 +742,11 @@ The instance config will be stored at `%APPDATA%\nvLauncher\myapps\config.json`.
 
 ### Action Buttons Not Showing / Wrong Order
 - **Check** the `actionOrder` field in your config file – if it is an empty array (`[]`) no buttons are shown
-- Open **Settings ⚙** → **Action Buttons** section to toggle visibility and reorder using the ↑ / ↓ buttons
+- Open **Settings ⚙ → Action Buttons** tab to toggle visibility and reorder using the ↑ / ↓ buttons
 - If `actionOrder` is omitted entirely, all four buttons are shown in the default order
 
 ### Context Menu Not Appearing
-- The context menu may be disabled: open **Settings ⚙** → uncheck **Show right-click context menu**, or set `"showContextMenu": true` in the config file
+- The context menu may be disabled: open **Settings ⚙ → General** → uncheck **Show right-click context menu**, or set `"showContextMenu": true` in the config file
 
 ### Config Not Being Picked Up
 - **Check** that the JSON is valid (no trailing commas, all strings quoted)

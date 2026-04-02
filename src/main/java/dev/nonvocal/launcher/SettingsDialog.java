@@ -42,55 +42,89 @@ class SettingsDialog extends JDialog
 
     private void buildContent()
     {
-        JPanel root = new JPanel();
-        root.setLayout(new BoxLayout(root, BoxLayout.Y_AXIS));
-        root.setBorder(new EmptyBorder(14, 16, 10, 16));
+        JPanel main = new JPanel(new BorderLayout(0, 8));
+        main.setBorder(new EmptyBorder(10, 14, 10, 14));
 
-        // Config-file info
-        root.add(sectionLabel("Configuration files"));
-        root.add(Box.createVerticalStrut(4));
-        root.add(infoRow("Launcher ID",     launcherId, null));
-        root.add(Box.createVerticalStrut(2));
-        root.add(infoRow("Global config",
+        JTabbedPane tabs = new JTabbedPane();
+
+        // ── Tab 1: General ────────────────────────────────────────────────────
+        JPanel tabGeneral = new JPanel();
+        tabGeneral.setLayout(new BoxLayout(tabGeneral, BoxLayout.Y_AXIS));
+        tabGeneral.setBorder(new EmptyBorder(10, 6, 6, 6));
+
+        tabGeneral.add(sectionLabel("Configuration files"));
+        tabGeneral.add(Box.createVerticalStrut(4));
+        tabGeneral.add(infoRow("Launcher ID",     launcherId, null));
+        tabGeneral.add(Box.createVerticalStrut(2));
+        tabGeneral.add(infoRow("Global config",
                 LauncherConfig.globalConfigFile().getAbsolutePath(),
                 LauncherConfig.globalConfigFile().getParentFile()));
-        root.add(Box.createVerticalStrut(2));
-        root.add(infoRow("Instance config",
+        tabGeneral.add(Box.createVerticalStrut(2));
+        tabGeneral.add(infoRow("Instance config",
                 LauncherConfig.instanceConfigFile(launcherId).getAbsolutePath(),
                 LauncherConfig.instanceConfigFile(launcherId).getParentFile()));
-        root.add(separator());
+        tabGeneral.add(separator());
 
-        // Startup
-        root.add(sectionLabel("Startup"));
-        root.add(Box.createVerticalStrut(6));
+        tabGeneral.add(sectionLabel("Startup"));
+        tabGeneral.add(Box.createVerticalStrut(6));
         JCheckBox cbMinimized = new JCheckBox(
                 "Start minimized to system tray  (takes effect on next launch)");
         cbMinimized.setSelected(Boolean.TRUE.equals(config.startMinimized()));
         cbMinimized.setAlignmentX(Component.LEFT_ALIGNMENT);
-        root.add(cbMinimized);
-        root.add(separator());
+        tabGeneral.add(cbMinimized);
+        tabGeneral.add(separator());
 
-        // Commands
-        root.add(sectionLabel("Commands"));
-        root.add(Box.createVerticalStrut(6));
+        tabGeneral.add(sectionLabel("Commands"));
+        tabGeneral.add(Box.createVerticalStrut(6));
         JTextField tfExplorer = new JTextField(config.explorer() != null ? config.explorer() : "", 30);
-        root.add(editRow("EXPLORER", tfExplorer,
+        tabGeneral.add(editRow("EXPLORER", tfExplorer,
                 "File explorer command \u2013 blank uses the system default"));
-        root.add(Box.createVerticalStrut(4));
+        tabGeneral.add(Box.createVerticalStrut(4));
         JTextField tfEditor = new JTextField(config.editor() != null ? config.editor() : "", 30);
-        root.add(editRow("EDITOR", tfEditor,
+        tabGeneral.add(editRow("EDITOR", tfEditor,
                 "Editor command \u2013 blank defaults to 'code'"));
-        root.add(separator());
+        tabGeneral.add(separator());
 
-        // ── Custom Actions ────────────────────────────────────────────────────
-        root.add(sectionLabel("Custom Actions"));
-        root.add(Box.createVerticalStrut(4));
+        tabGeneral.add(sectionLabel("Button Style"));
+        tabGeneral.add(Box.createVerticalStrut(4));
+        JLabel styleHint = new JLabel("Choose how entry action buttons appear in the list");
+        styleHint.setFont(styleHint.getFont().deriveFont(Font.ITALIC, 10f));
+        styleHint.setForeground(Color.GRAY);
+        styleHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabGeneral.add(styleHint);
+        tabGeneral.add(Box.createVerticalStrut(4));
+        JRadioButton rbIcons     = new JRadioButton("Inline icons  \u2013 one small button per action");
+        JRadioButton rbHamburger = new JRadioButton("Hamburger menu (\u2630) \u2013 single button opens a popup");
+        new ButtonGroup() {{ add(rbIcons); add(rbHamburger); }};
+        boolean isHamburger = Launcher.BUTTON_STYLE_HAMBURGER.equals(config.entryButtonStyle());
+        rbHamburger.setSelected(isHamburger);
+        rbIcons.setSelected(!isHamburger);
+        rbIcons.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rbHamburger.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabGeneral.add(rbIcons);
+        tabGeneral.add(rbHamburger);
+        tabGeneral.add(Box.createVerticalStrut(6));
+
+        JCheckBox cbContextMenu = new JCheckBox("Show right-click context menu for folder entries");
+        cbContextMenu.setSelected(!Boolean.FALSE.equals(config.showContextMenu()));
+        cbContextMenu.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabGeneral.add(cbContextMenu);
+
+        tabs.addTab("General", new JScrollPane(tabGeneral));
+
+        // ── Tab 2: Custom Actions ─────────────────────────────────────────────
+        JPanel tabCustomActions = new JPanel();
+        tabCustomActions.setLayout(new BoxLayout(tabCustomActions, BoxLayout.Y_AXIS));
+        tabCustomActions.setBorder(new EmptyBorder(10, 6, 6, 6));
+
+        tabCustomActions.add(sectionLabel("Custom Actions"));
+        tabCustomActions.add(Box.createVerticalStrut(4));
         JLabel caHint = new JLabel("User-defined actions \u2013 appear in action bar and/or toolbar when added to those lists");
         caHint.setFont(caHint.getFont().deriveFont(Font.ITALIC, 10f));
         caHint.setForeground(Color.GRAY);
         caHint.setAlignmentX(Component.LEFT_ALIGNMENT);
-        root.add(caHint);
-        root.add(Box.createVerticalStrut(4));
+        tabCustomActions.add(caHint);
+        tabCustomActions.add(Box.createVerticalStrut(4));
 
         List<CustomAction> customActionsList = config.customActions() != null
                 ? new ArrayList<>(config.customActions()) : new ArrayList<>();
@@ -152,24 +186,170 @@ class SettingsDialog extends JDialog
         caBtnPanel.add(caBtnEdit);
         caBtnPanel.add(caBtnRemove);
 
-        JPanel caPanel = new JPanel(new BorderLayout(6, 0));
-        caPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        caPanel.add(new JScrollPane(caList), BorderLayout.CENTER);
-        caPanel.add(caBtnPanel, BorderLayout.EAST);
-        caPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 24 + 8));
-        root.add(caPanel);
-        root.add(Box.createVerticalStrut(8));
-        root.add(separator());
+        JPanel caListPanel = new JPanel(new BorderLayout(6, 0));
+        caListPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        caListPanel.add(new JScrollPane(caList), BorderLayout.CENTER);
+        caListPanel.add(caBtnPanel, BorderLayout.EAST);
+        tabCustomActions.add(caListPanel);
 
-        // ── Application Types ─────────────────────────────────────────────────
-        root.add(sectionLabel("Application Types"));
-        root.add(Box.createVerticalStrut(4));
+        tabs.addTab("Custom Actions", new JScrollPane(tabCustomActions));
+
+        // ── Tab 3: Action Buttons ─────────────────────────────────────────────
+        JPanel tabActions = new JPanel();
+        tabActions.setLayout(new BoxLayout(tabActions, BoxLayout.Y_AXIS));
+        tabActions.setBorder(new EmptyBorder(10, 6, 6, 6));
+
+        tabActions.add(sectionLabel("Toolbar"));
+        tabActions.add(Box.createVerticalStrut(4));
+        JLabel tbHint = new JLabel("Check to show \u00b7 drag up/down to reorder");
+        tbHint.setFont(tbHint.getFont().deriveFont(Font.ITALIC, 10f));
+        tbHint.setForeground(Color.GRAY);
+        tbHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabActions.add(tbHint);
+        tabActions.add(Box.createVerticalStrut(4));
+
+        List<String> tbOrdered = new ArrayList<>(effectiveToolbarActions);
+        for (String k : Launcher.DEFAULT_TOOLBAR_ACTIONS)
+            if (!tbOrdered.contains(k)) tbOrdered.add(k);
+        if (config.customActions() != null)
+            for (CustomAction ca : config.customActions())
+                if (ca.appliesToToolbar() && !tbOrdered.contains(ca.id())) tbOrdered.add(ca.id());
+        final Set<String> tbChecked = new HashSet<>(effectiveToolbarActions);
+
+        DefaultListModel<String> tbModel = new DefaultListModel<>();
+        tbOrdered.forEach(tbModel::addElement);
+
+        JList<String> tbList = new JList<>(tbModel);
+        tbList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tbList.setFixedCellHeight(24);
+        tbList.setCellRenderer((lst, value, index, isSelected, focus) ->
+        {
+            JCheckBox cb = new JCheckBox(toolbarLabel(value));
+            cb.setSelected(tbChecked.contains(value));
+            cb.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
+            cb.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            cb.setFont(lst.getFont());
+            return cb;
+        });
+        tbList.addMouseListener(new MouseAdapter()
+        {
+            @Override public void mouseClicked(MouseEvent ev)
+            {
+                int idx = tbList.locationToIndex(ev.getPoint());
+                if (idx < 0) return;
+                String key = tbModel.getElementAt(idx);
+                if (tbChecked.contains(key)) tbChecked.remove(key); else tbChecked.add(key);
+                tbList.repaint();
+            }
+        });
+
+        JButton tbBtnUp   = new JButton("\u2191");
+        JButton tbBtnDown = new JButton("\u2193");
+        tbBtnUp.addActionListener(ev ->
+        {
+            int i = tbList.getSelectedIndex();
+            if (i > 0) { String item = tbModel.remove(i); tbModel.add(i - 1, item); tbList.setSelectedIndex(i - 1); }
+        });
+        tbBtnDown.addActionListener(ev ->
+        {
+            int i = tbList.getSelectedIndex();
+            if (i >= 0 && i < tbModel.getSize() - 1) { String item = tbModel.remove(i); tbModel.add(i + 1, item); tbList.setSelectedIndex(i + 1); }
+        });
+
+        JPanel tbActButtons = new JPanel(new GridLayout(2, 1, 0, 2));
+        tbActButtons.add(tbBtnUp); tbActButtons.add(tbBtnDown);
+
+        JPanel tbPanel = new JPanel(new BorderLayout(6, 0));
+        tbPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tbPanel.add(new JScrollPane(tbList), BorderLayout.CENTER);
+        tbPanel.add(tbActButtons, BorderLayout.EAST);
+        tbPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2 * 24 + 8));
+        tabActions.add(tbPanel);
+        tabActions.add(Box.createVerticalStrut(8));
+        tabActions.add(separator());
+
+        tabActions.add(sectionLabel("Action Buttons"));
+        tabActions.add(Box.createVerticalStrut(4));
+        JLabel actHint = new JLabel("Check to show \u00b7 drag up/down to reorder");
+        actHint.setFont(actHint.getFont().deriveFont(Font.ITALIC, 10f));
+        actHint.setForeground(Color.GRAY);
+        actHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabActions.add(actHint);
+        tabActions.add(Box.createVerticalStrut(4));
+
+        List<String> orderedKeys = new ArrayList<>(effectiveActionOrder);
+        for (String k : Launcher.DEFAULT_ACTION_ORDER)
+            if (!orderedKeys.contains(k)) orderedKeys.add(k);
+        if (config.customActions() != null)
+            for (CustomAction ca : config.customActions())
+                if (ca.appliesToEntry() && !orderedKeys.contains(ca.id())) orderedKeys.add(ca.id());
+        final Set<String> checked = new HashSet<>(effectiveActionOrder);
+
+        DefaultListModel<String> actModel = new DefaultListModel<>();
+        orderedKeys.forEach(actModel::addElement);
+
+        JList<String> actList = new JList<>(actModel);
+        actList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        actList.setFixedCellHeight(24);
+        actList.setCellRenderer((lst, value, index, isSelected, focus) ->
+        {
+            JCheckBox cb = new JCheckBox(actionLabel(value));
+            cb.setSelected(checked.contains(value));
+            cb.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
+            cb.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            cb.setFont(lst.getFont());
+            return cb;
+        });
+        actList.addMouseListener(new MouseAdapter()
+        {
+            @Override public void mouseClicked(MouseEvent ev)
+            {
+                int idx = actList.locationToIndex(ev.getPoint());
+                if (idx < 0) return;
+                String key = actModel.getElementAt(idx);
+                if (checked.contains(key)) checked.remove(key); else checked.add(key);
+                actList.repaint();
+            }
+        });
+
+        JButton btnUp   = new JButton("\u2191");
+        JButton btnDown = new JButton("\u2193");
+        btnUp.addActionListener(ev ->
+        {
+            int i = actList.getSelectedIndex();
+            if (i > 0) { String item = actModel.remove(i); actModel.add(i - 1, item); actList.setSelectedIndex(i - 1); }
+        });
+        btnDown.addActionListener(ev ->
+        {
+            int i = actList.getSelectedIndex();
+            if (i >= 0 && i < actModel.getSize() - 1) { String item = actModel.remove(i); actModel.add(i + 1, item); actList.setSelectedIndex(i + 1); }
+        });
+
+        JPanel actButtons = new JPanel(new GridLayout(2, 1, 0, 2));
+        actButtons.add(btnUp); actButtons.add(btnDown);
+
+        JPanel actPanel = new JPanel(new BorderLayout(6, 0));
+        actPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        actPanel.add(new JScrollPane(actList), BorderLayout.CENTER);
+        actPanel.add(actButtons, BorderLayout.EAST);
+        actPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 4 * 24 + 8));
+        tabActions.add(actPanel);
+
+        tabs.addTab("Action Buttons", new JScrollPane(tabActions));
+
+        // ── Tab 4: App Types ──────────────────────────────────────────────────
+        JPanel tabAppTypes = new JPanel();
+        tabAppTypes.setLayout(new BoxLayout(tabAppTypes, BoxLayout.Y_AXIS));
+        tabAppTypes.setBorder(new EmptyBorder(10, 6, 6, 6));
+
+        tabAppTypes.add(sectionLabel("Application Types"));
+        tabAppTypes.add(Box.createVerticalStrut(4));
         JLabel atHint = new JLabel("Define how to detect and display a category of application folder");
         atHint.setFont(atHint.getFont().deriveFont(Font.ITALIC, 10f));
         atHint.setForeground(Color.GRAY);
         atHint.setAlignmentX(Component.LEFT_ALIGNMENT);
-        root.add(atHint);
-        root.add(Box.createVerticalStrut(4));
+        tabAppTypes.add(atHint);
+        tabAppTypes.add(Box.createVerticalStrut(4));
 
         List<AppType> appTypesList = config.appTypes() != null
                 ? new ArrayList<>(config.appTypes()) : new ArrayList<>();
@@ -230,26 +410,24 @@ class SettingsDialog extends JDialog
         atBtnPanel.add(atBtnEdit);
         atBtnPanel.add(atBtnRemove);
 
-        JPanel atPanel = new JPanel(new BorderLayout(6, 0));
-        atPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        atPanel.add(new JScrollPane(atList), BorderLayout.CENTER);
-        atPanel.add(atBtnPanel, BorderLayout.EAST);
-        atPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 24 + 8));
-        root.add(atPanel);
-        root.add(Box.createVerticalStrut(8));
-        root.add(separator());
+        JPanel atListPanel = new JPanel(new BorderLayout(6, 0));
+        atListPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        atListPanel.add(new JScrollPane(atList), BorderLayout.CENTER);
+        atListPanel.add(atBtnPanel, BorderLayout.EAST);
+        atListPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 24 + 8));
+        tabAppTypes.add(atListPanel);
+        tabAppTypes.add(Box.createVerticalStrut(8));
+        tabAppTypes.add(separator());
 
-        // ── Application Type Assignments ──────────────────────────────────────
-        root.add(sectionLabel("Application Type Assignments"));
-        root.add(Box.createVerticalStrut(4));
+        tabAppTypes.add(sectionLabel("Application Type Assignments"));
+        tabAppTypes.add(Box.createVerticalStrut(4));
         JLabel assHint = new JLabel("Manually assign a specific application type to a folder (overrides auto-detection)");
         assHint.setFont(assHint.getFont().deriveFont(Font.ITALIC, 10f));
         assHint.setForeground(Color.GRAY);
         assHint.setAlignmentX(Component.LEFT_ALIGNMENT);
-        root.add(assHint);
-        root.add(Box.createVerticalStrut(4));
+        tabAppTypes.add(assHint);
+        tabAppTypes.add(Box.createVerticalStrut(4));
 
-        // Represent each assignment as a String[] { folderName, typeId }
         List<String[]> assignmentList = new ArrayList<>();
         if (config.appTypeAssignments() != null)
             for (Map.Entry<String, String> e : config.appTypeAssignments().entrySet())
@@ -280,7 +458,6 @@ class SettingsDialog extends JDialog
         {
             String[] result = showAssignmentEditor(null, atModel);
             if (result == null) return;
-            // Check for duplicate folder name
             for (int i = 0; i < assModel.getSize(); i++)
                 if (assModel.getElementAt(i)[0].equals(result[0]))
                 {
@@ -310,189 +487,25 @@ class SettingsDialog extends JDialog
         assBtnPanel.add(assBtnEdit);
         assBtnPanel.add(assBtnRemove);
 
-        JPanel assPanel = new JPanel(new BorderLayout(6, 0));
-        assPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        assPanel.add(new JScrollPane(assList), BorderLayout.CENTER);
-        assPanel.add(assBtnPanel, BorderLayout.EAST);
-        assPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 24 + 8));
-        root.add(assPanel);
-        root.add(Box.createVerticalStrut(8));
-        root.add(separator());
-        root.add(Box.createVerticalStrut(4));
-        JLabel tbHint = new JLabel("Check to show \u00b7 drag up/down to reorder");
-        tbHint.setFont(tbHint.getFont().deriveFont(Font.ITALIC, 10f));
-        tbHint.setForeground(Color.GRAY);
-        tbHint.setAlignmentX(Component.LEFT_ALIGNMENT);
-        root.add(tbHint);
-        root.add(Box.createVerticalStrut(4));
+        JPanel assListPanel = new JPanel(new BorderLayout(6, 0));
+        assListPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        assListPanel.add(new JScrollPane(assList), BorderLayout.CENTER);
+        assListPanel.add(assBtnPanel, BorderLayout.EAST);
+        assListPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 24 + 8));
+        tabAppTypes.add(assListPanel);
 
-        List<String> tbOrdered = new ArrayList<>(effectiveToolbarActions);
-        for (String k : Launcher.DEFAULT_TOOLBAR_ACTIONS)
-            if (!tbOrdered.contains(k)) tbOrdered.add(k);
-        // Include only custom actions whose scope allows toolbar use
-        if (config.customActions() != null)
-            for (CustomAction ca : config.customActions())
-                if (ca.appliesToToolbar() && !tbOrdered.contains(ca.id())) tbOrdered.add(ca.id());
-        final Set<String> tbChecked = new HashSet<>(effectiveToolbarActions);
+        tabs.addTab("App Types", new JScrollPane(tabAppTypes));
 
-        DefaultListModel<String> tbModel = new DefaultListModel<>();
-        tbOrdered.forEach(tbModel::addElement);
+        main.add(tabs, BorderLayout.CENTER);
 
-        JList<String> tbList = new JList<>(tbModel);
-        tbList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        tbList.setFixedCellHeight(24);
-        tbList.setCellRenderer((lst, value, index, isSelected, focus) ->
-        {
-            JCheckBox cb = new JCheckBox(toolbarLabel(value));
-            cb.setSelected(tbChecked.contains(value));
-            cb.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
-            cb.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
-            cb.setFont(lst.getFont());
-            return cb;
-        });
-        tbList.addMouseListener(new MouseAdapter()
-        {
-            @Override public void mouseClicked(MouseEvent ev)
-            {
-                int idx = tbList.locationToIndex(ev.getPoint());
-                if (idx < 0) return;
-                String key = tbModel.getElementAt(idx);
-                if (tbChecked.contains(key)) tbChecked.remove(key); else tbChecked.add(key);
-                tbList.repaint();
-            }
-        });
-
-        JButton tbBtnUp   = new JButton("\u2191");
-        JButton tbBtnDown = new JButton("\u2193");
-        tbBtnUp.addActionListener(ev ->
-        {
-            int i = tbList.getSelectedIndex();
-            if (i > 0) { String item = tbModel.remove(i); tbModel.add(i - 1, item); tbList.setSelectedIndex(i - 1); }
-        });
-        tbBtnDown.addActionListener(ev ->
-        {
-            int i = tbList.getSelectedIndex();
-            if (i >= 0 && i < tbModel.getSize() - 1) { String item = tbModel.remove(i); tbModel.add(i + 1, item); tbList.setSelectedIndex(i + 1); }
-        });
-
-        JPanel tbActButtons = new JPanel(new GridLayout(2, 1, 0, 2));
-        tbActButtons.add(tbBtnUp); tbActButtons.add(tbBtnDown);
-
-        JPanel tbPanel = new JPanel(new BorderLayout(6, 0));
-        tbPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        tbPanel.add(new JScrollPane(tbList), BorderLayout.CENTER);
-        tbPanel.add(tbActButtons, BorderLayout.EAST);
-        tbPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2 * 24 + 8));
-        root.add(tbPanel);
-        root.add(Box.createVerticalStrut(8));
-        root.add(separator());
-
-        // Action buttons
-        root.add(sectionLabel("Action Buttons"));
-        root.add(Box.createVerticalStrut(4));
-        JLabel actHint = new JLabel("Check to show \u00b7 drag up/down to reorder");
-        actHint.setFont(actHint.getFont().deriveFont(Font.ITALIC, 10f));
-        actHint.setForeground(Color.GRAY);
-        actHint.setAlignmentX(Component.LEFT_ALIGNMENT);
-        root.add(actHint);
-        root.add(Box.createVerticalStrut(4));
-
-        List<String> orderedKeys = new ArrayList<>(effectiveActionOrder);
-        for (String k : Launcher.DEFAULT_ACTION_ORDER)
-            if (!orderedKeys.contains(k)) orderedKeys.add(k);
-        // Include only custom actions whose scope allows entry-bar use
-        if (config.customActions() != null)
-            for (CustomAction ca : config.customActions())
-                if (ca.appliesToEntry() && !orderedKeys.contains(ca.id())) orderedKeys.add(ca.id());
-        final Set<String> checked = new HashSet<>(effectiveActionOrder);
-
-        DefaultListModel<String> actModel = new DefaultListModel<>();
-        orderedKeys.forEach(actModel::addElement);
-
-        JList<String> actList = new JList<>(actModel);
-        actList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        actList.setFixedCellHeight(24);
-        actList.setCellRenderer((lst, value, index, isSelected, focus) ->
-        {
-            JCheckBox cb = new JCheckBox(actionLabel(value));
-            cb.setSelected(checked.contains(value));
-            cb.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
-            cb.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
-            cb.setFont(lst.getFont());
-            return cb;
-        });
-        actList.addMouseListener(new MouseAdapter()
-        {
-            @Override public void mouseClicked(MouseEvent ev)
-            {
-                int idx = actList.locationToIndex(ev.getPoint());
-                if (idx < 0) return;
-                String key = actModel.getElementAt(idx);
-                if (checked.contains(key)) checked.remove(key); else checked.add(key);
-                actList.repaint();
-            }
-        });
-
-        JButton btnUp   = new JButton("\u2191");
-        JButton btnDown = new JButton("\u2193");
-        btnUp.addActionListener(ev ->
-        {
-            int i = actList.getSelectedIndex();
-            if (i > 0) { String item = actModel.remove(i); actModel.add(i - 1, item); actList.setSelectedIndex(i - 1); }
-        });
-        btnDown.addActionListener(ev ->
-        {
-            int i = actList.getSelectedIndex();
-            if (i >= 0 && i < actModel.getSize() - 1) { String item = actModel.remove(i); actModel.add(i + 1, item); actList.setSelectedIndex(i + 1); }
-        });
-
-        JPanel actButtons = new JPanel(new GridLayout(2, 1, 0, 2));
-        actButtons.add(btnUp); actButtons.add(btnDown);
-
-        JPanel actPanel = new JPanel(new BorderLayout(6, 0));
-        actPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        actPanel.add(new JScrollPane(actList), BorderLayout.CENTER);
-        actPanel.add(actButtons, BorderLayout.EAST);
-        actPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 4 * 24 + 8));
-        root.add(actPanel);
-        root.add(Box.createVerticalStrut(8));
-
-        // Button style
-        root.add(sectionLabel("Button Style"));
-        root.add(Box.createVerticalStrut(4));
-        JLabel styleHint = new JLabel("Choose how entry action buttons appear in the list");
-        styleHint.setFont(styleHint.getFont().deriveFont(Font.ITALIC, 10f));
-        styleHint.setForeground(Color.GRAY);
-        styleHint.setAlignmentX(Component.LEFT_ALIGNMENT);
-        root.add(styleHint);
-        root.add(Box.createVerticalStrut(4));
-        JRadioButton rbIcons     = new JRadioButton("Inline icons  \u2013 one small button per action");
-        JRadioButton rbHamburger = new JRadioButton("Hamburger menu (\u2630) \u2013 single button opens a popup");
-        new ButtonGroup() {{ add(rbIcons); add(rbHamburger); }};
-        boolean isHamburger = Launcher.BUTTON_STYLE_HAMBURGER.equals(config.entryButtonStyle());
-        rbHamburger.setSelected(isHamburger);
-        rbIcons.setSelected(!isHamburger);
-        rbIcons.setAlignmentX(Component.LEFT_ALIGNMENT);
-        rbHamburger.setAlignmentX(Component.LEFT_ALIGNMENT);
-        root.add(rbIcons);
-        root.add(rbHamburger);
-        root.add(Box.createVerticalStrut(6));
-
-        // Context menu toggle
-        JCheckBox cbContextMenu = new JCheckBox("Show right-click context menu for folder entries");
-        cbContextMenu.setSelected(!Boolean.FALSE.equals(config.showContextMenu()));
-        cbContextMenu.setAlignmentX(Component.LEFT_ALIGNMENT);
-        root.add(cbContextMenu);
-        root.add(separator());
-
-        // Save / Cancel
+        // ── Save / Cancel ─────────────────────────────────────────────────────
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         btnPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         JButton btnSave   = new JButton("Save");
         JButton btnCancel = new JButton("Cancel");
         btnPanel.add(btnSave);
         btnPanel.add(btnCancel);
-        root.add(btnPanel);
+        main.add(btnPanel, BorderLayout.SOUTH);
 
         btnSave.addActionListener(e ->
         {
@@ -542,7 +555,7 @@ class SettingsDialog extends JDialog
         });
         btnCancel.addActionListener(e -> dispose());
 
-        add(root);
+        add(main);
     }
 
     // ── Static UI helpers ─────────────────────────────────────────────────────
@@ -581,7 +594,7 @@ class SettingsDialog extends JDialog
         };
     }
 
-    // ── Custom action editor ──────────────────────────────────────────────────
+    // ── Custom action editor ─────────────────────────────────────────────────
 
     /**
      * Shows a dialog for adding or editing a {@link CustomAction}.
