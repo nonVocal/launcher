@@ -11,7 +11,7 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 - **Double-click / Enter** to run a script or launch an application
 - **Configurable entry order** – drag any row to a new position with the mouse; the order is saved automatically to the instance config as a `priorityList` and restored on the next launch. Entries not in the list follow the default sort (scripts A–Z → app folders A–Z → plain folders A–Z)
 - **Dark mode / Light mode** – choose between **Light**, **Dark**, or **System default** (follows the OS preference). The full UI – list rows, action buttons, toolbar, footer, and all dialogs – adapts to the active theme instantly when you save settings.
-- **Custom accent color** – pick any colour with the built-in colour picker to tint the header bar and FlatLaf's system-wide highlights (selection, focused borders, scroll bars, …). Reset to the default Windows blue at any time.
+- **Custom accent color** – pick any colour with the built-in colour picker to tint the header bar, the Settings dialog section labels, and FlatLaf's system-wide highlights (selection, focused borders, scroll bars, …). Reset to the default Windows blue at any time.
 - **Toolbar** below the header bar with quick-access buttons:
   - **SVN Checkout** (left-1) – classic command-line checkout: prompts for a URL, checks out directly into the target folder using the `svn` CLI, and shows real-time output
   - **SVN Repository Browser** (left-2) – opens the TortoiseSVN repository browser so you can navigate the repo and check out any sub-path; the application list refreshes **automatically** when a new directory appears in the launcher folder
@@ -174,7 +174,7 @@ Any field can be omitted; omitted fields are inherited from the level below.
 | `entryButtonStyle` | string | Controls how entry action buttons appear. `"ICONS"` (default) shows one small button per action. `"HAMBURGER"` shows a single ☰ button that opens a popup. |
 | `showContextMenu` | boolean | `true` (default) to show the right-click context menu on folder entries. Set to `false` to disable it. |
 | `theme` | string | UI colour scheme. `"light"` forces light mode, `"dark"` forces dark mode, `"system"` (default, or omit) follows the OS dark/light preference. Configurable in **Settings → General → Appearance**. |
-| `accentColor` | string | Accent colour as a CSS hex string, e.g. `"#0078D7"`. Tints the header bar and FlatLaf's system-wide highlights (selection, focused controls, …). Omit or set to `null` to use the FlatLaf default. Configurable in **Settings → General → Appearance**. |
+| `accentColor` | string | Accent colour as a CSS hex string, e.g. `"#0078D7"`. Tints the header bar, the Settings dialog section labels, and FlatLaf's system-wide highlights (selection, focused controls, …). Omit or set to `null` to use the FlatLaf default. Configurable in **Settings → General → Appearance**. |
 | `priorityList` | string array | Ordered list of entry names. Entries in this list appear at the top in the given order; all remaining entries follow in the default sort (scripts A–Z → app folders A–Z → plain folders A–Z). Updated automatically when you drag and drop entries in the UI. |
 | `actionOrder` | string array | Ordered list of **action keys** that determines which action buttons are shown and in what order. May include built-in keys and custom action IDs. Omit to show all four built-in actions in the default order. |
 | `toolbarActions` | string array | Ordered list of **toolbar button keys** that determines which toolbar buttons are shown and in what order. May include built-in keys and custom action IDs. Omit to show both SVN buttons in the default order. |
@@ -366,7 +366,7 @@ Open by clicking the **⚙ gear icon** on the right side of the toolbar. The dia
 | Configuration files | Instance config | Path to `%APPDATA%\nvLauncher\{id}\config.json` with 📂 button to open the folder |
 | Startup | Start minimized | Checkbox – saves to instance config; takes effect on next launch |
 | Appearance | Theme | Choose **System default** (follows OS dark/light preference), **Light mode**, or **Dark mode**. Applied immediately when you click Save. |
-| Appearance | Accent color | Colour swatch showing the current accent. Click **Choose…** to open the colour picker; click **Reset to default** to restore the built-in blue. The accent tints the header bar and FlatLaf's system highlights (selection, focused borders, …). Applied immediately when you click Save. |
+| Appearance | Accent color | Colour swatch showing the current accent. Click **Choose…** to open the colour picker; click **Reset to default** to restore the built-in blue. The accent tints the header bar, the Settings dialog section labels, and FlatLaf's system highlights (selection, focused borders, …). Applied immediately when you click Save. |
 | Commands | EXPLORER | File explorer command. Leave blank to use the system default. |
 | Commands | EDITOR | Editor command (e.g. `code`, `notepad++`). Leave blank to default to `code`. |
 | Button Style | Style radio buttons | Choose **Inline icons** (one button per action, default) or **Hamburger menu** (single ☰ button that opens a popup). |
@@ -411,6 +411,7 @@ The theme is applied via [FlatLaf](https://www.formdev.com/flatlaf/). The follow
 
 The **accent colour** is used for:
 - The header bar background
+- Section labels in the Settings dialog (lightened in dark mode, darkened in light mode)
 - FlatLaf's system-wide selection highlight, focused component borders, and similar controls
 
 ### Inline Action Icons / Hamburger Menu
@@ -505,7 +506,7 @@ Launcher uses the following strategy (in priority order):
 | `EntryCellRenderer.java` | Swing list-cell renderer. All colours are computed from the active Look-and-Feel at construction time via `isDark()` (`FlatLaf.isLafDark()`), so they adapt automatically to light/dark themes. The renderer is recreated on every theme/settings change. |
 | `ListMouseHandler.java` | `MouseAdapter` – action button clicks, double-click launch, hover cursor, right-click menu |
 | `EntryListTransferHandler.java` | Drag-and-drop reordering (disabled while a search filter is active) |
-| `SettingsDialog.java` | Modal settings `JDialog` – four tabs. *General* now includes the **Appearance section** (theme radio buttons + accent colour swatch/picker/reset). Section labels use `isDark()` for theme-aware foreground colour. |
+| `SettingsDialog.java` | Modal settings `JDialog` – four tabs. *General* now includes the **Appearance section** (theme radio buttons + accent colour swatch/picker/reset). Section labels derive their colour from the configured accent (lightened in dark mode, darkened in light mode). |
 | `ProcessOutputWindow.java` | Streams real-time process output into a dedicated, auto-closing window |
 
 ### Test files
