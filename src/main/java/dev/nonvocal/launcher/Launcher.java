@@ -68,6 +68,15 @@ public class Launcher extends JFrame
             EXPLORE_ACTION, EDITOR_ACTION, COPY_ACTION, DELETE_ACTION);
 
     // =========================================================================
+    //  Button style keys
+    // =========================================================================
+
+    /** Button style – individual icon per action (default). */
+    public static final String BUTTON_STYLE_ICONS     = "ICONS";
+    /** Button style – single hamburger button (≡) that opens an action popup. */
+    public static final String BUTTON_STYLE_HAMBURGER = "HAMBURGER";
+
+    // =========================================================================
     //  Data model
     // =========================================================================
 
@@ -114,7 +123,9 @@ public class Launcher extends JFrame
             List<String> priorityList,
             String       explorer,
             String       editor,
-            List<String> actionOrder)
+            List<String> actionOrder,
+            String       entryButtonStyle,
+            Boolean      showContextMenu)
     {
         // ── Static paths ───────────────────────────────────────────────────
 
@@ -142,13 +153,13 @@ public class Launcher extends JFrame
         /** All fields null – represents "nothing set at this level". */
         static LauncherConfig empty()
         {
-            return new LauncherConfig(null, null, null, null, null, null, null, null);
+            return new LauncherConfig(null, null, null, null, null, null, null, null, null, null);
         }
 
         /** Hardcoded application defaults (all fields non-null). */
         static LauncherConfig defaults()
         {
-            return new LauncherConfig(null, false, 560, 680, null, null, null, null);
+            return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null);
         }
 
         /**
@@ -179,14 +190,16 @@ public class Launcher extends JFrame
         LauncherConfig mergeOver(LauncherConfig base)
         {
             return new LauncherConfig(
-                    rootFolder     != null ? rootFolder     : base.rootFolder,
-                    startMinimized != null ? startMinimized : base.startMinimized,
-                    windowWidth    != null ? windowWidth    : base.windowWidth,
-                    windowHeight   != null ? windowHeight   : base.windowHeight,
-                    priorityList   != null ? priorityList   : base.priorityList,
-                    explorer       != null ? explorer       : base.explorer,
-                    editor         != null ? editor         : base.editor,
-                    actionOrder    != null ? actionOrder    : base.actionOrder);
+                    rootFolder        != null ? rootFolder        : base.rootFolder,
+                    startMinimized    != null ? startMinimized    : base.startMinimized,
+                    windowWidth       != null ? windowWidth       : base.windowWidth,
+                    windowHeight      != null ? windowHeight      : base.windowHeight,
+                    priorityList      != null ? priorityList      : base.priorityList,
+                    explorer          != null ? explorer          : base.explorer,
+                    editor            != null ? editor            : base.editor,
+                    actionOrder       != null ? actionOrder       : base.actionOrder,
+                    entryButtonStyle  != null ? entryButtonStyle  : base.entryButtonStyle,
+                    showContextMenu   != null ? showContextMenu   : base.showContextMenu);
         }
 
         /**
@@ -203,7 +216,9 @@ public class Launcher extends JFrame
                     priorityList,
                     explorer,
                     editor,
-                    actionOrder);
+                    actionOrder,
+                    entryButtonStyle,
+                    showContextMenu);
         }
 
         // ── Persistence ────────────────────────────────────────────────────
@@ -227,12 +242,14 @@ public class Launcher extends JFrame
         private String toJson()
         {
             List<String> lines = new ArrayList<>();
-            if (rootFolder     != null) lines.add("  \"rootFolder\": "     + jsonStr(rootFolder));
-            if (startMinimized != null) lines.add("  \"startMinimized\": " + startMinimized);
-            if (windowWidth    != null) lines.add("  \"windowWidth\": "    + windowWidth);
-            if (windowHeight   != null) lines.add("  \"windowHeight\": "   + windowHeight);
-            if (explorer       != null) lines.add("  \"explorer\": "       + jsonStr(explorer));
-            if (editor         != null) lines.add("  \"editor\": "         + jsonStr(editor));
+            if (rootFolder       != null) lines.add("  \"rootFolder\": "       + jsonStr(rootFolder));
+            if (startMinimized   != null) lines.add("  \"startMinimized\": "   + startMinimized);
+            if (windowWidth      != null) lines.add("  \"windowWidth\": "      + windowWidth);
+            if (windowHeight     != null) lines.add("  \"windowHeight\": "     + windowHeight);
+            if (explorer         != null) lines.add("  \"explorer\": "         + jsonStr(explorer));
+            if (editor           != null) lines.add("  \"editor\": "           + jsonStr(editor));
+            if (entryButtonStyle != null) lines.add("  \"entryButtonStyle\": " + jsonStr(entryButtonStyle));
+            if (showContextMenu  != null) lines.add("  \"showContextMenu\": "  + showContextMenu);
             if (priorityList   != null && !priorityList.isEmpty())
             {
                 StringBuilder sb = new StringBuilder("  \"priorityList\": [\n");
@@ -278,7 +295,9 @@ public class Launcher extends JFrame
                     parseStrList(json, "priorityList"),
                     parseStr    (json, "explorer"),
                     parseStr    (json, "editor"),
-                    parseStrList(json, "actionOrder"));
+                    parseStrList(json, "actionOrder"),
+                    parseStr    (json, "entryButtonStyle"),
+                    parseBool   (json, "showContextMenu"));
         }
 
         private static String parseStr(String json, String key)
@@ -393,15 +412,16 @@ public class Launcher extends JFrame
         private final JLabel nameLabel = new JLabel();
         private final JPanel actionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, ACT_HGAP, 0));
         private final List<String> actionOrder;
+        private final String buttonStyle;
         private final JLabel[] actIcons;
 
         private transient final FileSystemView fsv = FileSystemView.getFileSystemView();
 
-        EntryCellRenderer(List<String> actionOrder)
+        EntryCellRenderer(List<String> actionOrder, String buttonStyle)
         {
             this.actionOrder = actionOrder;
-            int n = actionOrder.size();
-            this.actIcons = new JLabel[n];
+            this.buttonStyle = buttonStyle;
+            boolean isHamburger = BUTTON_STYLE_HAMBURGER.equals(buttonStyle);
 
             setLayout(new BorderLayout());
             setOpaque(true);
@@ -415,24 +435,47 @@ public class Launcher extends JFrame
             // EmptyBorder top/bottom = (36 - 18) / 2 = 9 px → centres 18 px icons in 36 px row
             actionBar.setBorder(new EmptyBorder(9, 0, 9, 0));
 
-            for (int i = 0; i < n; i++)
+            if (isHamburger)
             {
-                String key = actionOrder.get(i);
-                ImageIcon img = ACT_ICON_MAP.get(key);
-                JLabel lbl = (img != null)
-                        ? new JLabel(img, JLabel.CENTER)
-                        : new JLabel(ACT_TEXT_MAP.getOrDefault(key, "?"), JLabel.CENTER);
-                lbl.setFont(ACT_FONT);
-                lbl.setForeground(DELETE_ACTION.equals(key) ? ACT_DEL : ACT_FG);
-                lbl.setBackground(ACT_BG);
-                lbl.setOpaque(true);
-                lbl.setBorder(BorderFactory.createCompoundBorder(
+                // Single hamburger button (☰) – clicking it opens an action popup
+                actIcons = new JLabel[1];
+                JLabel burger = new JLabel("\u2630", JLabel.CENTER); // ☰
+                burger.setFont(ACT_FONT);
+                burger.setForeground(ACT_FG);
+                burger.setBackground(ACT_BG);
+                burger.setOpaque(true);
+                burger.setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(ACT_BORD, 1),
                         BorderFactory.createEmptyBorder(1, 3, 1, 3)));
-                lbl.setToolTipText(ACT_TIP_MAP.getOrDefault(key, key));
-                lbl.setPreferredSize(new Dimension(ACT_W, ACT_W - 4)); // 22 × 18
-                actIcons[i] = lbl;
-                actionBar.add(lbl);
+                burger.setToolTipText("Actions");
+                burger.setPreferredSize(new Dimension(ACT_W, ACT_W - 4));
+                actIcons[0] = burger;
+                actionBar.add(burger);
+            }
+            else
+            {
+                // Individual icon per action (default ICONS mode)
+                int n = actionOrder.size();
+                actIcons = new JLabel[n];
+                for (int i = 0; i < n; i++)
+                {
+                    String key = actionOrder.get(i);
+                    ImageIcon img = ACT_ICON_MAP.get(key);
+                    JLabel lbl = (img != null)
+                            ? new JLabel(img, JLabel.CENTER)
+                            : new JLabel(ACT_TEXT_MAP.getOrDefault(key, "?"), JLabel.CENTER);
+                    lbl.setFont(ACT_FONT);
+                    lbl.setForeground(DELETE_ACTION.equals(key) ? ACT_DEL : ACT_FG);
+                    lbl.setBackground(ACT_BG);
+                    lbl.setOpaque(true);
+                    lbl.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(ACT_BORD, 1),
+                            BorderFactory.createEmptyBorder(1, 3, 1, 3)));
+                    lbl.setToolTipText(ACT_TIP_MAP.getOrDefault(key, key));
+                    lbl.setPreferredSize(new Dimension(ACT_W, ACT_W - 4)); // 22 × 18
+                    actIcons[i] = lbl;
+                    actionBar.add(lbl);
+                }
             }
             add(actionBar, BorderLayout.EAST);
         }
@@ -456,7 +499,7 @@ public class Launcher extends JFrame
                 nameLabel.setIcon(null);
             }
 
-            // Action icons shown only for folder entries (not scripts) and only when actions are configured
+            // Action bar visible for folder entries when at least one action is configured
             actionBar.setVisible(e.type != EntryType.SCRIPT && !actionOrder.isEmpty());
 
             if (selected)
@@ -478,14 +521,29 @@ public class Launcher extends JFrame
                 nameLabel.setForeground(e.type == EntryType.SCRIPT ? FG_SCRIPT
                         : e.type == EntryType.APP_FOLDER ? FG_FOLDER
                           : FG_PLAIN);
-                for (int i = 0; i < actIcons.length; i++)
+                if (BUTTON_STYLE_HAMBURGER.equals(buttonStyle))
                 {
-                    String key = actionOrder.get(i);
-                    actIcons[i].setBackground(ACT_BG);
-                    actIcons[i].setForeground(DELETE_ACTION.equals(key) ? ACT_DEL : ACT_FG);
-                    actIcons[i].setBorder(BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(ACT_BORD, 1),
-                            BorderFactory.createEmptyBorder(1, 3, 1, 3)));
+                    // Hamburger button: always neutral colour (never delete-red)
+                    if (actIcons.length > 0)
+                    {
+                        actIcons[0].setBackground(ACT_BG);
+                        actIcons[0].setForeground(ACT_FG);
+                        actIcons[0].setBorder(BorderFactory.createCompoundBorder(
+                                BorderFactory.createLineBorder(ACT_BORD, 1),
+                                BorderFactory.createEmptyBorder(1, 3, 1, 3)));
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < actIcons.length; i++)
+                    {
+                        String key = actionOrder.get(i);
+                        actIcons[i].setBackground(ACT_BG);
+                        actIcons[i].setForeground(DELETE_ACTION.equals(key) ? ACT_DEL : ACT_FG);
+                        actIcons[i].setBorder(BorderFactory.createCompoundBorder(
+                                BorderFactory.createLineBorder(ACT_BORD, 1),
+                                BorderFactory.createEmptyBorder(1, 3, 1, 3)));
+                    }
                 }
             }
             return this;
@@ -506,6 +564,8 @@ public class Launcher extends JFrame
     private transient String searchQuery = "";
     private transient final List<LaunchEntry> allEntries = new ArrayList<>();
     private List<String> effectiveActionOrder;
+    private String effectiveButtonStyle;
+    private boolean showContextMenu;
     private EntryCellRenderer cellRenderer;
 
     Launcher(File baseFolder, LauncherConfig config, String launcherId)
@@ -528,6 +588,26 @@ public class Launcher extends JFrame
         return order.stream()
                 .filter(DEFAULT_ACTION_ORDER::contains)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Resolves the effective button style from the config.
+     * Falls back to {@link #BUTTON_STYLE_ICONS} when not set or unrecognised.
+     */
+    private static String resolveButtonStyle(LauncherConfig cfg)
+    {
+        return BUTTON_STYLE_HAMBURGER.equals(cfg.entryButtonStyle())
+                ? BUTTON_STYLE_HAMBURGER
+                : BUTTON_STYLE_ICONS;
+    }
+
+    /**
+     * Resolves whether the right-click context menu is enabled.
+     * Defaults to {@code true} when not explicitly set to {@code false}.
+     */
+    private static boolean resolveShowContextMenu(LauncherConfig cfg)
+    {
+        return !Boolean.FALSE.equals(cfg.showContextMenu());
     }
 
     /** Human-readable label for an action key, used in the settings dialog. */
@@ -594,6 +674,8 @@ public class Launcher extends JFrame
     private void buildUI()
     {
         effectiveActionOrder = resolveActionOrder(config);
+        effectiveButtonStyle = resolveButtonStyle(config);
+        showContextMenu      = resolveShowContextMenu(config);
 
         setTitle("Launcher  –  " + baseFolder.getAbsolutePath());
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
@@ -640,18 +722,27 @@ public class Launcher extends JFrame
                 int idx = locationToIndex(e.getPoint());
                 if (idx >= 0 && listModel.getElementAt(idx).type != EntryType.SCRIPT)
                 {
-                    int actionIdx = hitActionIcon(e.getPoint(), this, idx, effectiveActionOrder.size());
-                    if (actionIdx >= 0)
+                    if (BUTTON_STYLE_HAMBURGER.equals(effectiveButtonStyle))
                     {
-                        String key = effectiveActionOrder.get(actionIdx);
-                        return EntryCellRenderer.ACT_TIP_MAP.getOrDefault(key, key);
+                        int n = effectiveActionOrder.isEmpty() ? 0 : 1;
+                        if (hitActionIcon(e.getPoint(), this, idx, n) == 0)
+                            return "Actions";
+                    }
+                    else
+                    {
+                        int actionIdx = hitActionIcon(e.getPoint(), this, idx, effectiveActionOrder.size());
+                        if (actionIdx >= 0)
+                        {
+                            String key = effectiveActionOrder.get(actionIdx);
+                            return EntryCellRenderer.ACT_TIP_MAP.getOrDefault(key, key);
+                        }
                     }
                 }
                 return null;
             }
         };
         ToolTipManager.sharedInstance().registerComponent(list);
-        cellRenderer = new EntryCellRenderer(effectiveActionOrder);
+        cellRenderer = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle);
         list.setCellRenderer(cellRenderer);
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setFixedCellHeight(36);
@@ -662,52 +753,13 @@ public class Launcher extends JFrame
             private void handlePopup(MouseEvent e)
             {
                 if (!e.isPopupTrigger()) return;
+                if (!showContextMenu) return;
                 int idx = list.locationToIndex(e.getPoint());
                 if (idx < 0) return;
                 list.setSelectedIndex(idx);
                 LaunchEntry sel = listModel.getElementAt(idx);
                 if (sel.type == EntryType.SCRIPT) return;
-
-                JPopupMenu menu = new JPopupMenu();
-
-                for (String actionKey : effectiveActionOrder)
-                {
-                    switch (actionKey)
-                    {
-                        case EXPLORE_ACTION ->
-                        {
-                            JMenuItem mi = new JMenuItem("Open in File Explorer");
-                            mi.addActionListener(ev -> openInExplorer(sel.file));
-                            menu.add(mi);
-                        }
-                        case EDITOR_ACTION ->
-                        {
-                            JMenuItem mi = new JMenuItem("Open in Editor");
-                            mi.addActionListener(ev -> openInEditor(sel.file));
-                            menu.add(mi);
-                        }
-                        case COPY_ACTION ->
-                        {
-                            JMenuItem mi = new JMenuItem("Copy with Robocopy...");
-                            mi.addActionListener(ev -> copyWithRobocopy(sel.file));
-                            menu.add(mi);
-                        }
-                        case DELETE_ACTION ->
-                        {
-                            JMenuItem mi = new JMenuItem("Delete");
-                            mi.addActionListener(ev -> deleteFolder(sel.file));
-                            menu.add(mi);
-                        }
-                    }
-                }
-
-                menu.addSeparator();
-
-                JMenuItem miSVNCheckout = new JMenuItem("SVN Checkout...");
-                miSVNCheckout.addActionListener(ev -> svnCheckout(sel.file));
-                menu.add(miSVNCheckout);
-
-                menu.show(list, e.getX(), e.getY());
+                showActionsPopup(sel, list, e.getX(), e.getY());
             }
 
             @Override
@@ -718,24 +770,38 @@ public class Launcher extends JFrame
                 if (idx < 0) return;
                 LaunchEntry sel = listModel.getElementAt(idx);
 
-                // Check if a rendered action icon was clicked (folder entries only)
+                // Check if a rendered button was clicked (folder entries only)
                 if (sel.type != EntryType.SCRIPT)
                 {
-                    int actionIdx = hitActionIcon(e.getPoint(), list, idx, effectiveActionOrder.size());
-                    if (actionIdx >= 0)
+                    if (BUTTON_STYLE_HAMBURGER.equals(effectiveButtonStyle))
                     {
-                        if (e.getClickCount() == 1)
+                        // Hamburger mode: one button opens the actions popup
+                        int n = effectiveActionOrder.isEmpty() ? 0 : 1;
+                        if (hitActionIcon(e.getPoint(), list, idx, n) == 0 && e.getClickCount() == 1)
                         {
-                            String actionKey = effectiveActionOrder.get(actionIdx);
-                            switch (actionKey)
-                            {
-                                case EXPLORE_ACTION -> openInExplorer(sel.file);
-                                case EDITOR_ACTION  -> openInEditor(sel.file);
-                                case COPY_ACTION    -> copyWithRobocopy(sel.file);
-                                case DELETE_ACTION  -> deleteFolder(sel.file);
-                            }
+                            showActionsPopup(sel, list, e.getX(), e.getY());
+                            return;
                         }
-                        return; // never propagate to launch on action-icon area
+                    }
+                    else
+                    {
+                        // Icons mode: each button triggers its action directly
+                        int actionIdx = hitActionIcon(e.getPoint(), list, idx, effectiveActionOrder.size());
+                        if (actionIdx >= 0)
+                        {
+                            if (e.getClickCount() == 1)
+                            {
+                                String actionKey = effectiveActionOrder.get(actionIdx);
+                                switch (actionKey)
+                                {
+                                    case EXPLORE_ACTION -> openInExplorer(sel.file);
+                                    case EDITOR_ACTION  -> openInEditor(sel.file);
+                                    case COPY_ACTION    -> copyWithRobocopy(sel.file);
+                                    case DELETE_ACTION  -> deleteFolder(sel.file);
+                                }
+                            }
+                            return; // never propagate to launch on action-icon area
+                        }
                     }
                 }
 
@@ -746,10 +812,20 @@ public class Launcher extends JFrame
             public void mouseMoved(MouseEvent e)
             {
                 int idx = list.locationToIndex(e.getPoint());
-                boolean overIcon = idx >= 0
-                        && listModel.getElementAt(idx).type != EntryType.SCRIPT
-                        && hitActionIcon(e.getPoint(), list, idx, effectiveActionOrder.size()) >= 0;
-                list.setCursor(overIcon
+                boolean overButton = false;
+                if (idx >= 0 && listModel.getElementAt(idx).type != EntryType.SCRIPT)
+                {
+                    if (BUTTON_STYLE_HAMBURGER.equals(effectiveButtonStyle))
+                    {
+                        int n = effectiveActionOrder.isEmpty() ? 0 : 1;
+                        overButton = hitActionIcon(e.getPoint(), list, idx, n) >= 0;
+                    }
+                    else
+                    {
+                        overButton = hitActionIcon(e.getPoint(), list, idx, effectiveActionOrder.size()) >= 0;
+                    }
+                }
+                list.setCursor(overButton
                         ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
                         : Cursor.getDefaultCursor());
             }
@@ -1087,6 +1163,50 @@ public class Launcher extends JFrame
     }
 
     /**
+     * Builds and shows the actions popup menu for the given entry.
+     * Used both by the hamburger button click and (when enabled) the right-click context menu.
+     */
+    private void showActionsPopup(LaunchEntry sel, Component invoker, int x, int y)
+    {
+        JPopupMenu menu = new JPopupMenu();
+        for (String actionKey : effectiveActionOrder)
+        {
+            switch (actionKey)
+            {
+                case EXPLORE_ACTION ->
+                {
+                    JMenuItem mi = new JMenuItem("Open in File Explorer");
+                    mi.addActionListener(ev -> openInExplorer(sel.file));
+                    menu.add(mi);
+                }
+                case EDITOR_ACTION ->
+                {
+                    JMenuItem mi = new JMenuItem("Open in Editor");
+                    mi.addActionListener(ev -> openInEditor(sel.file));
+                    menu.add(mi);
+                }
+                case COPY_ACTION ->
+                {
+                    JMenuItem mi = new JMenuItem("Copy with Robocopy...");
+                    mi.addActionListener(ev -> copyWithRobocopy(sel.file));
+                    menu.add(mi);
+                }
+                case DELETE_ACTION ->
+                {
+                    JMenuItem mi = new JMenuItem("Delete");
+                    mi.addActionListener(ev -> deleteFolder(sel.file));
+                    menu.add(mi);
+                }
+            }
+        }
+        menu.addSeparator();
+        JMenuItem miSVNCheckout = new JMenuItem("SVN Checkout...");
+        miSVNCheckout.addActionListener(ev -> svnCheckout(sel.file));
+        menu.add(miSVNCheckout);
+        menu.show(invoker, x, y);
+    }
+
+    /**
      * Saves the current config with up-to-date window dimensions.
      */
     private void saveConfig()
@@ -1099,7 +1219,9 @@ public class Launcher extends JFrame
                 config.priorityList(),
                 config.explorer(),
                 config.editor(),
-                config.actionOrder());
+                config.actionOrder(),
+                config.entryButtonStyle(),
+                config.showContextMenu());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -1122,7 +1244,9 @@ public class Launcher extends JFrame
                 names,
                 config.explorer(),
                 config.editor(),
-                config.actionOrder());
+                config.actionOrder(),
+                config.entryButtonStyle(),
+                config.showContextMenu());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -1272,6 +1396,40 @@ public class Launcher extends JFrame
         actPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 4 * 24 + 8));
         root.add(actPanel);
 
+        root.add(Box.createVerticalStrut(8));
+
+        // ── Button style ──────────────────────────────────────────────────────
+        root.add(settingsSectionLabel("Button Style"));
+        root.add(Box.createVerticalStrut(4));
+
+        JLabel styleHint = new JLabel("Choose how entry action buttons appear in the list");
+        styleHint.setFont(styleHint.getFont().deriveFont(Font.ITALIC, 10f));
+        styleHint.setForeground(Color.GRAY);
+        styleHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        root.add(styleHint);
+        root.add(Box.createVerticalStrut(4));
+
+        JRadioButton rbIcons     = new JRadioButton("Inline icons  – one small button per action");
+        JRadioButton rbHamburger = new JRadioButton("Hamburger menu  (\u2630) – single button opens a popup");
+        ButtonGroup styleGroup = new ButtonGroup();
+        styleGroup.add(rbIcons);
+        styleGroup.add(rbHamburger);
+        boolean isHamburgerNow = BUTTON_STYLE_HAMBURGER.equals(config.entryButtonStyle());
+        rbHamburger.setSelected(isHamburgerNow);
+        rbIcons.setSelected(!isHamburgerNow);
+        rbIcons.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rbHamburger.setAlignmentX(Component.LEFT_ALIGNMENT);
+        root.add(rbIcons);
+        root.add(rbHamburger);
+
+        root.add(Box.createVerticalStrut(6));
+
+        // ── Context menu ──────────────────────────────────────────────────────
+        JCheckBox cbContextMenu = new JCheckBox("Show right-click context menu for folder entries");
+        cbContextMenu.setSelected(resolveShowContextMenu(config));
+        cbContextMenu.setAlignmentX(Component.LEFT_ALIGNMENT);
+        root.add(cbContextMenu);
+
         root.add(settingsSeparator());
 
         // ── Buttons ───────────────────────────────────────────────────────────
@@ -1294,8 +1452,9 @@ public class Launcher extends JFrame
                 if (checkedActions.contains(k)) newActionOrder.add(k);
             }
 
-            String explorerVal = tfExplorer.getText().trim();
-            String editorVal   = tfEditor.getText().trim();
+            String explorerVal   = tfExplorer.getText().trim();
+            String editorVal     = tfEditor.getText().trim();
+            String newButtonStyle = rbHamburger.isSelected() ? BUTTON_STYLE_HAMBURGER : BUTTON_STYLE_ICONS;
 
             config = new LauncherConfig(
                     config.rootFolder(),
@@ -1305,13 +1464,17 @@ public class Launcher extends JFrame
                     config.priorityList(),
                     explorerVal.isEmpty() ? null : explorerVal,
                     editorVal.isEmpty()   ? null : editorVal,
-                    newActionOrder.isEmpty() ? null : newActionOrder);
+                    newActionOrder.isEmpty() ? null : newActionOrder,
+                    newButtonStyle,
+                    cbContextMenu.isSelected());
 
             config.save(LauncherConfig.instanceConfigFile(launcherId));
 
-            // Rebuild the cell renderer immediately so the action bar updates
+            // Rebuild the effective state and cell renderer immediately
             effectiveActionOrder = resolveActionOrder(config);
-            cellRenderer = new EntryCellRenderer(effectiveActionOrder);
+            effectiveButtonStyle = resolveButtonStyle(config);
+            showContextMenu      = resolveShowContextMenu(config);
+            cellRenderer = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle);
             list.setCellRenderer(cellRenderer);
             list.repaint();
 
@@ -2099,7 +2262,9 @@ public class Launcher extends JFrame
                 merged.priorityList(),
                 merged.explorer(),
                 merged.editor(),
-                merged.actionOrder());
+                merged.actionOrder(),
+                merged.entryButtonStyle(),
+                merged.showContextMenu());
         resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
 
         final boolean minimized = startMinimized;

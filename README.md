@@ -19,8 +19,10 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - 📋 – Copy with Robocopy
   - 🗑 – Delete
   - Which actions are shown, and their **order**, are fully **configurable** via the Settings dialog or the config file
+  - **Button style** is configurable: individual **icons** (default) or a single **hamburger menu** (☰) that opens a popup
   - The cursor changes to a **hand pointer** when hovering over an icon
-- **Type to search** – just start typing while the window is focused to instantly filter the list; **Backspace** removes the last character, **Escape** clears the filter. Drag-and-drop reordering is automatically suspended while a filter is active and re-enabled once the filter is cleared
+- **Right-click context menu** (folders and app folders) with the same configurable quick actions plus **SVN Checkout**
+  - The context menu can be **disabled** via the Settings dialog or the `showContextMenu` config field
 - **Right-click context menu** (folders and app folders) with the same configurable quick actions plus **SVN Checkout**
 - **Real-time output windows** for robocopy and SVN operations
 - **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
@@ -118,6 +120,8 @@ CLI arguments override all config files.
   "windowHeight": 680,
   "explorer": "explorer.exe",
   "editor": "code",
+  "entryButtonStyle": "ICONS",
+  "showContextMenu": true,
   "priorityList": [
     "my-favourite-app",
     "another-app",
@@ -142,6 +146,8 @@ Any field can be omitted; omitted fields are inherited from the level below.
 | `windowHeight` | integer | Initial window height in pixels |
 | `explorer` | string | File explorer executable. Leave blank or omit to use the system default (`Desktop.open`). Example: `"explorer.exe"` |
 | `editor` | string | Editor executable. Leave blank or omit to use `code` (VS Code). Example: `"notepad++"`, `"idea64.exe"` |
+| `entryButtonStyle` | string | Controls how entry action buttons appear. `"ICONS"` (default) shows one small button per action. `"HAMBURGER"` shows a single ☰ button that opens a popup. |
+| `showContextMenu` | boolean | `true` (default) to show the right-click context menu on folder entries. Set to `false` to disable it. |
 | `priorityList` | string array | Ordered list of entry names. Entries in this list appear at the top in the given order; all remaining entries follow in the default sort (scripts A–Z → app folders A–Z → plain folders A–Z). Updated automatically when you drag and drop entries in the UI. |
 | `actionOrder` | string array | Ordered list of **action keys** that determines which action buttons are shown and in what order. Omit to show all four actions in the default order. |
 
@@ -217,12 +223,21 @@ Open by clicking the **⚙ gear icon** on the right side of the toolbar.
 | Commands | EXPLORER | File explorer command. Leave blank to use the system default. |
 | Commands | EDITOR | Editor command (e.g. `code`, `notepad++`). Leave blank to default to `code`. |
 | Action Buttons | Action list | Checkboxes to show/hide each action; **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
+| Button Style | Style radio buttons | Choose **Inline icons** (one button per action, default) or **Hamburger menu** (single ☰ button that opens a popup). Takes effect immediately. |
+| Button Style | Show context menu | Checkbox – uncheck to disable the right-click context menu on folder entries. |
 
 Click **Save** to persist changes or **Cancel** to discard.
 
-### Inline Action Icons
+### Inline Action Icons / Hamburger Menu
 
-Every **application folder** and **plain folder** row shows small icon buttons on the **right-hand side** of the row. Scripts do not have action icons. The set of visible buttons and their order is configurable (see **Settings** dialog or `actionOrder` config field).
+Every **application folder** and **plain folder** row shows action button(s) on the **right-hand side** of the row. Scripts do not have action buttons. The set of visible buttons, their order, and their display style are configurable (see **Settings** dialog or `actionOrder` / `entryButtonStyle` config fields).
+
+**Button styles:**
+
+| Style | Config value | Behaviour |
+|---|---|---|
+| Inline icons | `"ICONS"` (default) | One small icon button per action; each click fires that action immediately |
+| Hamburger menu | `"HAMBURGER"` | A single ☰ button; click it to open a popup listing all configured actions |
 
 | Icon | Action key | Action | Description |
 |---|---|---|---|
@@ -231,9 +246,9 @@ Every **application folder** and **plain folder** row shows small icon buttons o
 | 📋 | `COPY_ACTION` | Copy with Robocopy… | Duplicate the folder within the active launcher directory |
 | 🗑 | `DELETE_ACTION` | Delete | Permanently delete the folder (requires confirmation) |
 
-- **Single-click** any icon to trigger the action immediately
-- The **cursor changes to a hand pointer** when you hover over an icon
-- A double-click inside the icon area does **not** accidentally launch the entry
+- **Single-click** any icon (or the ☰ button) to trigger the action
+- The **cursor changes to a hand pointer** when you hover over a button
+- A double-click inside the button area does **not** accidentally launch the entry
 
 ### Type-to-Search
 
@@ -282,7 +297,9 @@ You can also edit `priorityList` directly in the instance config file (see **Set
 
 ### Right-Click Context Menu (Folders Only)
 
-Right-click any **application folder** or **plain folder** to access (scripts are excluded). The menu shows only the actions that are currently enabled via `actionOrder`.
+Right-click any **application folder** or **plain folder** to access the context menu (scripts are excluded). The menu shows only the actions that are currently enabled via `actionOrder`.
+
+> **Note:** The context menu can be disabled entirely via **Settings ⚙ → Show right-click context menu** or by setting `"showContextMenu": false` in the config file. When disabled, folder entries can still be acted on via the inline action button(s) (icons or hamburger ☰).
 
 #### **Open in File Explorer**
 Opens the folder in the configured file explorer. If `EXPLORER` is not set, the system default is used.
@@ -387,7 +404,7 @@ Launcher recognizes and launches the following script file types:
 | Open in Editor | **Click document icon** (row right side) or right-click → *Open in Editor* |
 | Copy with Robocopy | **Click copy icon** (row right side) or right-click → *Copy with Robocopy…* |
 | Delete folder | **Click bin icon** (row right side) or right-click → *Delete* |
-| Open context menu | **Right-click** (all folders; scripts excluded) |
+| Open context menu | **Right-click** (all folders; scripts excluded; can be disabled in Settings) |
 | Navigate list | **↑ ↓** Arrow keys |
 | Start filtering | **Type any character** |
 | Delete last filter character | **Backspace** |
@@ -520,6 +537,9 @@ The instance config will be stored at `%APPDATA%\nvLauncher\myapps\config.json`.
 - **Check** the `actionOrder` field in your config file – if it is an empty array (`[]`) no buttons are shown
 - Open **Settings ⚙** → **Action Buttons** section to toggle visibility and reorder using the ↑ / ↓ buttons
 - If `actionOrder` is omitted entirely, all four buttons are shown in the default order
+
+### Context Menu Not Appearing
+- The context menu may be disabled: open **Settings ⚙** → uncheck **Show right-click context menu**, or set `"showContextMenu": true` in the config file
 
 ### Config Not Being Picked Up
 - **Check** that the JSON is valid (no trailing commas, all strings quoted)
