@@ -160,7 +160,164 @@ class SettingsDialog extends JDialog
         root.add(caPanel);
         root.add(Box.createVerticalStrut(8));
         root.add(separator());
-        root.add(sectionLabel("Toolbar Buttons"));
+
+        // ── Application Types ─────────────────────────────────────────────────
+        root.add(sectionLabel("Application Types"));
+        root.add(Box.createVerticalStrut(4));
+        JLabel atHint = new JLabel("Define how to detect and display a category of application folder");
+        atHint.setFont(atHint.getFont().deriveFont(Font.ITALIC, 10f));
+        atHint.setForeground(Color.GRAY);
+        atHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        root.add(atHint);
+        root.add(Box.createVerticalStrut(4));
+
+        List<AppType> appTypesList = config.appTypes() != null
+                ? new ArrayList<>(config.appTypes()) : new ArrayList<>();
+        DefaultListModel<AppType> atModel = new DefaultListModel<>();
+        appTypesList.forEach(atModel::addElement);
+
+        JList<AppType> atList = new JList<>(atModel);
+        atList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        atList.setFixedCellHeight(24);
+        atList.setCellRenderer((lst, value, index, isSelected, focus) ->
+        {
+            JLabel lbl = new JLabel(value.id()
+                    + (value.executableNames() != null && !value.executableNames().isEmpty()
+                       ? "  \u2192 " + String.join(", ", value.executableNames()) : ""));
+            lbl.setFont(lst.getFont().deriveFont(11f));
+            lbl.setOpaque(true);
+            lbl.setBorder(new EmptyBorder(2, 6, 2, 6));
+            lbl.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
+            lbl.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            return lbl;
+        });
+
+        JButton atBtnAdd    = new JButton("Add");
+        JButton atBtnEdit   = new JButton("Edit");
+        JButton atBtnRemove = new JButton("Remove");
+
+        atBtnAdd.addActionListener(ev ->
+        {
+            AppType newType = showAppTypeEditor(null);
+            if (newType == null) return;
+            for (int i = 0; i < atModel.getSize(); i++)
+            {
+                if (atModel.getElementAt(i).id().equals(newType.id()))
+                {
+                    JOptionPane.showMessageDialog(this,
+                            "An application type with ID \"" + newType.id() + "\" already exists.",
+                            "Duplicate ID", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+            }
+            atModel.addElement(newType);
+        });
+        atBtnEdit.addActionListener(ev ->
+        {
+            int idx = atList.getSelectedIndex();
+            if (idx < 0) return;
+            AppType edited = showAppTypeEditor(atModel.getElementAt(idx));
+            if (edited != null) atModel.set(idx, edited);
+        });
+        atBtnRemove.addActionListener(ev ->
+        {
+            int idx = atList.getSelectedIndex();
+            if (idx >= 0) atModel.remove(idx);
+        });
+
+        JPanel atBtnPanel = new JPanel(new GridLayout(3, 1, 0, 2));
+        atBtnPanel.add(atBtnAdd);
+        atBtnPanel.add(atBtnEdit);
+        atBtnPanel.add(atBtnRemove);
+
+        JPanel atPanel = new JPanel(new BorderLayout(6, 0));
+        atPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        atPanel.add(new JScrollPane(atList), BorderLayout.CENTER);
+        atPanel.add(atBtnPanel, BorderLayout.EAST);
+        atPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 24 + 8));
+        root.add(atPanel);
+        root.add(Box.createVerticalStrut(8));
+        root.add(separator());
+
+        // ── Application Type Assignments ──────────────────────────────────────
+        root.add(sectionLabel("Application Type Assignments"));
+        root.add(Box.createVerticalStrut(4));
+        JLabel assHint = new JLabel("Manually assign a specific application type to a folder (overrides auto-detection)");
+        assHint.setFont(assHint.getFont().deriveFont(Font.ITALIC, 10f));
+        assHint.setForeground(Color.GRAY);
+        assHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        root.add(assHint);
+        root.add(Box.createVerticalStrut(4));
+
+        // Represent each assignment as a String[] { folderName, typeId }
+        List<String[]> assignmentList = new ArrayList<>();
+        if (config.appTypeAssignments() != null)
+            for (Map.Entry<String, String> e : config.appTypeAssignments().entrySet())
+                assignmentList.add(new String[]{e.getKey(), e.getValue()});
+
+        DefaultListModel<String[]> assModel = new DefaultListModel<>();
+        assignmentList.forEach(assModel::addElement);
+
+        JList<String[]> assList = new JList<>(assModel);
+        assList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        assList.setFixedCellHeight(24);
+        assList.setCellRenderer((lst, value, index, isSelected, focus) ->
+        {
+            JLabel lbl = new JLabel(value[0] + "  \u2192  " + value[1]);
+            lbl.setFont(lst.getFont().deriveFont(11f));
+            lbl.setOpaque(true);
+            lbl.setBorder(new EmptyBorder(2, 6, 2, 6));
+            lbl.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
+            lbl.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            return lbl;
+        });
+
+        JButton assBtnAdd    = new JButton("Add");
+        JButton assBtnEdit   = new JButton("Edit");
+        JButton assBtnRemove = new JButton("Remove");
+
+        Runnable assAdd = () ->
+        {
+            String[] result = showAssignmentEditor(null, atModel);
+            if (result == null) return;
+            // Check for duplicate folder name
+            for (int i = 0; i < assModel.getSize(); i++)
+                if (assModel.getElementAt(i)[0].equals(result[0]))
+                {
+                    JOptionPane.showMessageDialog(this,
+                            "An assignment for \"" + result[0] + "\" already exists.",
+                            "Duplicate", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+            assModel.addElement(result);
+        };
+        assBtnAdd.addActionListener(ev -> assAdd.run());
+        assBtnEdit.addActionListener(ev ->
+        {
+            int idx = assList.getSelectedIndex();
+            if (idx < 0) return;
+            String[] edited = showAssignmentEditor(assModel.getElementAt(idx), atModel);
+            if (edited != null) assModel.set(idx, edited);
+        });
+        assBtnRemove.addActionListener(ev ->
+        {
+            int idx = assList.getSelectedIndex();
+            if (idx >= 0) assModel.remove(idx);
+        });
+
+        JPanel assBtnPanel = new JPanel(new GridLayout(3, 1, 0, 2));
+        assBtnPanel.add(assBtnAdd);
+        assBtnPanel.add(assBtnEdit);
+        assBtnPanel.add(assBtnRemove);
+
+        JPanel assPanel = new JPanel(new BorderLayout(6, 0));
+        assPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        assPanel.add(new JScrollPane(assList), BorderLayout.CENTER);
+        assPanel.add(assBtnPanel, BorderLayout.EAST);
+        assPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 24 + 8));
+        root.add(assPanel);
+        root.add(Box.createVerticalStrut(8));
+        root.add(separator());
         root.add(Box.createVerticalStrut(4));
         JLabel tbHint = new JLabel("Check to show \u00b7 drag up/down to reorder");
         tbHint.setFont(tbHint.getFont().deriveFont(Font.ITALIC, 10f));
@@ -354,6 +511,16 @@ class SettingsDialog extends JDialog
             List<CustomAction> newCustomActions = new ArrayList<>();
             for (int i = 0; i < caModel.getSize(); i++) newCustomActions.add(caModel.getElementAt(i));
 
+            List<AppType> newAppTypes = new ArrayList<>();
+            for (int i = 0; i < atModel.getSize(); i++) newAppTypes.add(atModel.getElementAt(i));
+
+            Map<String, String> newAssignments = new LinkedHashMap<>();
+            for (int i = 0; i < assModel.getSize(); i++)
+            {
+                String[] pair = assModel.getElementAt(i);
+                newAssignments.put(pair[0], pair[1]);
+            }
+
             String explorerVal    = tfExplorer.getText().trim();
             String editorVal      = tfEditor.getText().trim();
             String newButtonStyle = rbHamburger.isSelected()
@@ -368,7 +535,9 @@ class SettingsDialog extends JDialog
                     newOrder.isEmpty()    ? null : newOrder,
                     newButtonStyle, cbContextMenu.isSelected(),
                     newToolbarActions.isEmpty()  ? null : newToolbarActions,
-                    newCustomActions.isEmpty()   ? null : newCustomActions));
+                    newCustomActions.isEmpty()   ? null : newCustomActions,
+                    newAppTypes.isEmpty()        ? null : newAppTypes,
+                    newAssignments.isEmpty()     ? null : newAssignments));
             dispose();
         });
         btnCancel.addActionListener(e -> dispose());
@@ -535,6 +704,151 @@ class SettingsDialog extends JDialog
     }
 
     private static String nvl(String s) { return s != null ? s : ""; }
+
+    // ── Application type editor ───────────────────────────────────────────────
+
+    private AppType showAppTypeEditor(AppType existing)
+    {
+        boolean isNew = (existing == null);
+
+        JTextField tfId   = new JTextField(isNew ? "" : existing.id(), 22);
+        JTextField tfIcon = new JTextField(isNew ? "" : nvl(existing.iconPath()), 32);
+
+        String pathsText = (existing != null && existing.executablePaths() != null)
+                ? String.join("\n", existing.executablePaths()) : "";
+        String namesText = (existing != null && existing.executableNames() != null)
+                ? String.join("\n", existing.executableNames()) : "";
+
+        JTextArea taPaths = new JTextArea(pathsText, 3, 32);
+        JTextArea taNames = new JTextArea(namesText, 3, 32);
+        taPaths.setFont(taPaths.getFont().deriveFont(11f));
+        taNames.setFont(taNames.getFont().deriveFont(11f));
+
+        if (!isNew) tfId.setEditable(false);
+
+        JButton browseIcon = new JButton("\u2026");
+        browseIcon.setToolTipText("Browse\u2026");
+        browseIcon.addActionListener(ev ->
+        {
+            JFileChooser fc = new JFileChooser(tfIcon.getText().trim().isEmpty()
+                    ? System.getProperty("user.home") : tfIcon.getText().trim());
+            fc.setDialogTitle("Select Icon Image");
+            if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION)
+                tfIcon.setText(fc.getSelectedFile().getAbsolutePath());
+        });
+
+        JPanel iconRow = new JPanel(new BorderLayout(4, 0));
+        iconRow.add(tfIcon, BorderLayout.CENTER);
+        iconRow.add(browseIcon, BorderLayout.EAST);
+
+        JPanel p = new JPanel(new GridBagLayout());
+        GridBagConstraints lc  = new GridBagConstraints();
+        lc.anchor  = GridBagConstraints.NORTHWEST; lc.insets = new Insets(4, 0, 4, 8); lc.gridx = 0;
+        GridBagConstraints fc2 = new GridBagConstraints();
+        fc2.fill   = GridBagConstraints.HORIZONTAL; fc2.weightx = 1; fc2.insets = new Insets(4, 0, 4, 0); fc2.gridx = 1;
+
+        String[]    lblTexts = {"ID (unique key):", "Icon image path:",
+                                "Executable paths\n(one per line, highest priority first):",
+                                "Executable names\n(one per line, highest priority first):"};
+        Component[] fields   = {tfId, iconRow, new JScrollPane(taPaths), new JScrollPane(taNames)};
+        for (int i = 0; i < lblTexts.length; i++)
+        {
+            lc.gridy = i; fc2.gridy = i;
+            JLabel lbl = new JLabel("<html>" + lblTexts[i].replace("\n", "<br>") + "</html>");
+            lbl.setFont(lbl.getFont().deriveFont(11f));
+            p.add(lbl, lc);
+            p.add(fields[i], fc2);
+        }
+        GridBagConstraints hc = new GridBagConstraints();
+        hc.gridx = 0; hc.gridy = lblTexts.length; hc.gridwidth = 2; hc.anchor = GridBagConstraints.WEST;
+        hc.insets = new Insets(4, 0, 0, 0);
+        JLabel hint = new JLabel("<html><i>Use \"\" (empty string) as a path to search the app folder root.<br>"
+                + "Names may include .lnk shortcuts and .exe files.</i></html>");
+        hint.setFont(hint.getFont().deriveFont(10f));
+        hint.setForeground(Color.GRAY);
+        p.add(hint, hc);
+
+        int result = JOptionPane.showConfirmDialog(this, p,
+                isNew ? "Add Application Type" : "Edit Application Type",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) return null;
+
+        String id = tfId.getText().trim();
+        if (id.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this, "ID cannot be empty.",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        List<String> paths = new ArrayList<>();
+        for (String line : taPaths.getText().split("\\n", -1))
+        {
+            String t = line.trim();
+            if (!t.isEmpty() || paths.isEmpty()) paths.add(t); // preserve empty root-path entry
+        }
+        // Clean up: if the single entry is empty and user left field blank, use null
+        if (paths.size() == 1 && paths.get(0).isEmpty()) paths.clear();
+
+        List<String> names = new ArrayList<>();
+        for (String line : taNames.getText().split("\\n", -1))
+        { String t = line.trim(); if (!t.isEmpty()) names.add(t); }
+
+        String iconPath = tfIcon.getText().trim();
+        return new AppType(id,
+                iconPath.isEmpty() ? null : iconPath,
+                paths.isEmpty()    ? null : paths,
+                names.isEmpty()    ? null : names);
+    }
+
+    // ── Assignment editor ─────────────────────────────────────────────────────
+
+    private String[] showAssignmentEditor(String[] existing, DefaultListModel<AppType> atModel)
+    {
+        boolean isNew = (existing == null);
+
+        JTextField tfFolder = new JTextField(isNew ? "" : existing[0], 28);
+        if (!isNew) tfFolder.setEditable(false);
+
+        List<String> typeIds = new ArrayList<>();
+        for (int i = 0; i < atModel.getSize(); i++) typeIds.add(atModel.getElementAt(i).id());
+        if (typeIds.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this,
+                    "Please define at least one Application Type first.",
+                    "No Types Available", JOptionPane.INFORMATION_MESSAGE);
+            return null;
+        }
+        JComboBox<String> cbType = new JComboBox<>(typeIds.toArray(new String[0]));
+        if (!isNew && existing[1] != null) cbType.setSelectedItem(existing[1]);
+
+        JPanel p = new JPanel(new GridBagLayout());
+        GridBagConstraints lc  = new GridBagConstraints();
+        lc.anchor  = GridBagConstraints.WEST; lc.insets = new Insets(4, 0, 4, 8); lc.gridx = 0;
+        GridBagConstraints fc2 = new GridBagConstraints();
+        fc2.fill   = GridBagConstraints.HORIZONTAL; fc2.weightx = 1; fc2.insets = new Insets(4, 0, 4, 0); fc2.gridx = 1;
+
+        lc.gridy = 0; fc2.gridy = 0;
+        p.add(new JLabel("Folder name (exact):"), lc);  p.add(tfFolder, fc2);
+        lc.gridy = 1; fc2.gridy = 1;
+        p.add(new JLabel("Application type:"), lc);     p.add(cbType, fc2);
+
+        int result = JOptionPane.showConfirmDialog(this, p,
+                isNew ? "Add Assignment" : "Edit Assignment",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) return null;
+
+        String folder = tfFolder.getText().trim();
+        if (folder.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this, "Folder name cannot be empty.",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+        return new String[]{folder, (String) cbType.getSelectedItem()};
+    }
+
+    // ── Static UI helpers ─────────────────────────────────────────────────────
 
     private static JLabel sectionLabel(String text)
     {

@@ -154,9 +154,18 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
         nameLabel.setText("  " + e.file().getName());
         nameLabel.setToolTipText(e.file().getAbsolutePath());
 
-        File iconSrc = (e.iconFile() != null) ? e.iconFile() : e.file();
-        try   { nameLabel.setIcon(fsv.getSystemIcon(iconSrc)); }
-        catch (Exception ignored) { nameLabel.setIcon(null); }
+        // Custom icon from app type takes precedence over system icon
+        if (e.appType() != null && e.appType().iconPath() != null)
+        {
+            ImageIcon customIcon = e.appType().loadIcon(16, 16);
+            nameLabel.setIcon(customIcon); // null if file unreadable → no icon shown
+        }
+        else
+        {
+            File iconSrc = (e.iconFile() != null) ? e.iconFile() : e.file();
+            try   { nameLabel.setIcon(fsv.getSystemIcon(iconSrc)); }
+            catch (Exception ignored) { nameLabel.setIcon(null); }
+        }
 
         actionBar.setVisible(e.type() != EntryType.SCRIPT && !actionOrder.isEmpty());
 

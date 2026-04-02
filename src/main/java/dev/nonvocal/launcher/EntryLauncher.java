@@ -29,7 +29,7 @@ class EntryLauncher
         try
         {
             if      (entry.type() == EntryType.SCRIPT)     launchScript(entry.file());
-            else if (entry.type() == EntryType.APP_FOLDER) launchAppFolder(entry.file());
+            else if (entry.type() == EntryType.APP_FOLDER) launchAppFolder(entry);
             else                                            explorerOpener.accept(entry.file());
         }
         catch (IOException ex)
@@ -60,8 +60,22 @@ class EntryLauncher
 
     // ── Application folder ────────────────────────────────────────────────────
 
-    private void launchAppFolder(File appFolder) throws IOException
+    private void launchAppFolder(LaunchEntry entry) throws IOException
     {
+        File appFolder = entry.file();
+
+        // 1. If a custom app type is assigned/matched, use its executable search
+        if (entry.appType() != null)
+        {
+            File exe = entry.appType().findExecutable(appFolder);
+            if (exe != null)
+            {
+                launchExecutable(exe, appFolder);
+                return;
+            }
+        }
+
+        // 2. Built-in: first .lnk at folder root
         File[] children = appFolder.listFiles();
         if (children != null)
         {
@@ -75,19 +89,29 @@ class EntryLauncher
                 }
             }
         }
+
+        // 3. Built-in: fallback exe
         File fallback = new File(appFolder, EntryLoader.FALLBACK_EXE);
         if (fallback.isFile())
         {
             new ProcessBuilder(fallback.getAbsolutePath()).directory(appFolder).start();
+            return;
         }
+
+        JOptionPane.showMessageDialog(parent,
+                "<html>No executable found for:<br>&nbsp;&nbsp;<b>" + appFolder.getAbsolutePath()
+                + "</b><br><br>Check the app type configuration or add a .lnk shortcut.</html>",
+                "Launcher \u2013 Nothing to start", JOptionPane.WARNING_MESSAGE);
+    }
+
+    private static void launchExecutable(File exe, File workDir) throws IOException
+    {
+        String name = exe.getName().toLowerCase(Locale.ROOT);
+        if (name.endsWith(".lnk"))
+            new ProcessBuilder("cmd", "/c", "start", "", exe.getAbsolutePath())
+                    .directory(workDir).start();
         else
-        {
-            JOptionPane.showMessageDialog(parent,
-                    "<html>No shortcut (.lnk) found in:<br>&nbsp;&nbsp;<b>" + appFolder.getAbsolutePath()
-                    + "</b><br><br>Fallback executable not found at:<br>&nbsp;&nbsp;<b>"
-                    + fallback.getAbsolutePath() + "</b></html>",
-                    "Launcher \u2013 Nothing to start", JOptionPane.WARNING_MESSAGE);
-        }
+            new ProcessBuilder(exe.getAbsolutePath()).directory(workDir).start();
     }
 }
 

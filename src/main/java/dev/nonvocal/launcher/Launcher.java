@@ -553,7 +553,8 @@ public class Launcher extends JFrame
                 getWidth(), getHeight(),
                 config.priorityList(), config.explorer(), config.editor(),
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
-                config.toolbarActions(), config.customActions());
+                config.toolbarActions(), config.customActions(),
+                config.appTypes(), config.appTypeAssignments());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -566,7 +567,8 @@ public class Launcher extends JFrame
                 config.windowWidth(), config.windowHeight(),
                 names, config.explorer(), config.editor(),
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
-                config.toolbarActions(), config.customActions());
+                config.toolbarActions(), config.customActions(),
+                config.appTypes(), config.appTypeAssignments());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -689,7 +691,8 @@ public class Launcher extends JFrame
                 merged.windowWidth(), merged.windowHeight(),
                 merged.priorityList(), merged.explorer(), merged.editor(),
                 merged.actionOrder(), merged.entryButtonStyle(), merged.showContextMenu(),
-                merged.toolbarActions(), merged.customActions());
+                merged.toolbarActions(), merged.customActions(),
+                merged.appTypes(), merged.appTypeAssignments());
         resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
 
         final boolean minimized = startMinimized;

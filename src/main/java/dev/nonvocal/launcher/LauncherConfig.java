@@ -4,7 +4,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,18 +22,20 @@ import java.util.regex.Pattern;
  * Call {@link #withDefaults()} on the final merged config to fill gaps.
  */
 record LauncherConfig(
-        String       rootFolder,
-        Boolean      startMinimized,
-        Integer      windowWidth,
-        Integer      windowHeight,
-        List<String> priorityList,
-        String       explorer,
-        String       editor,
-        List<String> actionOrder,
-        String       entryButtonStyle,
-        Boolean      showContextMenu,
-        List<String> toolbarActions,
-        List<CustomAction> customActions)   // user-defined custom actions
+        String              rootFolder,
+        Boolean             startMinimized,
+        Integer             windowWidth,
+        Integer             windowHeight,
+        List<String>        priorityList,
+        String              explorer,
+        String              editor,
+        List<String>        actionOrder,
+        String              entryButtonStyle,
+        Boolean             showContextMenu,
+        List<String>        toolbarActions,
+        List<CustomAction>  customActions,
+        List<AppType>       appTypes,
+        Map<String, String> appTypeAssignments)   // folderName → appType id
 {
     // ── Static paths ───────────────────────────────────────────────────────────
 
@@ -59,13 +63,13 @@ record LauncherConfig(
     /** All fields null – represents "nothing set at this level". */
     static LauncherConfig empty()
     {
-        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /** Hardcoded application defaults (all fields non-null). */
     static LauncherConfig defaults()
     {
-        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -96,18 +100,20 @@ record LauncherConfig(
     LauncherConfig mergeOver(LauncherConfig base)
     {
         return new LauncherConfig(
-                rootFolder        != null ? rootFolder        : base.rootFolder,
-                startMinimized    != null ? startMinimized    : base.startMinimized,
-                windowWidth       != null ? windowWidth       : base.windowWidth,
-                windowHeight      != null ? windowHeight      : base.windowHeight,
-                priorityList      != null ? priorityList      : base.priorityList,
-                explorer          != null ? explorer          : base.explorer,
-                editor            != null ? editor            : base.editor,
-                actionOrder       != null ? actionOrder       : base.actionOrder,
-                entryButtonStyle  != null ? entryButtonStyle  : base.entryButtonStyle,
-                showContextMenu   != null ? showContextMenu   : base.showContextMenu,
-                toolbarActions    != null ? toolbarActions    : base.toolbarActions,
-                customActions     != null ? customActions     : base.customActions);
+                rootFolder          != null ? rootFolder          : base.rootFolder,
+                startMinimized      != null ? startMinimized      : base.startMinimized,
+                windowWidth         != null ? windowWidth         : base.windowWidth,
+                windowHeight        != null ? windowHeight        : base.windowHeight,
+                priorityList        != null ? priorityList        : base.priorityList,
+                explorer            != null ? explorer            : base.explorer,
+                editor              != null ? editor              : base.editor,
+                actionOrder         != null ? actionOrder         : base.actionOrder,
+                entryButtonStyle    != null ? entryButtonStyle    : base.entryButtonStyle,
+                showContextMenu     != null ? showContextMenu     : base.showContextMenu,
+                toolbarActions      != null ? toolbarActions      : base.toolbarActions,
+                customActions       != null ? customActions       : base.customActions,
+                appTypes            != null ? appTypes            : base.appTypes,
+                appTypeAssignments  != null ? appTypeAssignments  : base.appTypeAssignments);
     }
 
     /**
@@ -128,7 +134,9 @@ record LauncherConfig(
                 entryButtonStyle,
                 showContextMenu,
                 toolbarActions,
-                customActions);
+                customActions,
+                appTypes,
+                appTypeAssignments);
     }
 
     // ── Persistence ────────────────────────────────────────────────────────────
@@ -176,6 +184,14 @@ record LauncherConfig(
         {
             lines.add(jsonCustomActions(customActions));
         }
+        if (appTypes != null && !appTypes.isEmpty())
+        {
+            lines.add(jsonAppTypes(appTypes));
+        }
+        if (appTypeAssignments != null && !appTypeAssignments.isEmpty())
+        {
+            lines.add(jsonAppTypeAssignments(appTypeAssignments));
+        }
         return "{\n" + String.join(",\n", lines) + "\n}";
     }
 
@@ -195,6 +211,60 @@ record LauncherConfig(
             sb.append("}");
             if (i < actions.size() - 1) sb.append(",");
             sb.append("\n");
+        }
+        sb.append("  ]");
+        return sb.toString();
+    }
+
+    private static String jsonAppTypes(List<AppType> types)
+    {
+        StringBuilder sb = new StringBuilder("  \"appTypes\": [\n");
+        for (int i = 0; i < types.size(); i++)
+        {
+            AppType t = types.get(i);
+            sb.append("    {");
+            sb.append("\"id\": ").append(jsonStr(t.id()));
+            if (t.iconPath() != null)
+                sb.append(", \"iconPath\": ").append(jsonStr(t.iconPath()));
+            if (t.executablePaths() != null && !t.executablePaths().isEmpty())
+            {
+                sb.append(", \"executablePaths\": [");
+                for (int j = 0; j < t.executablePaths().size(); j++)
+                {
+                    sb.append(jsonStr(t.executablePaths().get(j)));
+                    if (j < t.executablePaths().size() - 1) sb.append(", ");
+                }
+                sb.append("]");
+            }
+            if (t.executableNames() != null && !t.executableNames().isEmpty())
+            {
+                sb.append(", \"executableNames\": [");
+                for (int j = 0; j < t.executableNames().size(); j++)
+                {
+                    sb.append(jsonStr(t.executableNames().get(j)));
+                    if (j < t.executableNames().size() - 1) sb.append(", ");
+                }
+                sb.append("]");
+            }
+            sb.append("}");
+            if (i < types.size() - 1) sb.append(",");
+            sb.append("\n");
+        }
+        sb.append("  ]");
+        return sb.toString();
+    }
+
+    private static String jsonAppTypeAssignments(Map<String, String> assignments)
+    {
+        StringBuilder sb = new StringBuilder("  \"appTypeAssignments\": [\n");
+        int i = 0;
+        for (Map.Entry<String, String> e : assignments.entrySet())
+        {
+            sb.append("    {\"folder\": ").append(jsonStr(e.getKey()))
+              .append(", \"type\": ").append(jsonStr(e.getValue())).append("}");
+            if (i < assignments.size() - 1) sb.append(",");
+            sb.append("\n");
+            i++;
         }
         sb.append("  ]");
         return sb.toString();
@@ -224,18 +294,20 @@ record LauncherConfig(
     private static LauncherConfig parse(String json)
     {
         return new LauncherConfig(
-                parseStr          (json, "rootFolder"),
-                parseBool         (json, "startMinimized"),
-                parseInt          (json, "windowWidth"),
-                parseInt          (json, "windowHeight"),
-                parseStrList      (json, "priorityList"),
-                parseStr          (json, "explorer"),
-                parseStr          (json, "editor"),
-                parseStrList      (json, "actionOrder"),
-                parseStr          (json, "entryButtonStyle"),
-                parseBool         (json, "showContextMenu"),
-                parseStrList      (json, "toolbarActions"),
-                parseCustomActions(json));
+                parseStr              (json, "rootFolder"),
+                parseBool             (json, "startMinimized"),
+                parseInt              (json, "windowWidth"),
+                parseInt              (json, "windowHeight"),
+                parseStrList          (json, "priorityList"),
+                parseStr              (json, "explorer"),
+                parseStr              (json, "editor"),
+                parseStrList          (json, "actionOrder"),
+                parseStr              (json, "entryButtonStyle"),
+                parseBool             (json, "showContextMenu"),
+                parseStrList          (json, "toolbarActions"),
+                parseCustomActions    (json),
+                parseAppTypes         (json),
+                parseAppTypeAssignments(json));
     }
 
     // ── CustomAction deserialisation ──────────────────────────────────────────
@@ -296,6 +368,78 @@ record LauncherConfig(
             else if (c == '}') { if (--depth == 0) return i; }
         }
         return -1;
+    }
+
+    private static List<AppType> parseAppTypes(String json)
+    {
+        int keyIdx = json.indexOf("\"appTypes\"");
+        if (keyIdx < 0) return null;
+        int arrStart = json.indexOf('[', keyIdx);
+        if (arrStart < 0) return null;
+
+        int depth = 0, arrEnd = arrStart;
+        for (int i = arrStart; i < json.length(); i++)
+        {
+            char c = json.charAt(i);
+            if      (c == '[') depth++;
+            else if (c == ']') { if (--depth == 0) { arrEnd = i; break; } }
+        }
+        String inner = json.substring(arrStart + 1, arrEnd).trim();
+        if (inner.isEmpty()) return new ArrayList<>();
+
+        List<AppType> result = new ArrayList<>();
+        for (int i = 0; i < inner.length(); )
+        {
+            int start = inner.indexOf('{', i);
+            if (start < 0) break;
+            int end = findObjectEnd(inner, start);
+            if (end < 0) break;
+            String obj = inner.substring(start + 1, end);
+            String id = parseStr(obj, "id");
+            if (id != null && !id.isBlank())
+            {
+                result.add(new AppType(id,
+                        parseStr    (obj, "iconPath"),
+                        parseStrList(obj, "executablePaths"),
+                        parseStrList(obj, "executableNames")));
+            }
+            i = end + 1;
+        }
+        return result;
+    }
+
+    private static Map<String, String> parseAppTypeAssignments(String json)
+    {
+        int keyIdx = json.indexOf("\"appTypeAssignments\"");
+        if (keyIdx < 0) return null;
+        int arrStart = json.indexOf('[', keyIdx);
+        if (arrStart < 0) return null;
+
+        int depth = 0, arrEnd = arrStart;
+        for (int i = arrStart; i < json.length(); i++)
+        {
+            char c = json.charAt(i);
+            if      (c == '[') depth++;
+            else if (c == ']') { if (--depth == 0) { arrEnd = i; break; } }
+        }
+        String inner = json.substring(arrStart + 1, arrEnd).trim();
+        if (inner.isEmpty()) return new LinkedHashMap<>();
+
+        Map<String, String> result = new LinkedHashMap<>();
+        for (int i = 0; i < inner.length(); )
+        {
+            int start = inner.indexOf('{', i);
+            if (start < 0) break;
+            int end = findObjectEnd(inner, start);
+            if (end < 0) break;
+            String obj    = inner.substring(start + 1, end);
+            String folder = parseStr(obj, "folder");
+            String type   = parseStr(obj, "type");
+            if (folder != null && !folder.isBlank() && type != null && !type.isBlank())
+                result.put(folder, type);
+            i = end + 1;
+        }
+        return result.isEmpty() ? null : result;
     }
 
     private static String parseStr(String json, String key)

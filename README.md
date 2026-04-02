@@ -27,7 +27,8 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 - **Real-time output windows** for robocopy and SVN Checkout operations
 - **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
 - **User-defined custom actions** – define your own actions (script/executable + icon + label) and assign them to the entry action bar and/or the toolbar; fully manageable from the Settings dialog
-- **Settings dialog** to inspect active config paths, toggle startup options, configure commands (`EXPLORER`, `EDITOR`), manage custom actions, customize the action button bar, and **configure toolbar buttons** (show/hide/reorder)
+- **Configurable application types** – define your own app type categories with custom executable detection paths, executable names (priority lists), and optional icons; assign specific folders to a type via the Settings dialog or config file
+- **Settings dialog** to inspect active config paths, toggle startup options, configure commands (`EXPLORER`, `EDITOR`), manage custom actions, manage application types and assignments, customize the action button bar, and **configure toolbar buttons** (show/hide/reorder)
 - Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
 - **Folder-chooser dialog** when no path is supplied on startup
 - **Color-coded list** for scripts, application folders, and plain folders
@@ -177,6 +178,8 @@ Any field can be omitted; omitted fields are inherited from the level below.
 | `actionOrder` | string array | Ordered list of **action keys** that determines which action buttons are shown and in what order. May include built-in keys and custom action IDs. Omit to show all four built-in actions in the default order. |
 | `toolbarActions` | string array | Ordered list of **toolbar button keys** that determines which toolbar buttons are shown and in what order. May include built-in keys and custom action IDs. Omit to show both SVN buttons in the default order. |
 | `customActions` | object array | List of user-defined custom actions. Each object defines an action that can be referenced in `actionOrder` (entry bar) and/or `toolbarActions` (toolbar). See [Custom Actions](#custom-actions) below. |
+| `appTypes` | object array | List of user-defined application type definitions. Each type defines how to detect and display a category of application folder. See [Application Types](#application-types) below. |
+| `appTypeAssignments` | object array | Explicit assignments of folder names to application type IDs, overriding auto-detection. See [Application Types](#application-types) below. |
 
 ### Action Keys
 
@@ -265,6 +268,67 @@ Hide all action buttons:
 { "actionOrder": [] }
 ```
 
+### Application Types
+
+Application types let you define categories of application folders with custom detection rules, icons, and launch behaviour. Launcher uses these types to decide whether a sub-folder should be shown as an **Application folder** (green) and how to launch it.
+
+#### Detection priority
+
+When classifying a sub-folder, Launcher checks in this order:
+
+1. **Explicit assignment** (`appTypeAssignments`) – the folder is immediately treated as the assigned type  
+2. **Auto-detection** – all defined `appTypes` are scanned in order; first match wins  
+3. **Built-in `.lnk` detection** – first shortcut found at the folder root  
+4. **Built-in fallback exe** – `basis\sys\win\bin\dsc_StartPlm.exe`  
+5. **Plain folder** – no executable found
+
+#### App type fields
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | ✅ yes | Unique identifier. Referenced in `appTypeAssignments`. |
+| `executablePaths` | ✅ yes | Priority-ordered list of sub-folder paths inside the app folder to search. Use `""` (empty string) to search the folder root. |
+| `executableNames` | ✅ yes | Priority-ordered list of file names to look for in each path. May include `.lnk` shortcuts and `.exe` files. |
+| `iconPath` | ❌ optional | Absolute path to a PNG/JPG/GIF image used as the entry icon. If omitted, the system icon of the found executable is extracted instead. |
+
+#### Assignment fields (inside `appTypeAssignments`)
+
+Each entry has two fields:
+
+| Field | Description |
+|---|---|
+| `folder` | Exact name of the sub-folder to assign (case-sensitive, as it appears on disk) |
+| `type` | The `id` of the app type to assign to this folder |
+
+#### Config example
+
+```json
+{
+  "appTypes": [
+    {
+      "id": "sap-app",
+      "iconPath": "C:\\icons\\sap.png",
+      "executablePaths": ["basis\\sys\\win\\bin", ""],
+      "executableNames": ["dsc_StartPlm.exe", "saplogon.exe"]
+    },
+    {
+      "id": "generic-win",
+      "executablePaths": ["bin", ""],
+      "executableNames": ["app.lnk", "start.exe", "run.bat"]
+    }
+  ],
+  "appTypeAssignments": [
+    {"folder": "MyLegacySapApp", "type": "sap-app"},
+    {"folder": "SomeOtherTool",  "type": "generic-win"}
+  ]
+}
+```
+
+In this example:
+- `MyLegacySapApp` is always shown as an Application folder of type `sap-app`, even if `dsc_StartPlm.exe` is not found
+- Any other folder containing `dsc_StartPlm.exe` in `basis\sys\win\bin\` or `saplogon.exe` anywhere will be auto-detected as `sap-app`
+- The `sap.png` file is shown as the entry icon for all `sap-app` folders
+
 ### Launcher ID
 
 The launcher ID identifies a specific instance and determines which instance config folder is used.
@@ -310,6 +374,8 @@ Open by clicking the **⚙ gear icon** on the right side of the toolbar.
 | Commands | EXPLORER | File explorer command. Leave blank to use the system default. |
 | Commands | EDITOR | Editor command (e.g. `code`, `notepad++`). Leave blank to default to `code`. |
 | Custom Actions | Action list | Add, edit, or remove user-defined custom actions. Each action has an ID, a mandatory **scope** (`Entry`, `Toolbar`, or `Both`), script path, optional icon, label, and tooltip. Only actions with a matching scope appear in the Toolbar Buttons or Action Buttons lists below. |
+| Application Types | Type list | Add, edit, or remove application type definitions. Each type has an ID, priority-ordered **executable paths** and **executable names** (for detection and launch), and an optional icon path. |
+| Application Type Assignments | Assignment list | Manually assign a specific folder to an application type (overrides auto-detection). Each assignment maps an exact folder name to a type ID. The type dropdown is populated from the Application Types defined above. |
 | Toolbar Buttons | Toolbar list | Checkboxes to show/hide each toolbar button (built-in SVN buttons and any custom actions added here); **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
 | Action Buttons | Action list | Checkboxes to show/hide each entry action (built-in actions and any custom actions added here); **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
 | Button Style | Style radio buttons | Choose **Inline icons** (one button per action, default) or **Hamburger menu** (single ☰ button that opens a popup). Takes effect immediately. |
@@ -418,24 +484,24 @@ When you double-click a list item, the behaviour depends on its category:
 ### Scripts
 Executed in the appropriate interpreter — see *Supported Script Types* for details.
 
-### Application Folders
-Launcher uses the following two-stage strategy:
-
-1. **Search for Windows shortcuts** – Looks for the first `.lnk` shortcut at the folder's top level
-   - If found, executes it via the Windows shell
-2. **Fallback executable** – If no shortcut is found, looks for:
-   - `basis\sys\win\bin\dsc_StartPlm.exe` inside the application folder
-   - If found, executes it directly
-3. **Error handling** – If neither is present the folder will be shown as a *plain folder* rather than an application folder (it would not have been classified as one to begin with)
-
 ### Plain Folders
 Double-clicking a plain folder opens it in **Windows File Explorer**. All right-click actions (copy, delete, open in editor) are still available.
 
+### Application Folders
+Launcher uses the following strategy (in priority order):
+
+1. **Custom app type** – if the folder has a matched or assigned `AppType`, its `executablePaths`/`executableNames` priority lists are searched; the first existing file is launched (`.lnk` via shell, `.exe` directly)
+2. **Built-in: `.lnk` shortcut** – the first shortcut found at the folder's root is executed via the Windows shell
+3. **Built-in: fallback executable** – `basis\sys\win\bin\dsc_StartPlm.exe` inside the application folder
+4. **Error** – if nothing is found, a warning dialog is shown
+
 ### Folder Classification
 
-A sub-folder is classified as an **Application folder** when it meets at least one of these criteria:
-- Contains a `.lnk` shortcut file at its **top level**
-- Contains `basis\sys\win\bin\dsc_StartPlm.exe`
+A sub-folder is classified as an **Application folder** when at least one of the following is true:
+- It is explicitly assigned an app type via `appTypeAssignments`
+- It matches a defined `appType` (executable found at one of the type's paths)
+- Contains a `.lnk` shortcut file at its **top level** (built-in)
+- Contains `basis\sys\win\bin\dsc_StartPlm.exe` (built-in fallback)
 
 All other sub-folders are treated as **plain folders**.
 
@@ -446,17 +512,18 @@ All other sub-folders are treated as **plain folders**.
 | File | Description |
 |---|---|
 | `src/main/java/dev/nonvocal/launcher/Launcher.java` | Application entry point and UI shell – constructs the window, wires all helper classes together, manages config state (~700 lines) |
-| `src/main/java/dev/nonvocal/launcher/LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic (`empty` → `defaults` → `mergeOver` → `withDefaults`); fields include `actionOrder`, `toolbarActions`, `entryButtonStyle`, `showContextMenu`, `customActions` |
-| `src/main/java/dev/nonvocal/launcher/CustomAction.java` | Immutable record representing a user-defined custom action: `id`, `iconPath`, `scriptPath`, `label` (optional), `tooltip` (optional); helper methods `effectiveLabel()`, `effectiveTooltip()`, `loadIcon()` |
+| `src/main/java/dev/nonvocal/launcher/LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic; 14 fields including `customActions`, `appTypes`, `appTypeAssignments` |
+| `src/main/java/dev/nonvocal/launcher/CustomAction.java` | Immutable record representing a user-defined custom action: `id`, `scope`, `iconPath`, `scriptPath`, `label`, `tooltip`; helper methods `effectiveLabel()`, `effectiveTooltip()`, `loadIcon()`, `appliesToEntry()`, `appliesToToolbar()` |
+| `src/main/java/dev/nonvocal/launcher/AppType.java` | Immutable record defining a custom application type: `id`, `iconPath`, `executablePaths`, `executableNames`; methods `findExecutable()`, `matches()`, `loadIcon()` |
 | `src/main/java/dev/nonvocal/launcher/EntryType.java` | Enum with three values: `SCRIPT`, `APP_FOLDER`, `PLAIN_FOLDER` |
-| `src/main/java/dev/nonvocal/launcher/LaunchEntry.java` | Immutable record representing one list row: `file()`, `type()`, `iconFile()` |
-| `src/main/java/dev/nonvocal/launcher/EntryLoader.java` | Scans the root folder, classifies entries into the three types, and applies priority-list sorting |
-| `src/main/java/dev/nonvocal/launcher/EntryLauncher.java` | Launches scripts (bat, cmd, ps1, …) and application folders (via `.lnk` or fallback executable) |
-| `src/main/java/dev/nonvocal/launcher/FolderActions.java` | Folder-level operations: open in File Explorer, open in Editor, copy with Robocopy, delete; **SVN Checkout** (CLI via `svn`); **SVN Repository Browser** (opens TortoiseSVN `repobrowser`, watches launcher folder for new checkouts, auto-refreshes list); **custom action execution** (runs user-defined script with target folder path as argument) |
-| `src/main/java/dev/nonvocal/launcher/EntryCellRenderer.java` | Swing list-cell renderer – draws entry rows with inline icon buttons (`ICONS`) or a single hamburger button (`HAMBURGER`); supports custom action icons and labels |
+| `src/main/java/dev/nonvocal/launcher/LaunchEntry.java` | Immutable record representing one list row: `file()`, `type()`, `iconFile()`, `appType()` |
+| `src/main/java/dev/nonvocal/launcher/EntryLoader.java` | Scans the root folder, classifies entries using app type assignments → auto-detection → built-in `.lnk` / fallback exe detection, and applies priority-list sorting |
+| `src/main/java/dev/nonvocal/launcher/EntryLauncher.java` | Launches scripts and application folders; uses the entry's matched `AppType` executable paths/names when set, falls back to built-in `.lnk` / fallback exe logic |
+| `src/main/java/dev/nonvocal/launcher/FolderActions.java` | Folder-level operations: open in File Explorer, open in Editor, copy with Robocopy, delete; **SVN Checkout** (CLI via `svn`); **SVN Repository Browser** (TortoiseSVN, auto-refresh); **custom action execution** |
+| `src/main/java/dev/nonvocal/launcher/EntryCellRenderer.java` | Swing list-cell renderer – draws entry rows with inline icon buttons (`ICONS`) or hamburger button (`HAMBURGER`); supports custom action icons and app type icons |
 | `src/main/java/dev/nonvocal/launcher/ListMouseHandler.java` | `MouseAdapter` – handles single-click on action buttons (built-in and custom), double-click to launch, hover cursor changes, and right-click context menu |
 | `src/main/java/dev/nonvocal/launcher/EntryListTransferHandler.java` | `TransferHandler` for drag-and-drop reordering of list entries (disabled while a search filter is active) |
-| `src/main/java/dev/nonvocal/launcher/SettingsDialog.java` | Modal settings `JDialog` – config-file paths, startup options, EXPLORER/EDITOR commands, custom action management (add/edit/delete), action-button order/visibility, toolbar button order/visibility, button style, context-menu toggle |
+| `src/main/java/dev/nonvocal/launcher/SettingsDialog.java` | Modal settings `JDialog` – config-file paths, startup options, EXPLORER/EDITOR commands, custom action management, application type management, application type assignment management, action-button/toolbar order/visibility, button style, context-menu toggle |
 | `src/main/java/dev/nonvocal/launcher/ProcessOutputWindow.java` | Utility that streams real-time process output (robocopy, SVN, custom actions) into a dedicated, auto-closing window |
 
 ### Test files

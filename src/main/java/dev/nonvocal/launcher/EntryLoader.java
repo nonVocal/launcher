@@ -9,7 +9,7 @@ import java.util.*;
  */
 class EntryLoader
 {
-    /** Relative path of the fallback executable inside an application folder. */
+    /** Relative path of the built-in fallback executable inside an application folder. */
     static final String FALLBACK_EXE = "basis\\sys\\win\\bin\\dsc_StartPlm.exe";
 
     private static final Set<String> SCRIPT_EXTENSIONS =
@@ -24,6 +24,14 @@ class EntryLoader
      */
     static List<LaunchEntry> load(File baseFolder, LauncherConfig config)
     {
+        // Build fast-lookup structures from config
+        Map<String, AppType> typeById = new LinkedHashMap<>();
+        if (config.appTypes() != null)
+            for (AppType t : config.appTypes()) typeById.put(t.id(), t);
+
+        Map<String, String> assignments = config.appTypeAssignments() != null
+                ? config.appTypeAssignments() : Collections.emptyMap();
+
         List<LaunchEntry> scripts = new ArrayList<>();
         List<LaunchEntry> apps    = new ArrayList<>();
         List<LaunchEntry> plain   = new ArrayList<>();
@@ -36,9 +44,9 @@ class EntryLoader
             {
                 if (f.isDirectory())
                 {
-                    File iconSrc = findAppIconSource(f);
-                    if (iconSrc != null) apps.add(new LaunchEntry(f, EntryType.APP_FOLDER, iconSrc));
-                    else                 plain.add(new LaunchEntry(f, EntryType.PLAIN_FOLDER));
+                    LaunchEntry entry = classifyDirectory(f, assignments, typeById);
+                    if (entry.type() == EntryType.APP_FOLDER) apps.add(entry);
+                    else                                       plain.add(entry);
                 }
                 else if (isScript(f))
                 {
@@ -75,8 +83,52 @@ class EntryLoader
     }
 
     /**
-     * Returns the first {@code .lnk} file found in {@code dir}, or the fallback exe,
-     * or {@code null} if neither exists (→ plain folder).
+     * Classifies a directory using (in priority order):
+     * <ol>
+     *   <li>Explicit app-type assignment from config</li>
+     *   <li>Auto-detection: scan all defined app types for a matching executable</li>
+     *   <li>Built-in: first {@code .lnk} file found at the folder root</li>
+     *   <li>Built-in: fallback {@code basis\sys\win\bin\dsc_StartPlm.exe}</li>
+     *   <li>Plain folder (no executable found)</li>
+     * </ol>
+     */
+    private static LaunchEntry classifyDirectory(
+            File dir,
+            Map<String, String> assignments,
+            Map<String, AppType> typeById)
+    {
+        // 1. Explicit assignment
+        String assignedId = assignments.get(dir.getName());
+        if (assignedId != null)
+        {
+            AppType appType = typeById.get(assignedId);
+            if (appType != null)
+            {
+                // iconFile = found executable (for system-icon extraction when no custom iconPath)
+                File iconFile = appType.findExecutable(dir);
+                return new LaunchEntry(dir, EntryType.APP_FOLDER, iconFile, appType);
+            }
+        }
+
+        // 2. Auto-detection via defined app types
+        for (AppType appType : typeById.values())
+        {
+            File exe = appType.findExecutable(dir);
+            if (exe != null)
+                return new LaunchEntry(dir, EntryType.APP_FOLDER, exe, appType);
+        }
+
+        // 3 & 4. Built-in detection
+        File iconSrc = findAppIconSource(dir);
+        if (iconSrc != null)
+            return new LaunchEntry(dir, EntryType.APP_FOLDER, iconSrc, null);
+
+        return new LaunchEntry(dir, EntryType.PLAIN_FOLDER);
+    }
+
+    /**
+     * Built-in detection: returns the first {@code .lnk} at the folder root,
+     * or the fallback exe, or {@code null} (→ plain folder).
      */
     private static File findAppIconSource(File dir)
     {
@@ -90,4 +142,3 @@ class EntryLoader
         return fallback.isFile() ? fallback : null;
     }
 }
-
