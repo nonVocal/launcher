@@ -282,7 +282,7 @@ public class Launcher extends JFrame
 
         ImageIcon svnIcon = loadScaledIcon("apps-add.png", 20, 20);
         JButton svnButton = svnIcon != null ? new JButton(svnIcon) : new JButton("SVN");
-        svnButton.setToolTipText("SVN Checkout \u2013 check out a repository into the selected folder");
+        svnButton.setToolTipText("SVN Repository Browser \u2013 browse the repository and check out projects");
         svnButton.setFocusPainted(false);
         svnButton.addActionListener(ev ->
         {
@@ -355,7 +355,7 @@ public class Launcher extends JFrame
             menu.add(mi);
         }
         menu.addSeparator();
-        JMenuItem miSVN = new JMenuItem("SVN Checkout...");
+        JMenuItem miSVN = new JMenuItem("SVN Repository Browser...");
         miSVN.addActionListener(e -> folderActions.svnCheckout(sel.file()));
         menu.add(miSVN);
         menu.show(list, x, y);

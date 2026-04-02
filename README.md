@@ -11,7 +11,7 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 - **Double-click / Enter** to run a script or launch an application
 - **Configurable entry order** – drag any row to a new position with the mouse; the order is saved automatically to the instance config as a `priorityList` and restored on the next launch. Entries not in the list follow the default sort (scripts A–Z → app folders A–Z → plain folders A–Z)
 - **Toolbar** below the header bar with quick-access buttons:
-  - **SVN Checkout** (left) – check out a repository into the selected folder
+  - **SVN Repository Browser** (left) – opens the TortoiseSVN repository browser so you can navigate the repo and check out any sub-path; the application list refreshes **automatically** when a new directory appears in the launcher folder
   - **Settings ⚙** (right) – open the settings dialog
 - **Inline action icons** (right side of each folder row) for one-click access to common actions — no right-click required:
   - 📁 – Open in File Explorer
@@ -21,7 +21,7 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - Which actions are shown, and their **order**, are fully **configurable** via the Settings dialog or the config file
   - **Button style** is configurable: individual **icons** (default) or a single **hamburger menu** (☰) that opens a popup
   - The cursor changes to a **hand pointer** when hovering over an icon
-- **Right-click context menu** (folders and app folders) with the same configurable quick actions plus **SVN Checkout**
+- **Right-click context menu** (folders and app folders) with the same configurable quick actions plus **SVN Repository Browser**
   - The context menu can be **disabled** via the Settings dialog or the `showContextMenu` config field
 - **Real-time output windows** for robocopy and SVN operations
 - **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
@@ -37,7 +37,7 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - Tested with [SapMachine 26](https://sap.github.io/SapMachine/), but any JDK 16+ will work
 - *(Optional)* An **editor** on your `PATH` – only needed for the *Open in Editor* action. Defaults to `code` (VS Code); configurable via `EDITOR` in the config file or Settings dialog
 - *(Optional)* A custom **file explorer** – defaults to the system default; configurable via `EXPLORER` in the config file or Settings dialog
-- *(Optional)* **SVN client** on your `PATH` – only needed for the *SVN Checkout* action
+- *(Optional)* **TortoiseSVN** – only needed for the *SVN Repository Browser* action. Install from [tortoisesvn.net](https://tortoisesvn.net/). The application uses `TortoiseProc.exe` from its standard installation path.
   - `robocopy` is built-in to Windows, so *Copy with Robocopy* works out of the box
 
 ## Setup
@@ -206,7 +206,7 @@ A toolbar sits between the blue header and the entry list.
 
 | Button | Position | Action |
 |---|---|---|
-| **SVN Checkout** (apps-add icon) | Left | Opens the SVN Checkout dialog for the currently selected folder. If no folder entry is selected, the root launcher folder is used as the checkout target. |
+| **SVN Repository Browser** (apps-add icon) | Left | Opens the TortoiseSVN repository browser. Optionally enter a repository URL first; leave blank to open the browser without a predefined URL. While the browser is open the launcher folder is watched for new directories — the list refreshes automatically when a checkout completes. |
 | **Settings** (gear icon) | Right | Opens the Settings dialog to inspect config-file paths and toggle startup options. |
 
 ### Settings Dialog
@@ -320,13 +320,13 @@ Opens the folder in the configured editor. If `EDITOR` is not set, defaults to `
 - Permanently deletes the folder and all its contents — cannot be undone
 - **List refreshes automatically** as soon as the folder is gone
 
-#### **SVN Checkout...**
-- Prompts you to enter an SVN repository URL
-- Automatically derives the checkout folder name from the URL
-- Checks out into a new subfolder inside the selected folder
-- Shows real-time command output in a dedicated window that stays open
-- After the checkout finishes, a prompt asks whether to refresh the file list
-- Requires `svn` command on your `PATH`
+#### **SVN Repository Browser...**
+- Requires **TortoiseSVN** to be installed (checked at `%ProgramFiles%\TortoiseSVN\bin\TortoiseProc.exe`)
+- Optionally enter a repository root URL when prompted; leave blank to open the browser without a predefined URL
+- Opens the **TortoiseSVN repository browser** — browse the repository tree and check out any sub-path using TortoiseSVN's built-in checkout dialog
+- While the browser is open, the launcher folder is **watched in the background** for new sub-directories
+- **List refreshes automatically** the moment a checked-out directory appears — no confirmation prompt needed
+- A **2-minute grace period** keeps the watcher active after the browser window is closed, so that a checkout already in progress can still be detected
 
 ## How Application Launching Works
 
@@ -346,7 +346,7 @@ Launcher uses the following two-stage strategy:
 3. **Error handling** – If neither is present the folder will be shown as a *plain folder* rather than an application folder (it would not have been classified as one to begin with)
 
 ### Plain Folders
-Double-clicking a plain folder opens it in **Windows File Explorer**. All right-click actions (copy, delete, SVN checkout, open in editor) are still available.
+Double-clicking a plain folder opens it in **Windows File Explorer**. All right-click actions (copy, delete, open in editor) are still available.
 
 ### Folder Classification
 
@@ -368,7 +368,7 @@ All other sub-folders are treated as **plain folders**.
 | `src/main/java/dev/nonvocal/launcher/LaunchEntry.java` | Immutable record representing one list row: `file()`, `type()`, `iconFile()` |
 | `src/main/java/dev/nonvocal/launcher/EntryLoader.java` | Scans the root folder, classifies entries into the three types, and applies priority-list sorting |
 | `src/main/java/dev/nonvocal/launcher/EntryLauncher.java` | Launches scripts (bat, cmd, ps1, …) and application folders (via `.lnk` or fallback executable) |
-| `src/main/java/dev/nonvocal/launcher/FolderActions.java` | Folder-level operations: open in File Explorer, open in Editor, copy with Robocopy, delete, SVN checkout |
+| `src/main/java/dev/nonvocal/launcher/FolderActions.java` | Folder-level operations: open in File Explorer, open in Editor, copy with Robocopy, delete, SVN repository browser (opens TortoiseSVN `repobrowser`, watches launcher folder for new checkouts, auto-refreshes list) |
 | `src/main/java/dev/nonvocal/launcher/EntryCellRenderer.java` | Swing list-cell renderer – draws entry rows with inline icon buttons (`ICONS`) or a single hamburger button (`HAMBURGER`) |
 | `src/main/java/dev/nonvocal/launcher/ListMouseHandler.java` | `MouseAdapter` – handles single-click on action buttons, double-click to launch, hover cursor changes, and right-click context menu |
 | `src/main/java/dev/nonvocal/launcher/EntryListTransferHandler.java` | `TransferHandler` for drag-and-drop reordering of list entries (disabled while a search filter is active) |
@@ -427,7 +427,7 @@ Launcher recognizes and launches the following script file types:
 |---|---|
 | Launch selected item | **Enter** or **Double-click** |
 | Reorder entry | **Drag & drop** row to a new position (unfiltered list only) |
-| SVN Checkout | **Toolbar button** (left) or right-click → *SVN Checkout…* |
+| SVN Repository Browser | **Toolbar button** (left) or right-click → *SVN Repository Browser…* |
 | Open Settings | **Toolbar ⚙ button** (right) |
 | Open in File Explorer | **Click folder icon** (row right side) or right-click → *Open in File Explorer* |
 | Open in Editor | **Click document icon** (row right side) or right-click → *Open in Editor* |
@@ -534,12 +534,12 @@ The instance config will be stored at `%APPDATA%\nvLauncher\myapps\config.json`.
   - Or add the editor's folder to your PATH environment variable
   - Or install VS Code from [code.visualstudio.com](https://code.visualstudio.com/) and check "Add to PATH" during installation
 
-### SVN Checkout Fails
-- **Cause:** SVN client is not installed or not on `PATH`
+### TortoiseSVN Not Found
+- **Cause:** TortoiseSVN is not installed or not in the expected location
 - **Fix:**
-  - Download and install TortoiseSVN or Apache Subversion
-  - Ensure the `svn` command is available in your PATH
-  - Verify with `svn --version` in Command Prompt
+  - Download and install TortoiseSVN from [tortoisesvn.net](https://tortoisesvn.net/)
+  - Make sure it is installed to the default location (`C:\Program Files\TortoiseSVN`)
+  - After installing, restart Launcher and try again
 
 ### Robocopy Shows "Access Denied"
 - **Cause:** Permission issues on source or destination folder

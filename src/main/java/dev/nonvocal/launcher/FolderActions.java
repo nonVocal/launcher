@@ -4,6 +4,15 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -116,46 +125,138 @@ class FolderActions
         }
     }
 
+    /**
+     * Opens the TortoiseSVN repository browser at the given URL so the user can
+     * navigate the repository and check out any sub-path they choose.
+     * <p>
+     * While the repository browser is open (and for a short grace period
+     * afterwards) the {@code baseFolder} is watched for newly created
+     * directories.  As soon as one appears the application list is refreshed
+     * automatically.
+     */
     void svnCheckout(File targetFolder)
     {
-        String url = JOptionPane.showInputDialog(parent,
-                "Enter SVN repository URL:", "SVN Checkout", JOptionPane.QUESTION_MESSAGE);
-        if (url == null || url.trim().isEmpty()) return;
+        File tortoiseProc = findTortoiseSVN();
+        if (tortoiseProc == null)
+        {
+            JOptionPane.showMessageDialog(parent,
+                    "<html>TortoiseSVN was not found on this system.<br><br>"
+                    + "Please install TortoiseSVN to use the repository browser.<br>"
+                    + "Common installation path:<br>"
+                    + "<tt>C:\\Program Files\\TortoiseSVN\\bin\\TortoiseProc.exe</tt></html>",
+                    "TortoiseSVN Not Found", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String url = (String) JOptionPane.showInputDialog(parent,
+                "<html>Enter the SVN repository root URL to browse:<br>"
+                + "<small>(leave blank to open the browser without a predefined URL)</small></html>",
+                "SVN Repository Browser",
+                JOptionPane.QUESTION_MESSAGE, null, null, "");
+        if (url == null) return;   // user cancelled
         url = url.trim();
+
+        List<String> cmd = new ArrayList<>();
+        cmd.add(tortoiseProc.getAbsolutePath());
+        cmd.add("/command:repobrowser");
+        if (!url.isEmpty()) cmd.add("/path:" + url);
+
+        Process repoBrowserProcess;
         try
         {
-            String repoName = url.replaceAll(".*/+", "").replaceAll("\\..*", "");
-            if (repoName.isEmpty()) repoName = "checkout";
-
-            ProcessBuilder pb = new ProcessBuilder(
-                    "svn", "checkout", url, new File(targetFolder, repoName).getAbsolutePath());
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-            ProcessOutputWindow.show(process, "SVN Checkout: " + url, null);
-
-            new Thread(() ->
-            {
-                try
-                {
-                    process.waitFor();
-                    SwingUtilities.invokeLater(() ->
-                    {
-                        int r = JOptionPane.showConfirmDialog(parent,
-                                "Checkout completed. Refresh the file list?",
-                                "SVN Checkout", JOptionPane.YES_NO_OPTION);
-                        if (r == JOptionPane.YES_OPTION) onRefresh.run();
-                    });
-                }
-                catch (InterruptedException ignored) {}
-            }).start();
+            repoBrowserProcess = new ProcessBuilder(cmd).start();
         }
         catch (IOException ex)
         {
             JOptionPane.showMessageDialog(parent,
-                    "Could not start SVN:\n" + ex.getMessage()
-                    + "\n\nMake sure 'svn' is installed and on your PATH.",
+                    "Could not open SVN repository browser:\n" + ex.getMessage(),
                     "Launcher Error", JOptionPane.ERROR_MESSAGE);
+            return;
         }
+
+        startCheckoutWatcher(repoBrowserProcess);
+    }
+
+    // ── SVN helpers ───────────────────────────────────────────────────────────
+
+    /**
+     * Searches common installation directories for {@code TortoiseProc.exe}.
+     * Returns the first match, or {@code null} if TortoiseSVN is not installed.
+     */
+    private static File findTortoiseSVN()
+    {
+        String pf   = System.getenv("ProgramFiles");
+        String pf86 = System.getenv("ProgramFiles(x86)");
+        String[] candidates = {
+            pf   != null ? pf   + "\\TortoiseSVN\\bin\\TortoiseProc.exe" : null,
+            pf86 != null ? pf86 + "\\TortoiseSVN\\bin\\TortoiseProc.exe" : null,
+        };
+        for (String p : candidates)
+        {
+            if (p == null) continue;
+            File f = new File(p);
+            if (f.exists()) return f;
+        }
+        return null;
+    }
+
+    /**
+     * Watches {@code baseFolder} for newly created sub-directories.
+     * <ul>
+     *   <li>While {@code repoBrowserProcess} is alive the watcher stays active.</li>
+     *   <li>After the browser is closed a 2-minute grace window keeps the watcher
+     *       running so that a checkout already in progress can still finish.</li>
+     * </ul>
+     * Every time a new directory is detected the application list is refreshed on
+     * the Event Dispatch Thread.
+     */
+    private void startCheckoutWatcher(Process repoBrowserProcess)
+    {
+        Thread watcher = new Thread(() ->
+        {
+            try (WatchService ws = FileSystems.getDefault().newWatchService())
+            {
+                baseFolder.toPath().register(ws, StandardWatchEventKinds.ENTRY_CREATE);
+
+                // Phase 1 – watch while the repository browser is open
+                while (repoBrowserProcess.isAlive())
+                {
+                    WatchKey key = ws.poll(3, TimeUnit.SECONDS);
+                    if (key != null)
+                    {
+                        processWatchKey(key);
+                    }
+                }
+
+                // Phase 2 – 2-minute grace period after the browser window closes
+                long graceEnd = System.currentTimeMillis() + 2L * 60 * 1000;
+                while (System.currentTimeMillis() < graceEnd)
+                {
+                    WatchKey key = ws.poll(5, TimeUnit.SECONDS);
+                    if (key == null) continue;
+                    processWatchKey(key);
+                }
+            }
+            catch (IOException | InterruptedException ignored) {}
+        }, "svn-checkout-watcher");
+        watcher.setDaemon(true);
+        watcher.start();
+    }
+
+    /** Processes one {@link WatchKey}: refreshes the list for every new directory found. */
+    private void processWatchKey(WatchKey key)
+    {
+        for (WatchEvent<?> event : key.pollEvents())
+        {
+            if (event.kind() == StandardWatchEventKinds.ENTRY_CREATE)
+            {
+                @SuppressWarnings("unchecked")
+                Path created = baseFolder.toPath().resolve(((WatchEvent<Path>) event).context());
+                if (created.toFile().isDirectory())
+                    SwingUtilities.invokeLater(onRefresh);
+            }
+        }
+        key.reset();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
