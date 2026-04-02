@@ -26,7 +26,7 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - The context menu can be **disabled** via the Settings dialog or the `showContextMenu` config field
 - **Real-time output windows** for robocopy and SVN Checkout operations
 - **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
-- **Settings dialog** to inspect active config paths, toggle startup options, configure commands (`EXPLORER`, `EDITOR`), and customize the action button bar
+- **Settings dialog** to inspect active config paths, toggle startup options, configure commands (`EXPLORER`, `EDITOR`), customize the action button bar, and **configure toolbar buttons** (show/hide/reorder the SVN buttons)
 - Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
 - **Folder-chooser dialog** when no path is supplied on startup
 - **Color-coded list** for scripts, application folders, and plain folders
@@ -133,6 +133,10 @@ CLI arguments override all config files.
     "EDITOR_ACTION",
     "COPY_ACTION",
     "DELETE_ACTION"
+  ],
+  "toolbarActions": [
+    "SVN_CHECKOUT_ACTION",
+    "SVN_BROWSER_ACTION"
   ]
 }
 ```
@@ -151,6 +155,7 @@ Any field can be omitted; omitted fields are inherited from the level below.
 | `showContextMenu` | boolean | `true` (default) to show the right-click context menu on folder entries. Set to `false` to disable it. |
 | `priorityList` | string array | Ordered list of entry names. Entries in this list appear at the top in the given order; all remaining entries follow in the default sort (scripts A–Z → app folders A–Z → plain folders A–Z). Updated automatically when you drag and drop entries in the UI. |
 | `actionOrder` | string array | Ordered list of **action keys** that determines which action buttons are shown and in what order. Omit to show all four actions in the default order. |
+| `toolbarActions` | string array | Ordered list of **toolbar button keys** that determines which toolbar buttons are shown and in what order. Omit to show both SVN buttons in the default order. |
 
 ### Action Keys
 
@@ -162,6 +167,27 @@ The `actionOrder` field uses the following keys:
 | `EDITOR_ACTION` | Open in Editor |
 | `COPY_ACTION` | Copy with Robocopy |
 | `DELETE_ACTION` | Delete |
+
+### Toolbar Button Keys
+
+The `toolbarActions` field uses the following keys:
+
+| Key | Button |
+|---|---|
+| `SVN_CHECKOUT_ACTION` | SVN Checkout (CLI) |
+| `SVN_BROWSER_ACTION` | SVN Repository Browser (TortoiseSVN) |
+
+**Examples:**
+
+Show only the SVN Repository Browser button:
+```json
+{ "toolbarActions": ["SVN_BROWSER_ACTION"] }
+```
+
+Hide all toolbar SVN buttons:
+```json
+{ "toolbarActions": [] }
+```
 
 **Examples:**
 
@@ -224,6 +250,7 @@ Open by clicking the **⚙ gear icon** on the right side of the toolbar.
 | Startup | Start minimized | Checkbox – saves to instance config; takes effect on next launch |
 | Commands | EXPLORER | File explorer command. Leave blank to use the system default. |
 | Commands | EDITOR | Editor command (e.g. `code`, `notepad++`). Leave blank to default to `code`. |
+| Toolbar Buttons | Toolbar list | Checkboxes to show/hide each SVN toolbar button; **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
 | Action Buttons | Action list | Checkboxes to show/hide each action; **↑ / ↓** buttons to reorder. Changes take effect immediately without a restart. |
 | Button Style | Style radio buttons | Choose **Inline icons** (one button per action, default) or **Hamburger menu** (single ☰ button that opens a popup). Takes effect immediately. |
 | Button Style | Show context menu | Checkbox – uncheck to disable the right-click context menu on folder entries. |
@@ -359,7 +386,7 @@ All other sub-folders are treated as **plain folders**.
 | File | Description |
 |---|---|
 | `src/main/java/dev/nonvocal/launcher/Launcher.java` | Application entry point and UI shell – constructs the window, wires all helper classes together, manages config state (~600 lines) |
-| `src/main/java/dev/nonvocal/launcher/LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic (`empty` → `defaults` → `mergeOver` → `withDefaults`) |
+| `src/main/java/dev/nonvocal/launcher/LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic (`empty` → `defaults` → `mergeOver` → `withDefaults`); fields include `actionOrder`, `toolbarActions`, `entryButtonStyle`, `showContextMenu` |
 | `src/main/java/dev/nonvocal/launcher/EntryType.java` | Enum with three values: `SCRIPT`, `APP_FOLDER`, `PLAIN_FOLDER` |
 | `src/main/java/dev/nonvocal/launcher/LaunchEntry.java` | Immutable record representing one list row: `file()`, `type()`, `iconFile()` |
 | `src/main/java/dev/nonvocal/launcher/EntryLoader.java` | Scans the root folder, classifies entries into the three types, and applies priority-list sorting |

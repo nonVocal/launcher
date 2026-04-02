@@ -29,7 +29,8 @@ record LauncherConfig(
         String       editor,
         List<String> actionOrder,
         String       entryButtonStyle,
-        Boolean      showContextMenu)
+        Boolean      showContextMenu,
+        List<String> toolbarActions)   // ordered list of enabled toolbar button keys
 {
     // ── Static paths ───────────────────────────────────────────────────────────
 
@@ -57,13 +58,13 @@ record LauncherConfig(
     /** All fields null – represents "nothing set at this level". */
     static LauncherConfig empty()
     {
-        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /** Hardcoded application defaults (all fields non-null). */
     static LauncherConfig defaults()
     {
-        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null);
+        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null);
     }
 
     /**
@@ -103,7 +104,8 @@ record LauncherConfig(
                 editor            != null ? editor            : base.editor,
                 actionOrder       != null ? actionOrder       : base.actionOrder,
                 entryButtonStyle  != null ? entryButtonStyle  : base.entryButtonStyle,
-                showContextMenu   != null ? showContextMenu   : base.showContextMenu);
+                showContextMenu   != null ? showContextMenu   : base.showContextMenu,
+                toolbarActions    != null ? toolbarActions    : base.toolbarActions);
     }
 
     /**
@@ -122,7 +124,8 @@ record LauncherConfig(
                 editor,
                 actionOrder,
                 entryButtonStyle,
-                showContextMenu);
+                showContextMenu,
+                toolbarActions);
     }
 
     // ── Persistence ────────────────────────────────────────────────────────────
@@ -156,29 +159,30 @@ record LauncherConfig(
         if (showContextMenu  != null) lines.add("  \"showContextMenu\": "  + showContextMenu);
         if (priorityList != null && !priorityList.isEmpty())
         {
-            StringBuilder sb = new StringBuilder("  \"priorityList\": [\n");
-            for (int i = 0; i < priorityList.size(); i++)
-            {
-                sb.append("    ").append(jsonStr(priorityList.get(i)));
-                if (i < priorityList.size() - 1) sb.append(",");
-                sb.append("\n");
-            }
-            sb.append("  ]");
-            lines.add(sb.toString());
+            lines.add(jsonStrList("priorityList", priorityList));
         }
         if (actionOrder != null && !actionOrder.isEmpty())
         {
-            StringBuilder sb = new StringBuilder("  \"actionOrder\": [\n");
-            for (int i = 0; i < actionOrder.size(); i++)
-            {
-                sb.append("    ").append(jsonStr(actionOrder.get(i)));
-                if (i < actionOrder.size() - 1) sb.append(",");
-                sb.append("\n");
-            }
-            sb.append("  ]");
-            lines.add(sb.toString());
+            lines.add(jsonStrList("actionOrder", actionOrder));
+        }
+        if (toolbarActions != null && !toolbarActions.isEmpty())
+        {
+            lines.add(jsonStrList("toolbarActions", toolbarActions));
         }
         return "{\n" + String.join(",\n", lines) + "\n}";
+    }
+
+    private static String jsonStrList(String key, List<String> values)
+    {
+        StringBuilder sb = new StringBuilder("  \"" + key + "\": [\n");
+        for (int i = 0; i < values.size(); i++)
+        {
+            sb.append("    ").append(jsonStr(values.get(i)));
+            if (i < values.size() - 1) sb.append(",");
+            sb.append("\n");
+        }
+        sb.append("  ]");
+        return sb.toString();
     }
 
     private static String jsonStr(String s)
@@ -201,7 +205,8 @@ record LauncherConfig(
                 parseStr    (json, "editor"),
                 parseStrList(json, "actionOrder"),
                 parseStr    (json, "entryButtonStyle"),
-                parseBool   (json, "showContextMenu"));
+                parseBool   (json, "showContextMenu"),
+                parseStrList(json, "toolbarActions"));
     }
 
     private static String parseStr(String json, String key)

@@ -19,16 +19,19 @@ class SettingsDialog extends JDialog
     private final String             launcherId;
     private final LauncherConfig     config;
     private final List<String>       effectiveActionOrder;
+    private final List<String>       effectiveToolbarActions;
     private final Consumer<LauncherConfig> onSave;
 
     SettingsDialog(JFrame owner, String launcherId, LauncherConfig config,
-                   List<String> effectiveActionOrder, Consumer<LauncherConfig> onSave)
+                   List<String> effectiveActionOrder, List<String> effectiveToolbarActions,
+                   Consumer<LauncherConfig> onSave)
     {
         super(owner, "Settings  \u2013  " + launcherId, true);
-        this.launcherId           = launcherId;
-        this.config               = config;
-        this.effectiveActionOrder = effectiveActionOrder;
-        this.onSave               = onSave;
+        this.launcherId              = launcherId;
+        this.config                  = config;
+        this.effectiveActionOrder    = effectiveActionOrder;
+        this.effectiveToolbarActions = effectiveToolbarActions;
+        this.onSave                  = onSave;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setResizable(false);
         buildContent();
@@ -77,6 +80,73 @@ class SettingsDialog extends JDialog
         JTextField tfEditor = new JTextField(config.editor() != null ? config.editor() : "", 30);
         root.add(editRow("EDITOR", tfEditor,
                 "Editor command \u2013 blank defaults to 'code'"));
+        root.add(separator());
+
+        // ── Toolbar Buttons ───────────────────────────────────────────────────
+        root.add(sectionLabel("Toolbar Buttons"));
+        root.add(Box.createVerticalStrut(4));
+        JLabel tbHint = new JLabel("Check to show \u00b7 drag up/down to reorder");
+        tbHint.setFont(tbHint.getFont().deriveFont(Font.ITALIC, 10f));
+        tbHint.setForeground(Color.GRAY);
+        tbHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        root.add(tbHint);
+        root.add(Box.createVerticalStrut(4));
+
+        List<String> tbOrdered = new ArrayList<>(effectiveToolbarActions);
+        for (String k : Launcher.DEFAULT_TOOLBAR_ACTIONS)
+            if (!tbOrdered.contains(k)) tbOrdered.add(k);
+        final Set<String> tbChecked = new HashSet<>(effectiveToolbarActions);
+
+        DefaultListModel<String> tbModel = new DefaultListModel<>();
+        tbOrdered.forEach(tbModel::addElement);
+
+        JList<String> tbList = new JList<>(tbModel);
+        tbList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tbList.setFixedCellHeight(24);
+        tbList.setCellRenderer((lst, value, index, isSelected, focus) ->
+        {
+            JCheckBox cb = new JCheckBox(toolbarLabel(value));
+            cb.setSelected(tbChecked.contains(value));
+            cb.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
+            cb.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            cb.setFont(lst.getFont());
+            return cb;
+        });
+        tbList.addMouseListener(new MouseAdapter()
+        {
+            @Override public void mouseClicked(MouseEvent ev)
+            {
+                int idx = tbList.locationToIndex(ev.getPoint());
+                if (idx < 0) return;
+                String key = tbModel.getElementAt(idx);
+                if (tbChecked.contains(key)) tbChecked.remove(key); else tbChecked.add(key);
+                tbList.repaint();
+            }
+        });
+
+        JButton tbBtnUp   = new JButton("\u2191");
+        JButton tbBtnDown = new JButton("\u2193");
+        tbBtnUp.addActionListener(ev ->
+        {
+            int i = tbList.getSelectedIndex();
+            if (i > 0) { String item = tbModel.remove(i); tbModel.add(i - 1, item); tbList.setSelectedIndex(i - 1); }
+        });
+        tbBtnDown.addActionListener(ev ->
+        {
+            int i = tbList.getSelectedIndex();
+            if (i >= 0 && i < tbModel.getSize() - 1) { String item = tbModel.remove(i); tbModel.add(i + 1, item); tbList.setSelectedIndex(i + 1); }
+        });
+
+        JPanel tbActButtons = new JPanel(new GridLayout(2, 1, 0, 2));
+        tbActButtons.add(tbBtnUp); tbActButtons.add(tbBtnDown);
+
+        JPanel tbPanel = new JPanel(new BorderLayout(6, 0));
+        tbPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tbPanel.add(new JScrollPane(tbList), BorderLayout.CENTER);
+        tbPanel.add(tbActButtons, BorderLayout.EAST);
+        tbPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2 * 24 + 8));
+        root.add(tbPanel);
+        root.add(Box.createVerticalStrut(8));
         root.add(separator());
 
         // Action buttons
@@ -190,6 +260,12 @@ class SettingsDialog extends JDialog
                 String k = actModel.getElementAt(i);
                 if (checked.contains(k)) newOrder.add(k);
             }
+            List<String> newToolbarActions = new ArrayList<>();
+            for (int i = 0; i < tbModel.getSize(); i++)
+            {
+                String k = tbModel.getElementAt(i);
+                if (tbChecked.contains(k)) newToolbarActions.add(k);
+            }
             String explorerVal    = tfExplorer.getText().trim();
             String editorVal      = tfEditor.getText().trim();
             String newButtonStyle = rbHamburger.isSelected()
@@ -202,7 +278,8 @@ class SettingsDialog extends JDialog
                     explorerVal.isEmpty() ? null : explorerVal,
                     editorVal.isEmpty()   ? null : editorVal,
                     newOrder.isEmpty()    ? null : newOrder,
-                    newButtonStyle, cbContextMenu.isSelected()));
+                    newButtonStyle, cbContextMenu.isSelected(),
+                    newToolbarActions.isEmpty() ? null : newToolbarActions));
             dispose();
         });
         btnCancel.addActionListener(e -> dispose());
@@ -211,6 +288,16 @@ class SettingsDialog extends JDialog
     }
 
     // ── Static UI helpers ─────────────────────────────────────────────────────
+
+    private static String toolbarLabel(String key)
+    {
+        return switch (key)
+        {
+            case Launcher.SVN_CHECKOUT_ACTION -> "SVN Checkout";
+            case Launcher.SVN_BROWSER_ACTION  -> "SVN Repository Browser";
+            default -> key;
+        };
+    }
 
     private static String actionLabel(String key)
     {

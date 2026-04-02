@@ -44,6 +44,14 @@ public class Launcher extends JFrame
     static final List<String> DEFAULT_ACTION_ORDER =
             List.of(EXPLORE_ACTION, EDITOR_ACTION, COPY_ACTION, DELETE_ACTION);
 
+    // ── Toolbar action keys ──────────────────────────────────────────────────
+
+    public static final String SVN_CHECKOUT_ACTION = "SVN_CHECKOUT_ACTION";
+    public static final String SVN_BROWSER_ACTION  = "SVN_BROWSER_ACTION";
+
+    static final List<String> DEFAULT_TOOLBAR_ACTIONS =
+            List.of(SVN_CHECKOUT_ACTION, SVN_BROWSER_ACTION);
+
     // ── Button style keys ────────────────────────────────────────────────────
 
     public static final String BUTTON_STYLE_ICONS     = "ICONS";
@@ -64,6 +72,7 @@ public class Launcher extends JFrame
 
     // Resolved from config – updated when settings are saved
     private List<String>    effectiveActionOrder;
+    private List<String>    effectiveToolbarActions;
     private String          effectiveButtonStyle;
     private boolean         showContextMenu;
     private EntryCellRenderer cellRenderer;
@@ -74,6 +83,11 @@ public class Launcher extends JFrame
     // Collaborators
     private FolderActions  folderActions;
     private EntryLauncher  entryLauncher;
+
+    // Toolbar state – populated in buildUI, updated by applyConfig
+    private JPanel  toolbarLeftPanel;
+    private JButton svnCheckoutBtn;
+    private JButton svnBrowserBtn;
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
@@ -94,6 +108,13 @@ public class Launcher extends JFrame
         return order.stream().filter(DEFAULT_ACTION_ORDER::contains).collect(Collectors.toList());
     }
 
+    private List<String> resolveToolbarActions(LauncherConfig cfg)
+    {
+        List<String> order = cfg.toolbarActions();
+        if (order == null) return new ArrayList<>(DEFAULT_TOOLBAR_ACTIONS);
+        return order.stream().filter(DEFAULT_TOOLBAR_ACTIONS::contains).collect(Collectors.toList());
+    }
+
     private static String resolveButtonStyle(LauncherConfig cfg)
     {
         return BUTTON_STYLE_HAMBURGER.equals(cfg.entryButtonStyle())
@@ -107,16 +128,37 @@ public class Launcher extends JFrame
 
     private void applyConfig(LauncherConfig cfg)
     {
-        config               = cfg;
-        effectiveActionOrder = resolveActionOrder(cfg);
-        effectiveButtonStyle = resolveButtonStyle(cfg);
-        showContextMenu      = resolveShowContextMenu(cfg);
-        cellRenderer         = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle);
+        config                  = cfg;
+        effectiveActionOrder    = resolveActionOrder(cfg);
+        effectiveToolbarActions = resolveToolbarActions(cfg);
+        effectiveButtonStyle    = resolveButtonStyle(cfg);
+        showContextMenu         = resolveShowContextMenu(cfg);
+        cellRenderer            = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle);
         if (list != null)
         {
             list.setCellRenderer(cellRenderer);
             list.repaint();
         }
+        updateToolbarButtons();
+    }
+
+    /**
+     * Rebuilds the configurable section of the toolbar to match
+     * {@link #effectiveToolbarActions} (order + visibility).
+     */
+    private void updateToolbarButtons()
+    {
+        if (toolbarLeftPanel == null) return;
+        toolbarLeftPanel.removeAll();
+        for (String key : effectiveToolbarActions)
+        {
+            if (SVN_CHECKOUT_ACTION.equals(key) && svnCheckoutBtn != null)
+                toolbarLeftPanel.add(svnCheckoutBtn);
+            else if (SVN_BROWSER_ACTION.equals(key) && svnBrowserBtn != null)
+                toolbarLeftPanel.add(svnBrowserBtn);
+        }
+        toolbarLeftPanel.revalidate();
+        toolbarLeftPanel.repaint();
     }
 
     // ── List management ──────────────────────────────────────────────────────
@@ -280,28 +322,36 @@ public class Launcher extends JFrame
         toolbar.setBackground(new Color(0xF0, 0xF2, 0xF5));
         toolbar.setBorder(new MatteBorder(0, 0, 1, 0, new Color(0xCC, 0xCC, 0xCC)));
 
+        // Configurable left-side panel – repopulated by updateToolbarButtons()
+        toolbarLeftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        toolbarLeftPanel.setOpaque(false);
+
         ImageIcon svnIcon = loadScaledIcon("apps-add.png", 20, 20);
-        JButton svnButton = svnIcon != null ? new JButton(svnIcon) : new JButton("SVN");
-        svnButton.setToolTipText("SVN Checkout \u2013 check out a repository into the selected folder");
-        svnButton.setFocusPainted(false);
-        svnButton.addActionListener(ev ->
+
+        svnCheckoutBtn = svnIcon != null ? new JButton(svnIcon) : new JButton("SVN");
+        svnCheckoutBtn.setToolTipText("SVN Checkout \u2013 check out a repository into the selected folder");
+        svnCheckoutBtn.setFocusPainted(false);
+        svnCheckoutBtn.addActionListener(ev ->
         {
             LaunchEntry sel = list.getSelectedValue();
             folderActions.svnCheckout(
                     (sel != null && sel.type() != EntryType.SCRIPT) ? sel.file() : baseFolder);
         });
-        toolbar.add(svnButton);
 
-        JButton svnRepoBrowserButton = svnIcon != null ? new JButton(svnIcon) : new JButton("SVN Browser");
-        svnRepoBrowserButton.setToolTipText("SVN Repository Browser \u2013 browse the repository and check out projects");
-        svnRepoBrowserButton.setFocusPainted(false);
-        svnRepoBrowserButton.addActionListener(ev ->
+        svnBrowserBtn = svnIcon != null ? new JButton(svnIcon) : new JButton("SVN Browser");
+        svnBrowserBtn.setToolTipText("SVN Repository Browser \u2013 browse the repository and check out projects");
+        svnBrowserBtn.setFocusPainted(false);
+        svnBrowserBtn.addActionListener(ev ->
         {
             LaunchEntry sel = list.getSelectedValue();
             folderActions.svnCheckoutWithRepoBrowser(
                     (sel != null && sel.type() != EntryType.SCRIPT) ? sel.file() : baseFolder);
         });
-        toolbar.add(svnRepoBrowserButton);
+
+        // Populate the left panel for the first time
+        updateToolbarButtons();
+
+        toolbar.add(toolbarLeftPanel);
         toolbar.add(Box.createHorizontalGlue());
 
         ImageIcon settingsIcon = loadScaledIcon("setting.png", 20, 20);
@@ -373,7 +423,7 @@ public class Launcher extends JFrame
     private void showSettings()
     {
         SettingsDialog dlg = new SettingsDialog(
-                this, launcherId, config, effectiveActionOrder,
+                this, launcherId, config, effectiveActionOrder, effectiveToolbarActions,
                 updatedConfig ->
                 {
                     applyConfig(updatedConfig);
@@ -455,7 +505,8 @@ public class Launcher extends JFrame
                 baseFolder.getAbsolutePath(), config.startMinimized(),
                 getWidth(), getHeight(),
                 config.priorityList(), config.explorer(), config.editor(),
-                config.actionOrder(), config.entryButtonStyle(), config.showContextMenu());
+                config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
+                config.toolbarActions());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -467,7 +518,8 @@ public class Launcher extends JFrame
                 config.rootFolder(), config.startMinimized(),
                 config.windowWidth(), config.windowHeight(),
                 names, config.explorer(), config.editor(),
-                config.actionOrder(), config.entryButtonStyle(), config.showContextMenu());
+                config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
+                config.toolbarActions());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -589,7 +641,8 @@ public class Launcher extends JFrame
                 resolvedFolder.getAbsolutePath(), startMinimized,
                 merged.windowWidth(), merged.windowHeight(),
                 merged.priorityList(), merged.explorer(), merged.editor(),
-                merged.actionOrder(), merged.entryButtonStyle(), merged.showContextMenu());
+                merged.actionOrder(), merged.entryButtonStyle(), merged.showContextMenu(),
+                merged.toolbarActions());
         resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
 
         final boolean minimized = startMinimized;
