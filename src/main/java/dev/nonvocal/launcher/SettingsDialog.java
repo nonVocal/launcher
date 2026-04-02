@@ -20,10 +20,12 @@ class SettingsDialog extends JDialog
     private final LauncherConfig     config;
     private final List<String>       effectiveActionOrder;
     private final List<String>       effectiveToolbarActions;
+    private final List<String>       knownFolderNames;
     private final Consumer<LauncherConfig> onSave;
 
     SettingsDialog(JFrame owner, String launcherId, LauncherConfig config,
                    List<String> effectiveActionOrder, List<String> effectiveToolbarActions,
+                   List<String> knownFolderNames,
                    Consumer<LauncherConfig> onSave)
     {
         super(owner, "Settings  \u2013  " + launcherId, true);
@@ -31,6 +33,7 @@ class SettingsDialog extends JDialog
         this.config                  = config;
         this.effectiveActionOrder    = effectiveActionOrder;
         this.effectiveToolbarActions = effectiveToolbarActions;
+        this.knownFolderNames        = knownFolderNames;
         this.onSave                  = onSave;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setResizable(false);
@@ -820,8 +823,23 @@ class SettingsDialog extends JDialog
     {
         boolean isNew = (existing == null);
 
-        JTextField tfFolder = new JTextField(isNew ? "" : existing[0], 28);
-        if (!isNew) tfFolder.setEditable(false);
+        // When adding: combo box with known folder names (editable for unlisted folders).
+        // When editing: read-only text field (the folder key must not change).
+        JComboBox<String> cbFolder = null;
+        JTextField        tfFolder = null;
+        if (isNew)
+        {
+            List<String> options = new ArrayList<>(knownFolderNames);
+            cbFolder = new JComboBox<>(options.toArray(new String[0]));
+            cbFolder.setEditable(true);
+            cbFolder.setSelectedIndex(options.isEmpty() ? -1 : 0);
+        }
+        else
+        {
+            tfFolder = new JTextField(existing[0], 28);
+            tfFolder.setEditable(false);
+        }
+        Component folderComponent = isNew ? cbFolder : tfFolder;
 
         List<String> typeIds = new ArrayList<>();
         for (int i = 0; i < atModel.getSize(); i++) typeIds.add(atModel.getElementAt(i).id());
@@ -842,16 +860,25 @@ class SettingsDialog extends JDialog
         fc2.fill   = GridBagConstraints.HORIZONTAL; fc2.weightx = 1; fc2.insets = new Insets(4, 0, 4, 0); fc2.gridx = 1;
 
         lc.gridy = 0; fc2.gridy = 0;
-        p.add(new JLabel("Folder name (exact):"), lc);  p.add(tfFolder, fc2);
+        p.add(new JLabel("Folder name:"), lc);      p.add(folderComponent, fc2);
         lc.gridy = 1; fc2.gridy = 1;
-        p.add(new JLabel("Application type:"), lc);     p.add(cbType, fc2);
+        p.add(new JLabel("Application type:"), lc); p.add(cbType, fc2);
 
         int result = JOptionPane.showConfirmDialog(this, p,
                 isNew ? "Add Assignment" : "Edit Assignment",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result != JOptionPane.OK_OPTION) return null;
 
-        String folder = tfFolder.getText().trim();
+        String folder;
+        if (isNew)
+        {
+            Object sel = cbFolder.getSelectedItem();
+            folder = sel != null ? sel.toString().trim() : "";
+        }
+        else
+        {
+            folder = tfFolder.getText().trim();
+        }
         if (folder.isEmpty())
         {
             JOptionPane.showMessageDialog(this, "Folder name cannot be empty.",

@@ -469,11 +469,19 @@ public class Launcher extends JFrame
 
     private void showSettings()
     {
+        List<String> knownFolderNames = new ArrayList<>();
+        for (LaunchEntry e : allEntries)
+            if (e.type() != EntryType.SCRIPT)
+                knownFolderNames.add(e.file().getName());
+        knownFolderNames.sort(String.CASE_INSENSITIVE_ORDER);
+
         SettingsDialog dlg = new SettingsDialog(
                 this, launcherId, config, effectiveActionOrder, effectiveToolbarActions,
+                knownFolderNames,
                 updatedConfig ->
                 {
                     applyConfig(updatedConfig);
+                    refreshList();
                     updatedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
                 });
         dlg.setLocationRelativeTo(this);
