@@ -161,10 +161,15 @@ public class Launcher extends JFrame
         effectiveToolbarActions = resolveToolbarActions(cfg);
         effectiveButtonStyle    = resolveButtonStyle(cfg);
         showContextMenu         = resolveShowContextMenu(cfg);
-        cellRenderer            = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle,
-                                                        effectiveCustomActionMap);
-        applyTheme(cfg.theme());        // apply L&F first …
-        refreshThemeColors();           // … then update explicitly-styled components
+
+        // Apply the L&F FIRST so that isDark() returns the correct value
+        // when the EntryCellRenderer constructor reads it to compute its colour palette.
+        applyTheme(cfg.theme());
+        refreshThemeColors();
+
+        // Create the renderer AFTER the theme is active so its colours are correct.
+        cellRenderer = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle,
+                                             effectiveCustomActionMap);
         if (list != null)
         {
             list.setCellRenderer(cellRenderer);
