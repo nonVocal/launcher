@@ -375,6 +375,18 @@ All other sub-folders are treated as **plain folders**.
 | `src/main/java/dev/nonvocal/launcher/SettingsDialog.java` | Modal settings `JDialog` – config-file paths, startup options, EXPLORER/EDITOR commands, action-button order/visibility, button style, context-menu toggle |
 | `src/main/java/dev/nonvocal/launcher/ProcessOutputWindow.java` | Utility that streams real-time process output (robocopy, SVN) into a dedicated, auto-closing window |
 
+### Test files
+
+Tests are written with **JUnit 5** and can be run via `mvn test`. The following classes are covered:
+
+| File | Tests | What is covered |
+|---|---|---|
+| `src/test/…/LauncherConfigTest.java` | 23 | `empty()`, `defaults()`, `mergeOver()`, `withDefaults()`, three-level merge chain, JSON round-trips (all field types, backslashes, embedded quotes), empty `actionOrder` serialization behaviour, missing/malformed JSON files |
+| `src/test/…/EntryLoaderTest.java` | 26 | `isScript()` for all six extensions and edge cases (uppercase, unknown extensions), folder classification (SCRIPT / APP_FOLDER via `.lnk` / APP_FOLDER via fallback exe / PLAIN_FOLDER), `.lnk` takes precedence over fallback exe, non-script files at root are ignored, default sort order (scripts → apps → plain, case-insensitive alphabetical), priority-list reordering, unknown/missing priority entries |
+| `src/test/…/LaunchEntryTest.java` | 9 | Two- and three-argument constructors, `toString()`, record equality and hash code, `EntryType` enum values |
+
+> **UI classes not covered by unit tests:** `FolderActions`, `ListMouseHandler`, `SettingsDialog`, `EntryLauncher`, and `ProcessOutputWindow` rely on Swing dialogs and the Event Dispatch Thread. Meaningful tests for these would require a UI-testing framework such as AssertJ Swing or Mockito.
+
 ### Other files
 
 | File | Description |
