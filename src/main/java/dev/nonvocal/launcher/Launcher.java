@@ -567,6 +567,8 @@ public class Launcher extends JFrame
     private String effectiveButtonStyle;
     private boolean showContextMenu;
     private EntryCellRenderer cellRenderer;
+    /** The default close adapter registered in buildUI (save + exit). Removed by setupTray(). */
+    private WindowAdapter defaultCloseAdapter;
 
     Launcher(File baseFolder, LauncherConfig config, String launcherId)
     {
@@ -684,7 +686,7 @@ public class Launcher extends JFrame
         setLocationRelativeTo(null);
 
         // Save config (with current window size) when the window is closed
-        addWindowListener(new WindowAdapter()
+        defaultCloseAdapter = new WindowAdapter()
         {
             @Override
             public void windowClosing(WindowEvent e)
@@ -692,7 +694,8 @@ public class Launcher extends JFrame
                 saveConfig();
                 System.exit(0);
             }
-        });
+        };
+        addWindowListener(defaultCloseAdapter);
 
         // Application window icon
         ImageIcon appIcon = loadScaledIcon("apps.png", 32, 32);
@@ -1129,7 +1132,13 @@ public class Launcher extends JFrame
             return;
         }
 
-        // Clicking the window's close button hides to tray instead of exiting
+        // Clicking the window's close button hides to tray instead of exiting.
+        // Remove the default exit-on-close adapter first so only the tray adapter fires.
+        if (defaultCloseAdapter != null)
+        {
+            removeWindowListener(defaultCloseAdapter);
+            defaultCloseAdapter = null;
+        }
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         addWindowListener(new WindowAdapter()
         {
