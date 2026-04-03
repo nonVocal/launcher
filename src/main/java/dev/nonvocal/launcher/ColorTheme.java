@@ -18,6 +18,8 @@ final class ColorTheme
     final Color selBg;
     final Color actFg, actDel, actBg, actBord;
     final Color selActBg, selActBord;
+    final Color sepColor;   // separator / border colour (fallback for "Separator.foreground")
+    final Color searchFg;   // search-label foreground
 
     // ── Static instances ──────────────────────────────────────────────────────
 
@@ -39,19 +41,22 @@ final class ColorTheme
 
         Color listBg   = UIManager.getColor("List.background");
         Color selBgRaw = UIManager.getColor("List.selectionBackground");
+        Color sepRaw   = UIManager.getColor("Separator.foreground");
 
-        if (listBg == null && selBgRaw == null) return base;
+        if (listBg == null && selBgRaw == null && sepRaw == null) return base;
 
-        Color rowOdd  = listBg   != null ? listBg   : base.rowOdd;
-        Color rowEven = isDark   ? blend(rowOdd, Color.WHITE, 0.04f) : base.rowEven;
+        Color rowOdd  = listBg != null ? listBg   : base.rowOdd;
+        Color rowEven = isDark  ? blend(rowOdd, Color.WHITE, 0.04f) : base.rowEven;
         Color selBg   = selBgRaw != null ? selBgRaw : base.selBg;
+        Color sepColor = sepRaw  != null ? sepRaw   : base.sepColor;
 
         return new ColorTheme(
                 rowEven, rowOdd,
                 base.fgScript, base.fgFolder, base.fgPlain,
                 selBg,
                 base.actFg, base.actDel, base.actBg, base.actBord,
-                base.selActBg, base.selActBord);
+                base.selActBg, base.selActBord,
+                sepColor, base.searchFg);
     }
 
     // ── Theme detection ───────────────────────────────────────────────────────
@@ -111,7 +116,9 @@ final class ColorTheme
                 new Color(0x3A, 0x3C, 0x47),   // actBg
                 new Color(0x50, 0x52, 0x60),   // actBord
                 new Color(0x2D, 0x6A, 0xB4),   // selActBg
-                new Color(0x4D, 0x8A, 0xD4));  // selActBord
+                new Color(0x4D, 0x8A, 0xD4),   // selActBord
+                new Color(0x4A, 0x4A, 0x4A),   // sepColor
+                new Color(0x66, 0xAA, 0xFF));   // searchFg
     }
 
     private static ColorTheme buildLight()
@@ -127,7 +134,9 @@ final class ColorTheme
                 new Color(0xE8, 0xEA, 0xF4),   // actBg
                 new Color(0xBB, 0xBB, 0xCC),   // actBord
                 new Color(0x40, 0x90, 0xD7),   // selActBg
-                new Color(0x80, 0xB8, 0xFF));  // selActBord
+                new Color(0x80, 0xB8, 0xFF),   // selActBord
+                new Color(0xCC, 0xCC, 0xCC),   // sepColor
+                new Color(0x00, 0x50, 0xA0));  // searchFg
     }
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -137,7 +146,8 @@ final class ColorTheme
             Color fgScript, Color fgFolder, Color fgPlain,
             Color selBg,
             Color actFg,    Color actDel,   Color actBg,    Color actBord,
-            Color selActBg, Color selActBord)
+            Color selActBg, Color selActBord,
+            Color sepColor, Color searchFg)
     {
         this.rowEven    = rowEven;
         this.rowOdd     = rowOdd;
@@ -151,6 +161,8 @@ final class ColorTheme
         this.actBord    = actBord;
         this.selActBg   = selActBg;
         this.selActBord = selActBord;
+        this.sepColor   = sepColor;
+        this.searchFg   = searchFg;
     }
 }
 

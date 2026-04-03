@@ -357,9 +357,10 @@ public class Launcher extends JFrame
         // ── Footer ───────────────────────────────────────────────────────────
         JPanel legend = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 4));
         legendPanel = legend;   // stored for theme refresh
-        legendScriptLabel = coloredLabel("Scripts",             new Color(0x1A, 0x5F, 0x7A));
-        legendFolderLabel = coloredLabel("Application folders", new Color(0x2E, 0x6B, 0x2E));
-        legendPlainLabel  = coloredLabel("Folders",             new Color(0x66, 0x55, 0x44));
+        ColorTheme initTheme = ColorTheme.forCurrentLaf();
+        legendScriptLabel = coloredLabel("Scripts",             initTheme.fgScript);
+        legendFolderLabel = coloredLabel("Application folders", initTheme.fgFolder);
+        legendPlainLabel  = coloredLabel("Folders",             initTheme.fgPlain);
         legend.add(legendScriptLabel);
         legend.add(legendFolderLabel);
         legend.add(legendPlainLabel);
@@ -708,9 +709,7 @@ public class Launcher extends JFrame
     {
         if (legendPanel == null) return;   // buildUI not yet called
 
-        boolean dark   = ColorTheme.isDark();
-        Color sepColor = UIManager.getColor("Separator.foreground");
-        if (sepColor == null) sepColor = dark ? new Color(0x4A, 0x4A, 0x4A) : new Color(0xCC, 0xCC, 0xCC);
+        ColorTheme theme = ColorTheme.forCurrentLaf();
 
         // Header – use configured accent colour, fall back to the default Windows blue
         if (headerPanel != null)
@@ -722,27 +721,24 @@ public class Launcher extends JFrame
         }
 
         // Legend / footer border – background follows panel default via L&F
-        legendPanel.setBorder(new MatteBorder(1, 0, 0, 0, sepColor));
+        legendPanel.setBorder(new MatteBorder(1, 0, 0, 0, theme.sepColor));
 
         // Scroll-pane border
         if (mainScrollPane != null)
-            mainScrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, sepColor));
+            mainScrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, theme.sepColor));
 
         // Toolbar border (background is left to the L&F)
         if (mainToolbar != null)
-            mainToolbar.setBorder(new MatteBorder(0, 0, 1, 0, sepColor));
+            mainToolbar.setBorder(new MatteBorder(0, 0, 1, 0, theme.sepColor));
 
-        // Legend label foreground colours (same semantic palette as the renderer)
-        Color fgScript = dark ? new Color(0x4F, 0xC1, 0xDA) : new Color(0x1A, 0x5F, 0x7A);
-        Color fgFolder = dark ? new Color(0x85, 0xBE, 0x6C) : new Color(0x2E, 0x6B, 0x2E);
-        Color fgPlain  = dark ? new Color(0xC8, 0xB8, 0xA6) : new Color(0x66, 0x55, 0x44);
-        if (legendScriptLabel != null) legendScriptLabel.setForeground(fgScript);
-        if (legendFolderLabel != null) legendFolderLabel.setForeground(fgFolder);
-        if (legendPlainLabel  != null) legendPlainLabel.setForeground(fgPlain);
+        // Legend label foreground colours
+        if (legendScriptLabel != null) legendScriptLabel.setForeground(theme.fgScript);
+        if (legendFolderLabel != null) legendFolderLabel.setForeground(theme.fgFolder);
+        if (legendPlainLabel  != null) legendPlainLabel.setForeground(theme.fgPlain);
 
         // Search label foreground
         if (searchLabel != null)
-            searchLabel.setForeground(dark ? new Color(0x66, 0xAA, 0xFF) : new Color(0x00, 0x50, 0xA0));
+            searchLabel.setForeground(theme.searchFg);
     }
 
     /** Creates a small coloured legend label. */
