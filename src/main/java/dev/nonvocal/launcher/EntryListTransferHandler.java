@@ -72,7 +72,7 @@ class EntryListTransferHandler extends TransferHandler
             LaunchEntry moved = listModel.getElementAt(src);
             listModel.remove(src);
 
-            int target = Math.max(0, Math.min((src < drop) ? drop - 1 : drop, listModel.getSize()));
+            int target = Math.clamp((src < drop) ? drop - 1 : drop, 0, listModel.getSize());
             listModel.add(target, moved);
 
             allEntries.clear();
