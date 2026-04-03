@@ -299,6 +299,16 @@ record LauncherConfig(
 
     // ── Deserialisation (no external library) ─────────────────────────────────
 
+    // Fixed pattern – never changes, used in parseStrList to extract quoted values
+    private static final Pattern QUOTED_STRING_PATTERN =
+            Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"");
+
+    // Per-key pattern caches – key is the JSON field name
+    private static final Map<String, Pattern> STR_PATTERN_CACHE  = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, Pattern> BOOL_PATTERN_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, Pattern> INT_PATTERN_CACHE  = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, Pattern> LIST_PATTERN_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
     private static LauncherConfig parse(String json)
     {
         return new LauncherConfig(
@@ -454,8 +464,9 @@ record LauncherConfig(
 
     private static String parseStr(String json, String key)
     {
-        Matcher m = Pattern.compile(
-                "\"" + key + "\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\")").matcher(json);
+        Pattern p = STR_PATTERN_CACHE.computeIfAbsent(key, k ->
+                Pattern.compile("\"" + k + "\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\")"));
+        Matcher m = p.matcher(json);
         if (!m.find()) return null;
         String g = m.group(1);
         return g == null ? null : g.replace("\\\\", "\\").replace("\\\"", "\"");
@@ -463,26 +474,30 @@ record LauncherConfig(
 
     private static Boolean parseBool(String json, String key)
     {
-        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*(true|false)").matcher(json);
+        Pattern p = BOOL_PATTERN_CACHE.computeIfAbsent(key, k ->
+                Pattern.compile("\"" + k + "\"\\s*:\\s*(true|false)"));
+        Matcher m = p.matcher(json);
         return m.find() ? Boolean.parseBoolean(m.group(1)) : null;
     }
 
     private static Integer parseInt(String json, String key)
     {
-        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+)").matcher(json);
+        Pattern p = INT_PATTERN_CACHE.computeIfAbsent(key, k ->
+                Pattern.compile("\"" + k + "\"\\s*:\\s*(-?\\d+)"));
+        Matcher m = p.matcher(json);
         return m.find() ? Integer.parseInt(m.group(1)) : null;
     }
 
     private static List<String> parseStrList(String json, String key)
     {
-        Matcher m = Pattern.compile(
-                "\"" + key + "\"\\s*:\\s*\\[([^]]*?)\\]",
-                Pattern.DOTALL).matcher(json);
+        Pattern p = LIST_PATTERN_CACHE.computeIfAbsent(key, k ->
+                Pattern.compile("\"" + k + "\"\\s*:\\s*\\[([^]]*?)\\]", Pattern.DOTALL));
+        Matcher m = p.matcher(json);
         if (!m.find()) return null;
         String inner = m.group(1).trim();
         if (inner.isEmpty()) return new ArrayList<>();
         List<String> result = new ArrayList<>();
-        Matcher em = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(inner);
+        Matcher em = QUOTED_STRING_PATTERN.matcher(inner);
         while (em.find())
         {
             result.add(em.group(1).replace("\\\\", "\\").replace("\\\"", "\""));
