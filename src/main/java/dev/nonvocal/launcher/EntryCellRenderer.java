@@ -190,9 +190,12 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
         else
         {
             setBackground(index % 2 == 0 ? theme.rowEven : theme.rowOdd);
-            nameLabel.setForeground(
-                    e.type() == EntryType.SCRIPT     ? theme.fgScript :
-                    e.type() == EntryType.APP_FOLDER ? theme.fgFolder : theme.fgPlain);
+            nameLabel.setForeground(switch (e.type())
+            {
+                case SCRIPT     -> theme.fgScript;
+                case APP_FOLDER -> theme.fgFolder;
+                default         -> theme.fgPlain;
+            });
 
             if (Launcher.BUTTON_STYLE_HAMBURGER.equals(buttonStyle))
             {

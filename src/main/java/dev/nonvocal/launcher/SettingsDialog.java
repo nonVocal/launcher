@@ -207,9 +207,12 @@ class SettingsDialog extends JDialog
         caList.setFixedCellHeight(24);
         caList.setCellRenderer((lst, value, index, isSelected, focus) ->
         {
-            String scopeTag = CustomAction.SCOPE_ENTRY.equals(value.scope())   ? " [entry]"
-                            : CustomAction.SCOPE_TOOLBAR.equals(value.scope()) ? " [toolbar]"
-                            :                                                    " [both]";
+            String scopeTag = switch (value.scope())
+            {
+                case CustomAction.SCOPE_ENTRY   -> " [entry]";
+                case CustomAction.SCOPE_TOOLBAR -> " [toolbar]";
+                default                         -> " [both]";
+            };
             JLabel lbl = new JLabel(value.effectiveLabel() + "  (" + value.id() + ")" + scopeTag);
             lbl.setFont(lst.getFont().deriveFont(11f));
             lbl.setOpaque(true);
