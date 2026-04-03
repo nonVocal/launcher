@@ -499,14 +499,13 @@ class SettingsDialog extends JDialog
         tabAppTypes.add(assHint);
         tabAppTypes.add(Box.createVerticalStrut(4));
 
-        List<String[]> assignmentList = new ArrayList<>(
-                config.appTypeAssignments() != null ? config.appTypeAssignments().size() : 0);
-        if (config.appTypeAssignments() != null)
-            for (Map.Entry<String, String> e : config.appTypeAssignments().entrySet())
-                assignmentList.add(new String[]{e.getKey(), e.getValue()});
-
         DefaultListModel<String[]> assModel = new DefaultListModel<>();
-        assignmentList.forEach(assModel::addElement);
+        if (config.appTypeAssignments() != null)
+        {
+            assModel.ensureCapacity(config.appTypeAssignments().size());
+            for (Map.Entry<String, String> e : config.appTypeAssignments().entrySet())
+                assModel.addElement(new String[]{e.getKey(), e.getValue()});
+        }
 
         JList<String[]> assList = new JList<>(assModel);
         assList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);

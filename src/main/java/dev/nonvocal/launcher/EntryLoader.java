@@ -25,10 +25,13 @@ class EntryLoader
     static List<LaunchEntry> load(File baseFolder, LauncherConfig config)
     {
         // Build fast-lookup structures from config
-        Map<String, AppType> typeById = LinkedHashMap.newLinkedHashMap(
-                config.appTypes() != null ? config.appTypes().size() : 0);
+        Map<String, AppType> typeById;
         if (config.appTypes() != null)
+        {
+            typeById = LinkedHashMap.newLinkedHashMap(config.appTypes().size());
             for (AppType t : config.appTypes()) typeById.put(t.id(), t);
+        }
+        else typeById = Collections.emptyMap();
 
         Map<String, String> assignments = config.appTypeAssignments() != null
                 ? config.appTypeAssignments() : Collections.emptyMap();

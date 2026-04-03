@@ -155,10 +155,13 @@ public class Launcher extends JFrame
     private void applyConfig(LauncherConfig cfg)
     {
         config                  = cfg;
-        effectiveCustomActionMap = LinkedHashMap.newLinkedHashMap(
-                cfg.customActions() != null ? cfg.customActions().size() : 0);
         if (cfg.customActions() != null)
+        {
+            effectiveCustomActionMap = LinkedHashMap.newLinkedHashMap(cfg.customActions().size());
             cfg.customActions().forEach(a -> effectiveCustomActionMap.put(a.id(), a));
+        }
+        else effectiveCustomActionMap = new LinkedHashMap<>();
+
         effectiveActionOrder    = resolveActionOrder(cfg);
         effectiveToolbarActions = resolveToolbarActions(cfg);
         effectiveButtonStyle    = resolveButtonStyle(cfg);
