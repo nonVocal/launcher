@@ -214,8 +214,16 @@ class SettingsDialog extends JDialog
             lbl.setFont(lst.getFont().deriveFont(11f));
             lbl.setOpaque(true);
             lbl.setBorder(new EmptyBorder(2, 6, 2, 6));
-            lbl.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
-            lbl.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            if (isSelected)
+            {
+                lbl.setBackground(lst.getSelectionBackground());
+                lbl.setForeground(lst.getSelectionForeground());
+            }
+            else
+            {
+                lbl.setBackground(lst.getBackground());
+                lbl.setForeground(lst.getForeground());
+            }
             return lbl;
         });
 
@@ -297,8 +305,16 @@ class SettingsDialog extends JDialog
         {
             JCheckBox cb = new JCheckBox(toolbarLabel(value));
             cb.setSelected(tbChecked.contains(value));
-            cb.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
-            cb.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            if (isSelected)
+            {
+                cb.setBackground(lst.getSelectionBackground());
+                cb.setForeground(lst.getSelectionForeground());
+            }
+            else
+            {
+                cb.setBackground(lst.getBackground());
+                cb.setForeground(lst.getForeground());
+            }
             cb.setFont(lst.getFont());
             return cb;
         });
@@ -366,8 +382,16 @@ class SettingsDialog extends JDialog
         {
             JCheckBox cb = new JCheckBox(actionLabel(value));
             cb.setSelected(checked.contains(value));
-            cb.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
-            cb.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            if (isSelected)
+            {
+                cb.setBackground(lst.getSelectionBackground());
+                cb.setForeground(lst.getSelectionForeground());
+            }
+            else
+            {
+                cb.setBackground(lst.getBackground());
+                cb.setForeground(lst.getForeground());
+            }
             cb.setFont(lst.getFont());
             return cb;
         });
@@ -438,8 +462,16 @@ class SettingsDialog extends JDialog
             lbl.setFont(lst.getFont().deriveFont(11f));
             lbl.setOpaque(true);
             lbl.setBorder(new EmptyBorder(2, 6, 2, 6));
-            lbl.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
-            lbl.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            if (isSelected)
+            {
+                lbl.setBackground(lst.getSelectionBackground());
+                lbl.setForeground(lst.getSelectionForeground());
+            }
+            else
+            {
+                lbl.setBackground(lst.getBackground());
+                lbl.setForeground(lst.getForeground());
+            }
             return lbl;
         });
 
@@ -516,8 +548,16 @@ class SettingsDialog extends JDialog
             lbl.setFont(lst.getFont().deriveFont(11f));
             lbl.setOpaque(true);
             lbl.setBorder(new EmptyBorder(2, 6, 2, 6));
-            lbl.setBackground(isSelected ? lst.getSelectionBackground() : lst.getBackground());
-            lbl.setForeground(isSelected ? lst.getSelectionForeground() : lst.getForeground());
+            if (isSelected)
+            {
+                lbl.setBackground(lst.getSelectionBackground());
+                lbl.setForeground(lst.getSelectionForeground());
+            }
+            else
+            {
+                lbl.setBackground(lst.getBackground());
+                lbl.setForeground(lst.getForeground());
+            }
             return lbl;
         });
 
