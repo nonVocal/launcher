@@ -71,11 +71,14 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
             new ActionMeta("C",      "Copy with Robocopy\u2026", Launcher.loadScaledIcon("copy.png",          14, 14)),
             new ActionMeta("\u2715", "Delete",                   Launcher.loadScaledIcon("bin.png",           14, 14)));
 
-    private static final Font CELL_FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 13);
-    static final Font          ACT_FONT  = new Font(Font.SANS_SERIF, Font.BOLD,  9);
+    private static final Font     CELL_FONT   = new Font(Font.SANS_SERIF, Font.PLAIN, 13);
+    static final Font              ACT_FONT    = new Font(Font.SANS_SERIF, Font.BOLD,  9);
+    private static final Dimension BUTTON_SIZE = new Dimension(ACT_W, ACT_W - 4);
 
     // ── Instance ──────────────────────────────────────────────────────────────
     private final ColorTheme theme;
+    private final javax.swing.border.Border btnNormalBorder;
+    private final javax.swing.border.Border btnSelectedBorder;
     private final JLabel nameLabel = new JLabel();
     private final JPanel actionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, ACT_HGAP, 0));
     private final List<String> actionOrder;
@@ -92,6 +95,12 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
 
         // ── Resolve theme-aware colours against the active Look-and-Feel ──────
         theme = ColorTheme.forCurrentLaf();
+        btnNormalBorder   = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(theme.actBord, 1),
+                BorderFactory.createEmptyBorder(1, 3, 1, 3));
+        btnSelectedBorder = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(theme.selActBord, 1),
+                BorderFactory.createEmptyBorder(1, 3, 1, 3));
 
         // ── Build child components ────────────────────────────────────────────
         setLayout(new BorderLayout());
@@ -221,7 +230,7 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
         lbl.setOpaque(true);
         lbl.setBorder(normalBorder());
         lbl.setToolTipText(tooltip);
-        lbl.setPreferredSize(new Dimension(ACT_W, ACT_W - 4));
+        lbl.setPreferredSize(BUTTON_SIZE);
         return lbl;
     }
 
@@ -234,7 +243,7 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
         lbl.setOpaque(true);
         lbl.setBorder(normalBorder());
         lbl.setToolTipText(tooltip);
-        lbl.setPreferredSize(new Dimension(ACT_W, ACT_W - 4));
+        lbl.setPreferredSize(BUTTON_SIZE);
         return lbl;
     }
 
@@ -247,16 +256,12 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
 
     private javax.swing.border.Border normalBorder()
     {
-        return BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(theme.actBord, 1),
-                BorderFactory.createEmptyBorder(1, 3, 1, 3));
+        return btnNormalBorder;
     }
 
     private javax.swing.border.Border selectedBorder()
     {
-        return BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(theme.selActBord, 1),
-                BorderFactory.createEmptyBorder(1, 3, 1, 3));
+        return btnSelectedBorder;
     }
 
     // ── Theme detection ───────────────────────────────────────────────────────

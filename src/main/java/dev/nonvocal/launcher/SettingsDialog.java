@@ -16,6 +16,9 @@ import java.util.function.Consumer;
  */
 class SettingsDialog extends JDialog
 {
+    private static final EmptyBorder TAB_PANEL_BORDER = new EmptyBorder(10, 6, 6, 6);
+    private static final EmptyBorder CELL_ITEM_BORDER = new EmptyBorder(2, 6, 2, 6);
+
     private final String             launcherId;
     private final LauncherConfig     config;
     private final List<String>       effectiveActionOrder;
@@ -101,7 +104,7 @@ class SettingsDialog extends JDialog
         tabGeneral.add(Box.createVerticalStrut(6));
 
         // ── Accent colour ─────────────────────────────────────────────────────
-        final Color defaultAccent = new Color(0x00, 0x78, 0xD7);
+        final Color defaultAccent = Launcher.DEFAULT_ACCENT;
         final Color[] selectedAccent = { Launcher.parseHexColor(config.accentColor(), null) };
 
         JLabel accentLbl = new JLabel("Accent color:");
@@ -1060,7 +1063,7 @@ class SettingsDialog extends JDialog
      */
     private Color sectionLabelColor()
     {
-        Color accent = Launcher.parseHexColor(config.accentColor(), new Color(0x00, 0x78, 0xD7));
+        Color accent = Launcher.parseHexColor(config.accentColor(), Launcher.DEFAULT_ACCENT);
         if (ColorTheme.isDark())
         {
             // Lighten: blend 40 % toward white

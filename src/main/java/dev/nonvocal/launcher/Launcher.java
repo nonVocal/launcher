@@ -63,6 +63,9 @@ public class Launcher extends JFrame
     public static final String THEME_DARK   = "dark";
     public static final String THEME_SYSTEM = "system";
 
+    /** Default accent colour (Windows blue) used when no accent is configured. */
+    static final Color DEFAULT_ACCENT = new Color(0x00, 0x78, 0xD7);
+
     // ── Instance state ───────────────────────────────────────────────────────
 
     private final File   baseFolder;
@@ -719,8 +722,8 @@ public class Launcher extends JFrame
         if (headerPanel != null)
         {
             Color accent = (config != null)
-                    ? parseHexColor(config.accentColor(), new Color(0x00, 0x78, 0xD7))
-                    : new Color(0x00, 0x78, 0xD7);
+                    ? parseHexColor(config.accentColor(), DEFAULT_ACCENT)
+                    : DEFAULT_ACCENT;
             headerPanel.setBackground(accent);
         }
 
