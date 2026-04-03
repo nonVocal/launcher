@@ -54,9 +54,10 @@ class EntryLoaderTest
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
         assertEquals(1, entries.size());
-        assertEquals(EntryType.SCRIPT, entries.getFirst().type());
-        assertEquals("setup.bat", entries.getFirst().file().getName());
-        assertNull(entries.getFirst().iconFile());
+        LaunchEntry entry = entries.getFirst();
+        assertEquals(EntryType.SCRIPT, entry.type());
+        assertEquals("setup.bat", entry.file().getName());
+        assertNull(entry.iconFile());
     }
 
     @Test
@@ -67,8 +68,9 @@ class EntryLoaderTest
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
         assertEquals(1, entries.size());
-        assertEquals(EntryType.PLAIN_FOLDER, entries.getFirst().type());
-        assertNull(entries.getFirst().iconFile());
+        LaunchEntry entry = entries.getFirst();
+        assertEquals(EntryType.PLAIN_FOLDER, entry.type());
+        assertNull(entry.iconFile());
     }
 
     @Test
@@ -80,8 +82,9 @@ class EntryLoaderTest
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
         assertEquals(1, entries.size());
-        assertEquals(EntryType.APP_FOLDER, entries.getFirst().type());
-        assertEquals(lnk, entries.getFirst().iconFile());
+        LaunchEntry entry = entries.getFirst();
+        assertEquals(EntryType.APP_FOLDER, entry.type());
+        assertEquals(lnk, entry.iconFile());
     }
 
     @Test
@@ -95,8 +98,9 @@ class EntryLoaderTest
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
         assertEquals(1, entries.size());
-        assertEquals(EntryType.APP_FOLDER, entries.getFirst().type());
-        assertEquals(fallback, entries.getFirst().iconFile());
+        LaunchEntry entry = entries.getFirst();
+        assertEquals(EntryType.APP_FOLDER, entry.type());
+        assertEquals(fallback, entry.iconFile());
     }
 
     @Test
@@ -110,8 +114,9 @@ class EntryLoaderTest
 
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
-        assertEquals(EntryType.APP_FOLDER, entries.getFirst().type());
-        assertEquals(lnk, entries.getFirst().iconFile(), ".lnk must take precedence over fallback exe");
+        LaunchEntry entry = entries.getFirst();
+        assertEquals(EntryType.APP_FOLDER, entry.type());
+        assertEquals(lnk, entry.iconFile(), ".lnk must take precedence over fallback exe");
     }
 
     @Test
