@@ -264,11 +264,4 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
         return btnSelectedBorder;
     }
 
-    // ── Theme detection ───────────────────────────────────────────────────────
-
-    /**
-     * Returns {@code true} when the active Look-and-Feel is a dark theme.
-     * Delegates to {@link ColorTheme#isDark()}.
-     */
-    static boolean isDark() { return ColorTheme.isDark(); }
 }
