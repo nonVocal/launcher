@@ -131,28 +131,27 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
             for (int i = 0; i < n; i++)
             {
                 String key = actionOrder.get(i);
-                ActionMeta meta = ACT_CATALOG.get(key);
-                ImageIcon img = meta != null ? meta.icon() : null;
-                String    tip = meta != null ? meta.tip()  : key;
-                String    txt = meta != null ? meta.text() : "?";
-                boolean isDel = Launcher.DELETE_ACTION.equals(key);
-
-                // Fall back to custom action definition when not a built-in key
-                if (meta == null)
+                JLabel lbl = switch (ACT_CATALOG.get(key))
                 {
-                    CustomAction ca = customActionMap.get(key);
-                    if (ca != null)
-                    {
-                        img  = ca.loadIcon(14, 14);
-                        tip  = ca.effectiveTooltip();
-                        txt  = ca.effectiveLabel().length() <= 3
-                               ? ca.effectiveLabel()
-                               : ca.effectiveLabel().substring(0, 2) + "\u2026";
-                        isDel = false;
-                    }
-                }
+                    case ActionMeta(var txt, var tip, var img) ->
+                            (img != null) ? makeIconButton(img, tip) : makeButton(txt, tip, Launcher.DELETE_ACTION.equals(key));
+                    case null ->
+                        // Fall back to custom action definition when not a built-in key
+                        switch (customActionMap.get(key))
+                        {
+                            case CustomAction ca ->
+                            {
+                                ImageIcon img  = ca.loadIcon(14, 14);
+                                String    tip  = ca.effectiveTooltip();
+                                String    txt  = ca.effectiveLabel().length() <= 3
+                                        ? ca.effectiveLabel()
+                                        : ca.effectiveLabel().substring(0, 2) + "\u2026";
+                                yield (img != null) ? makeIconButton(img, tip) : makeButton(txt, tip, false);
+                            }
+                            case null -> makeButton("?", key, false);
+                        };
+                };
 
-                JLabel lbl = (img != null) ? makeIconButton(img, tip) : makeButton(txt, tip, isDel);
                 actIcons[i] = lbl;
                 actionBar.add(lbl);
             }
