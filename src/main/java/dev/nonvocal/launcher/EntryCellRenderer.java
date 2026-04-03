@@ -5,7 +5,6 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileSystemView;
 import java.awt.*;
 import java.io.File;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,28 +31,45 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
     /** Total action-bar width for {@code n} buttons. */
     static int barWidth(int n) { return (n + 1) * ACT_HGAP + n * ACT_W; }
 
-    // ── Per-action metadata (keyed by action key constant) ────────────────────
-    static final Map<String, String>    ACT_TEXT_MAP = new LinkedHashMap<>();
-    static final Map<String, String>    ACT_TIP_MAP  = new LinkedHashMap<>();
-    static final Map<String, ImageIcon> ACT_ICON_MAP = new LinkedHashMap<>();
+    // ── Per-action metadata record ────────────────────────────────────────────
 
-    static
+    /** Packs the text label, tooltip and icon for one built-in action. */
+    record ActionMeta(String text, String tip, ImageIcon icon) {}
+
+    /**
+     * Fixed-size (4-element) ordered carrier for the built-in action definitions.
+     * Replaces the three parallel {@code LinkedHashMap}s.
+     * Component names match the action-key constants they represent.
+     */
+    record ActionCatalog(
+            ActionMeta EXPLORE_ACTION,
+            ActionMeta EDITOR_ACTION,
+            ActionMeta COPY_ACTION,
+            ActionMeta DELETE_ACTION)
     {
-        ACT_TEXT_MAP.put(Launcher.EXPLORE_ACTION, "E");
-        ACT_TEXT_MAP.put(Launcher.EDITOR_ACTION,  "ED");
-        ACT_TEXT_MAP.put(Launcher.COPY_ACTION,    "C");
-        ACT_TEXT_MAP.put(Launcher.DELETE_ACTION,  "\u2715");
+        /** @return the {@link ActionMeta} for {@code key}, or {@code null} if not registered. */
+        ActionMeta get(String key)
+        {
+            return switch (key)
+            {
+                case Launcher.EXPLORE_ACTION -> EXPLORE_ACTION();
+                case Launcher.EDITOR_ACTION  -> EDITOR_ACTION();
+                case Launcher.COPY_ACTION    -> COPY_ACTION();
+                case Launcher.DELETE_ACTION  -> DELETE_ACTION();
+                default                      -> null;
+            };
+        }
 
-        ACT_TIP_MAP.put(Launcher.EXPLORE_ACTION, "Open in File Explorer");
-        ACT_TIP_MAP.put(Launcher.EDITOR_ACTION,  "Open in Editor");
-        ACT_TIP_MAP.put(Launcher.COPY_ACTION,    "Copy with Robocopy\u2026");
-        ACT_TIP_MAP.put(Launcher.DELETE_ACTION,  "Delete");
-
-        ACT_ICON_MAP.put(Launcher.EXPLORE_ACTION, Launcher.loadScaledIcon("folder.png",        14, 14));
-        ACT_ICON_MAP.put(Launcher.EDITOR_ACTION,  Launcher.loadScaledIcon("edit-document.png", 14, 14));
-        ACT_ICON_MAP.put(Launcher.COPY_ACTION,    Launcher.loadScaledIcon("copy.png",          14, 14));
-        ACT_ICON_MAP.put(Launcher.DELETE_ACTION,  Launcher.loadScaledIcon("bin.png",           14, 14));
+        /** @return {@code true} if {@code key} has a registered entry. */
+        boolean contains(String key) { return get(key) != null; }
     }
+
+    // ── Per-action metadata (keyed by action key constant) ────────────────────
+    static final ActionCatalog ACT_CATALOG = new ActionCatalog(
+            new ActionMeta("E",      "Open in File Explorer",    Launcher.loadScaledIcon("folder.png",        14, 14)),
+            new ActionMeta("ED",     "Open in Editor",           Launcher.loadScaledIcon("edit-document.png", 14, 14)),
+            new ActionMeta("C",      "Copy with Robocopy\u2026", Launcher.loadScaledIcon("copy.png",          14, 14)),
+            new ActionMeta("\u2715", "Delete",                   Launcher.loadScaledIcon("bin.png",           14, 14)));
 
     private static final Font CELL_FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 13);
     static final Font          ACT_FONT  = new Font(Font.SANS_SERIF, Font.BOLD,  9);
@@ -129,13 +145,14 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
             for (int i = 0; i < n; i++)
             {
                 String key = actionOrder.get(i);
-                ImageIcon img = ACT_ICON_MAP.get(key);
-                String    tip = ACT_TIP_MAP.getOrDefault(key, key);
-                String    txt = ACT_TEXT_MAP.getOrDefault(key, "?");
+                ActionMeta meta = ACT_CATALOG.get(key);
+                ImageIcon img = meta != null ? meta.icon() : null;
+                String    tip = meta != null ? meta.tip()  : key;
+                String    txt = meta != null ? meta.text() : "?";
                 boolean isDel = Launcher.DELETE_ACTION.equals(key);
 
                 // Fall back to custom action definition when not a built-in key
-                if (img == null && !ACT_ICON_MAP.containsKey(key))
+                if (meta == null)
                 {
                     CustomAction ca = customActionMap.get(key);
                     if (ca != null)
@@ -281,6 +298,7 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
     {
         int base = baseColor.getRGB();
         int overlay = overlayColor.getRGB();
+
         // Fixed-point ratio: 0..256 (use 256 so we can shift by 8 instead of dividing by 255)
         int t = (int)(ratio * 256f);  // 0..256
         int s = 256 - t;              // complement

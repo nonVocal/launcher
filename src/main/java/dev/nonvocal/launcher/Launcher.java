@@ -308,7 +308,10 @@ public class Launcher extends JFrame
                     {
                         int ai = hitActionIcon(e.getPoint(), this, idx, effectiveActionOrder.size());
                         if (ai >= 0)
-                            return EntryCellRenderer.ACT_TIP_MAP.getOrDefault(effectiveActionOrder.get(ai), "");
+                        {
+                            EntryCellRenderer.ActionMeta actionMeta = EntryCellRenderer.ACT_CATALOG.get(effectiveActionOrder.get(ai));
+                            return actionMeta != null ? actionMeta.tip() : null;
+                        }
                     }
                 }
                 return null;
