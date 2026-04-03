@@ -277,12 +277,20 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
     /**
      * Linear colour blend: 0.0 → pure {@code base}, 1.0 → pure {@code overlay}.
      */
-    private static Color blend(Color base, Color overlay, float ratio)
+    private static Color blend(Color baseColor, Color overlayColor, float ratio)
     {
+        int base = baseColor.getRGB();
+        int overlay = overlayColor.getRGB();
         float r = 1f - ratio;
-        return new Color(
-                Math.min(255, (int)(base.getRed()   * r + overlay.getRed()   * ratio)),
-                Math.min(255, (int)(base.getGreen() * r + overlay.getGreen() * ratio)),
-                Math.min(255, (int)(base.getBlue()  * r + overlay.getBlue()  * ratio)));
+
+        int bR = (base   >> 16) & 0xFF,  oR = (overlay >> 16) & 0xFF;
+        int bG = (base   >>  8) & 0xFF,  oG = (overlay >>  8) & 0xFF;
+        int bB =  base          & 0xFF,  oB =  overlay         & 0xFF;
+
+        int red   = (int)(bR * r + oR * ratio);
+        int green = (int)(bG * r + oG * ratio);
+        int blue  = (int)(bB * r + oB * ratio);
+
+        return new Color((red << 16) | (green << 8) | blue);
     }
 }
