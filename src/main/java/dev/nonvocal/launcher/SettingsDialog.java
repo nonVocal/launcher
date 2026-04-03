@@ -984,7 +984,7 @@ class SettingsDialog extends JDialog
     private Color sectionLabelColor()
     {
         Color accent = Launcher.parseHexColor(config.accentColor(), new Color(0x00, 0x78, 0xD7));
-        if (EntryCellRenderer.isDark())
+        if (ColorTheme.isDark())
         {
             // Lighten: blend 40 % toward white
             int r = (int) (accent.getRed()   + (255 - accent.getRed())   * 0.4);

@@ -74,14 +74,8 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
     private static final Font CELL_FONT = new Font(Font.SANS_SERIF, Font.PLAIN, 13);
     static final Font          ACT_FONT  = new Font(Font.SANS_SERIF, Font.BOLD,  9);
 
-    // ── Theme-aware colours – computed per-instance at construction time ───────
-    private final Color rowEven, rowOdd;
-    private final Color fgScript, fgFolder, fgPlain;
-    private final Color selBg;
-    private final Color actFg, actDel, actBg, actBord;
-    private final Color selActBg, selActBord;
-
     // ── Instance ──────────────────────────────────────────────────────────────
+    private final ColorTheme theme;
     private final JLabel nameLabel = new JLabel();
     private final JPanel actionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, ACT_HGAP, 0));
     private final List<String> actionOrder;
@@ -96,27 +90,10 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
         this.actionOrder = actionOrder;
         this.buttonStyle = buttonStyle;
 
-        // ── Compute theme-aware colours BEFORE building child components ──────
-        boolean dark   = isDark();
-        Color   listBg = UIManager.getColor("List.background");
-        rowOdd     = listBg != null ? listBg : (dark ? new Color(0x2B, 0x2D, 0x30) : Color.WHITE);
-        rowEven    = dark ? blend(rowOdd, Color.WHITE, 0.04f) : new Color(0xF4, 0xF6, 0xF8);
+        // ── Resolve theme-aware colours against the active Look-and-Feel ──────
+        theme = ColorTheme.forCurrentLaf();
 
-        fgScript   = dark ? new Color(0x4F, 0xC1, 0xDA) : new Color(0x1A, 0x5F, 0x7A);
-        fgFolder   = dark ? new Color(0x85, 0xBE, 0x6C) : new Color(0x2E, 0x6B, 0x2E);
-        fgPlain    = dark ? new Color(0xC8, 0xB8, 0xA6) : new Color(0x66, 0x55, 0x44);
-
-        Color selBgRaw = UIManager.getColor("List.selectionBackground");
-        selBg      = selBgRaw != null ? selBgRaw : new Color(0x00, 0x78, 0xD7);
-
-        actFg      = dark ? new Color(0x88, 0xBB, 0xFF) : new Color(0x33, 0x55, 0x99);
-        actDel     = dark ? new Color(0xFF, 0x70, 0x70) : new Color(0xAA, 0x22, 0x22);
-        actBg      = dark ? new Color(0x3A, 0x3C, 0x47) : new Color(0xE8, 0xEA, 0xF4);
-        actBord    = dark ? new Color(0x50, 0x52, 0x60) : new Color(0xBB, 0xBB, 0xCC);
-        selActBg   = dark ? new Color(0x2D, 0x6A, 0xB4) : new Color(0x40, 0x90, 0xD7);
-        selActBord = dark ? new Color(0x4D, 0x8A, 0xD4) : new Color(0x80, 0xB8, 0xFF);
-
-        // ── Build child components (colours already set above) ────────────────
+        // ── Build child components ────────────────────────────────────────────
         setLayout(new BorderLayout());
         setOpaque(true);
 
@@ -201,21 +178,21 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
 
         if (selected)
         {
-            setBackground(selBg);
+            setBackground(theme.selBg);
             nameLabel.setForeground(Color.WHITE);
             for (JLabel icon : actIcons)
             {
-                icon.setBackground(selActBg);
+                icon.setBackground(theme.selActBg);
                 icon.setForeground(Color.WHITE);
                 icon.setBorder(selectedBorder());
             }
         }
         else
         {
-            setBackground(index % 2 == 0 ? rowEven : rowOdd);
+            setBackground(index % 2 == 0 ? theme.rowEven : theme.rowOdd);
             nameLabel.setForeground(
-                    e.type() == EntryType.SCRIPT     ? fgScript :
-                    e.type() == EntryType.APP_FOLDER ? fgFolder : fgPlain);
+                    e.type() == EntryType.SCRIPT     ? theme.fgScript :
+                    e.type() == EntryType.APP_FOLDER ? theme.fgFolder : theme.fgPlain);
 
             if (Launcher.BUTTON_STYLE_HAMBURGER.equals(buttonStyle))
             {
@@ -236,8 +213,8 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
     {
         JLabel lbl = new JLabel(text, JLabel.CENTER);
         lbl.setFont(ACT_FONT);
-        lbl.setForeground(isDelete ? actDel : actFg);
-        lbl.setBackground(actBg);
+        lbl.setForeground(isDelete ? theme.actDel : theme.actFg);
+        lbl.setBackground(theme.actBg);
         lbl.setOpaque(true);
         lbl.setBorder(normalBorder());
         lbl.setToolTipText(tooltip);
@@ -249,8 +226,8 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
     {
         JLabel lbl = new JLabel(icon, JLabel.CENTER);
         lbl.setFont(ACT_FONT);
-        lbl.setForeground(actFg);
-        lbl.setBackground(actBg);
+        lbl.setForeground(theme.actFg);
+        lbl.setBackground(theme.actBg);
         lbl.setOpaque(true);
         lbl.setBorder(normalBorder());
         lbl.setToolTipText(tooltip);
@@ -260,22 +237,22 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
 
     private void resetButton(JLabel lbl, boolean isDelete)
     {
-        lbl.setBackground(actBg);
-        lbl.setForeground(isDelete ? actDel : actFg);
+        lbl.setBackground(theme.actBg);
+        lbl.setForeground(isDelete ? theme.actDel : theme.actFg);
         lbl.setBorder(normalBorder());
     }
 
     private javax.swing.border.Border normalBorder()
     {
         return BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(actBord, 1),
+                BorderFactory.createLineBorder(theme.actBord, 1),
                 BorderFactory.createEmptyBorder(1, 3, 1, 3));
     }
 
     private javax.swing.border.Border selectedBorder()
     {
         return BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(selActBord, 1),
+                BorderFactory.createLineBorder(theme.selActBord, 1),
                 BorderFactory.createEmptyBorder(1, 3, 1, 3));
     }
 
@@ -283,38 +260,7 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
 
     /**
      * Returns {@code true} when the active Look-and-Feel is a dark theme.
-     * Uses FlatLaf's API; falls back to {@code false} if FlatLaf is not on the classpath.
+     * Delegates to {@link ColorTheme#isDark()}.
      */
-    static boolean isDark()
-    {
-        try { return com.formdev.flatlaf.FlatLaf.isLafDark(); }
-        catch (Throwable ignored) { return false; }
-    }
-
-    /**
-     * Linear colour blend: 0.0 → pure {@code base}, 1.0 → pure {@code overlay}.
-     */
-    private static Color blend(Color baseColor, Color overlayColor, float ratio)
-    {
-        int base = baseColor.getRGB();
-        int overlay = overlayColor.getRGB();
-
-        // Fixed-point ratio: 0..256 (use 256 so we can shift by 8 instead of dividing by 255)
-        int t = (int)(ratio * 256f);  // 0..256
-        int s = 256 - t;              // complement
-
-        // Pack RG channels into the high/low halves of a long (with guard bits)
-        // Layout: [00 R 00 G] — each channel in its own 16-bit lane, value in low 8 bits
-        long baseRG    = ((long)(base    >> 16 & 0xFF) << 32) | (base    >> 8 & 0xFF);
-        long overlayRG = ((long)(overlay >> 16 & 0xFF) << 32) | (overlay >> 8 & 0xFF);
-
-        long rg = (baseRG * s + overlayRG * t) >> 8;  // >> 8 undoes the *256 scale
-
-        // Blue channel — plain int, no packing needed
-        int blue = ((base & 0xFF) * s + (overlay & 0xFF) * t) >> 8;
-
-        return new Color(((int)(rg >> 32) & 0xFF) << 16   // R
-                | ((int) rg        & 0xFF) << 8    // G
-                |  blue);                           // B
-    }
+    static boolean isDark() { return ColorTheme.isDark(); }
 }

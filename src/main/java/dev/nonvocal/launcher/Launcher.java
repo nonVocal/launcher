@@ -708,7 +708,7 @@ public class Launcher extends JFrame
     {
         if (legendPanel == null) return;   // buildUI not yet called
 
-        boolean dark   = EntryCellRenderer.isDark();
+        boolean dark   = ColorTheme.isDark();
         Color sepColor = UIManager.getColor("Separator.foreground");
         if (sepColor == null) sepColor = dark ? new Color(0x4A, 0x4A, 0x4A) : new Color(0xCC, 0xCC, 0xCC);
 
