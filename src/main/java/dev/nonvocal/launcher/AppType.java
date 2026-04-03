@@ -7,6 +7,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Defines how to detect, display, and launch a particular category of application folder.
@@ -29,22 +30,31 @@ record AppType(
         List<String> executablePaths,
         List<String> executableNames)
 {
+    AppType
+    {
+        // Pre-filter once at construction so the search loop needs no null/empty guards
+        executablePaths = executablePaths == null
+                ? List.of()
+                : executablePaths.stream().filter(n -> n != null && !n.isEmpty()).toList();
+
+        executableNames = executableNames == null
+                ? List.of()
+                : executableNames.stream().filter(n -> n != null && !n.isEmpty()).toList();
+    }
+
     /**
      * Searches {@code appFolder} for an executable using the priority lists.
      * Returns the first existing file, or {@code null} if none found.
      */
     File findExecutable(File appFolder)
     {
-        if (executablePaths == null || executablePaths.isEmpty()
-         || executableNames == null || executableNames.isEmpty()) return null;
+        if (executablePaths.isEmpty() || executableNames.isEmpty()) return null;
 
         for (String path : executablePaths)
         {
-            File searchDir = (path == null || path.isEmpty())
-                    ? appFolder : new File(appFolder, path);
+            File searchDir = path.isEmpty() ? appFolder : new File(appFolder, path);
             for (String name : executableNames)
             {
-                if (name == null || name.isEmpty()) continue;
                 File candidate = new File(searchDir, name);
                 if (candidate.isFile()) return candidate;
             }
