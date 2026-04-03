@@ -527,7 +527,7 @@ class SettingsDialog extends JDialog
 
         Runnable assAdd = () ->
         {
-            String[] result = showAssignmentEditor(null, atModel);
+            String[] result = showAddAssignmentEditor(atModel);
             if (result == null) return;
             for (int i = 0; i < assModel.getSize(); i++)
                 if (assModel.getElementAt(i)[0].equals(result[0]))
@@ -544,7 +544,7 @@ class SettingsDialog extends JDialog
         {
             int idx = assList.getSelectedIndex();
             if (idx < 0) return;
-            String[] edited = showAssignmentEditor(assModel.getElementAt(idx), atModel);
+            String[] edited = showEditAssignmentEditor(assModel.getElementAt(idx), atModel);
             if (edited != null) assModel.set(idx, edited);
         });
         assBtnRemove.addActionListener(ev ->
@@ -893,66 +893,29 @@ class SettingsDialog extends JDialog
 
     // ── Assignment editor ─────────────────────────────────────────────────────
 
-    private String[] showAssignmentEditor(String[] existing, DefaultListModel<AppType> atModel)
+    /**
+     * Shows an "Add Assignment" dialog with an editable combo box for the folder name.
+     * Returns the new {@code [folder, typeId]} pair, or {@code null} if cancelled.
+     */
+    private String[] showAddAssignmentEditor(DefaultListModel<AppType> atModel)
     {
-        boolean isNew = (existing == null);
+        List<String> typeIds = resolveTypeIds(atModel);
+        if (typeIds == null) return null;
 
-        // When adding: combo box with known folder names (editable for unlisted folders).
-        // When editing: read-only text field (the folder key must not change).
-        JComboBox<String> cbFolder = null;
-        JTextField        tfFolder = null;
-        if (isNew)
-        {
-            List<String> options = new ArrayList<>(knownFolderNames);
-            cbFolder = new JComboBox<>(options.toArray(new String[0]));
-            cbFolder.setEditable(true);
-            cbFolder.setSelectedIndex(options.isEmpty() ? -1 : 0);
-        }
-        else
-        {
-            tfFolder = new JTextField(existing[0], 28);
-            tfFolder.setEditable(false);
-        }
-        Component folderComponent = isNew ? cbFolder : tfFolder;
+        List<String> options = new ArrayList<>(knownFolderNames);
+        JComboBox<String> cbFolder = new JComboBox<>(options.toArray(new String[0]));
+        cbFolder.setEditable(true);
+        cbFolder.setSelectedIndex(options.isEmpty() ? -1 : 0);
 
-        List<String> typeIds = new ArrayList<>();
-        for (int i = 0; i < atModel.getSize(); i++) typeIds.add(atModel.getElementAt(i).id());
-        if (typeIds.isEmpty())
-        {
-            JOptionPane.showMessageDialog(this,
-                    "Please define at least one Application Type first.",
-                    "No Types Available", JOptionPane.INFORMATION_MESSAGE);
-            return null;
-        }
         JComboBox<String> cbType = new JComboBox<>(typeIds.toArray(new String[0]));
-        if (!isNew && existing[1] != null) cbType.setSelectedItem(existing[1]);
 
-        JPanel p = new JPanel(new GridBagLayout());
-        GridBagConstraints lc  = new GridBagConstraints();
-        lc.anchor  = GridBagConstraints.WEST; lc.insets = new Insets(4, 0, 4, 8); lc.gridx = 0;
-        GridBagConstraints fc2 = new GridBagConstraints();
-        fc2.fill   = GridBagConstraints.HORIZONTAL; fc2.weightx = 1; fc2.insets = new Insets(4, 0, 4, 0); fc2.gridx = 1;
-
-        lc.gridy = 0; fc2.gridy = 0;
-        p.add(new JLabel("Folder name:"), lc);      p.add(folderComponent, fc2);
-        lc.gridy = 1; fc2.gridy = 1;
-        p.add(new JLabel("Application type:"), lc); p.add(cbType, fc2);
-
-        int result = JOptionPane.showConfirmDialog(this, p,
-                isNew ? "Add Assignment" : "Edit Assignment",
+        int result = JOptionPane.showConfirmDialog(this,
+                buildAssignmentPanel(cbFolder, cbType), "Add Assignment",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result != JOptionPane.OK_OPTION) return null;
 
-        String folder;
-        if (isNew)
-        {
-            Object sel = cbFolder.getSelectedItem();
-            folder = sel != null ? sel.toString().trim() : "";
-        }
-        else
-        {
-            folder = tfFolder.getText().trim();
-        }
+        Object sel = cbFolder.getSelectedItem();
+        String folder = sel != null ? sel.toString().trim() : "";
         if (folder.isEmpty())
         {
             JOptionPane.showMessageDialog(this, "Folder name cannot be empty.",
@@ -960,6 +923,75 @@ class SettingsDialog extends JDialog
             return null;
         }
         return new String[]{folder, (String) cbType.getSelectedItem()};
+    }
+
+    /**
+     * Shows an "Edit Assignment" dialog with a read-only folder name field.
+     * Returns the updated {@code [folder, typeId]} pair, or {@code null} if cancelled.
+     */
+    private String[] showEditAssignmentEditor(String[] existing, DefaultListModel<AppType> atModel)
+    {
+        List<String> typeIds = resolveTypeIds(atModel);
+        if (typeIds == null) return null;
+
+        JTextField tfFolder = new JTextField(existing[0], 28);
+        tfFolder.setEditable(false);
+
+        JComboBox<String> cbType = new JComboBox<>(typeIds.toArray(new String[0]));
+        if (existing[1] != null) cbType.setSelectedItem(existing[1]);
+
+        int result = JOptionPane.showConfirmDialog(this,
+                buildAssignmentPanel(tfFolder, cbType), "Edit Assignment",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) return null;
+
+        String folder = tfFolder.getText().trim();
+        if (folder.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this, "Folder name cannot be empty.",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+        return new String[]{folder, (String) cbType.getSelectedItem()};
+    }
+
+    /**
+     * Returns the list of type IDs from {@code atModel}, or {@code null} (with a dialog shown)
+     * if the model is empty.
+     */
+    private List<String> resolveTypeIds(DefaultListModel<AppType> atModel)
+    {
+        List<String> ids = new ArrayList<>();
+        for (int i = 0; i < atModel.getSize(); i++) ids.add(atModel.getElementAt(i).id());
+        if (ids.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this,
+                    "Please define at least one Application Type first.",
+                    "No Types Available", JOptionPane.INFORMATION_MESSAGE);
+            return null;
+        }
+        return ids;
+    }
+
+    /** Builds the two-row folder/type panel shared by both assignment editors. */
+    private static JPanel buildAssignmentPanel(Component folderComponent, JComboBox<String> cbType)
+    {
+        JPanel p = new JPanel(new GridBagLayout());
+        GridBagConstraints lc  = new GridBagConstraints();
+        lc.anchor  = GridBagConstraints.WEST;
+        lc.insets  = new Insets(4, 0, 4, 8);
+        lc.gridx   = 0;
+        GridBagConstraints fc = new GridBagConstraints();
+        fc.fill    = GridBagConstraints.HORIZONTAL;
+        fc.weightx = 1;
+        fc.insets  = new Insets(4, 0, 4, 0);
+        fc.gridx   = 1;
+
+        lc.gridy = 0; fc.gridy = 0;
+        p.add(new JLabel("Folder name:"),      lc); p.add(folderComponent, fc);
+        lc.gridy = 1; fc.gridy = 1;
+        p.add(new JLabel("Application type:"), lc); p.add(cbType, fc);
+        return p;
     }
 
     // ── Static UI helpers ─────────────────────────────────────────────────────
