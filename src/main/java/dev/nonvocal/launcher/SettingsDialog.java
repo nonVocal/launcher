@@ -499,7 +499,8 @@ class SettingsDialog extends JDialog
         tabAppTypes.add(assHint);
         tabAppTypes.add(Box.createVerticalStrut(4));
 
-        List<String[]> assignmentList = new ArrayList<>();
+        List<String[]> assignmentList = new ArrayList<>(
+                config.appTypeAssignments() != null ? config.appTypeAssignments().size() : 0);
         if (config.appTypeAssignments() != null)
             for (Map.Entry<String, String> e : config.appTypeAssignments().entrySet())
                 assignmentList.add(new String[]{e.getKey(), e.getValue()});
@@ -580,25 +581,25 @@ class SettingsDialog extends JDialog
 
         btnSave.addActionListener(e ->
         {
-            List<String> newOrder = new ArrayList<>();
+            List<String> newOrder = new ArrayList<>(actModel.getSize());
             for (int i = 0; i < actModel.getSize(); i++)
             {
                 String k = actModel.getElementAt(i);
                 if (checked.contains(k)) newOrder.add(k);
             }
-            List<String> newToolbarActions = new ArrayList<>();
+            List<String> newToolbarActions = new ArrayList<>(tbModel.getSize());
             for (int i = 0; i < tbModel.getSize(); i++)
             {
                 String k = tbModel.getElementAt(i);
                 if (tbChecked.contains(k)) newToolbarActions.add(k);
             }
-            List<CustomAction> newCustomActions = new ArrayList<>();
+            List<CustomAction> newCustomActions = new ArrayList<>(caModel.getSize());
             for (int i = 0; i < caModel.getSize(); i++) newCustomActions.add(caModel.getElementAt(i));
 
-            List<AppType> newAppTypes = new ArrayList<>();
+            List<AppType> newAppTypes = new ArrayList<>(atModel.getSize());
             for (int i = 0; i < atModel.getSize(); i++) newAppTypes.add(atModel.getElementAt(i));
 
-            Map<String, String> newAssignments = new LinkedHashMap<>();
+            Map<String, String> newAssignments = LinkedHashMap.newLinkedHashMap(assModel.getSize());
             for (int i = 0; i < assModel.getSize(); i++)
             {
                 String[] pair = assModel.getElementAt(i);
@@ -871,8 +872,9 @@ class SettingsDialog extends JDialog
             return null;
         }
 
-        List<String> paths = new ArrayList<>();
-        for (String line : taPaths.getText().split("\\n", -1))
+        String[] pathLines = taPaths.getText().split("\\n", -1);
+        List<String> paths = new ArrayList<>(pathLines.length);
+        for (String line : pathLines)
         {
             String t = line.trim();
             if (!t.isEmpty() || paths.isEmpty()) paths.add(t); // preserve empty root-path entry
@@ -880,8 +882,9 @@ class SettingsDialog extends JDialog
         // Clean up: if the single entry is empty and user left field blank, use null
         if (paths.size() == 1 && paths.get(0).isEmpty()) paths.clear();
 
-        List<String> names = new ArrayList<>();
-        for (String line : taNames.getText().split("\\n", -1))
+        String[] nameLines = taNames.getText().split("\\n", -1);
+        List<String> names = new ArrayList<>(nameLines.length);
+        for (String line : nameLines)
         { String t = line.trim(); if (!t.isEmpty()) names.add(t); }
 
         String iconPath = tfIcon.getText().trim();
@@ -961,7 +964,7 @@ class SettingsDialog extends JDialog
      */
     private List<String> resolveTypeIds(DefaultListModel<AppType> atModel)
     {
-        List<String> ids = new ArrayList<>();
+        List<String> ids = new ArrayList<>(atModel.getSize());
         for (int i = 0; i < atModel.getSize(); i++) ids.add(atModel.getElementAt(i).id());
         if (ids.isEmpty())
         {

@@ -25,7 +25,8 @@ class EntryLoader
     static List<LaunchEntry> load(File baseFolder, LauncherConfig config)
     {
         // Build fast-lookup structures from config
-        Map<String, AppType> typeById = new LinkedHashMap<>();
+        Map<String, AppType> typeById = LinkedHashMap.newLinkedHashMap(
+                config.appTypes() != null ? config.appTypes().size() : 0);
         if (config.appTypes() != null)
             for (AppType t : config.appTypes()) typeById.put(t.id(), t);
 
@@ -55,17 +56,18 @@ class EntryLoader
             }
         }
 
-        List<LaunchEntry> natural = new ArrayList<>(scripts);
+        List<LaunchEntry> natural = new ArrayList<>(scripts.size() + apps.size() + plain.size());
+        natural.addAll(scripts);
         natural.addAll(apps);
         natural.addAll(plain);
 
         List<String> priority = config.priorityList();
         if (priority == null || priority.isEmpty()) return natural;
 
-        Map<String, LaunchEntry> byName = new LinkedHashMap<>();
+        Map<String, LaunchEntry> byName = LinkedHashMap.newLinkedHashMap(natural.size());
         for (LaunchEntry e : natural) byName.put(e.file().getName(), e);
 
-        List<LaunchEntry> result = new ArrayList<>();
+        List<LaunchEntry> result = new ArrayList<>(natural.size());
         for (String name : priority)
         {
             LaunchEntry e = byName.remove(name);

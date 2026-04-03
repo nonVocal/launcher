@@ -165,7 +165,7 @@ record LauncherConfig(
 
     private String toJson()
     {
-        List<String> lines = new ArrayList<>();
+        List<String> lines = new ArrayList<>(16); // 10 scalar + 6 list fields
         if (rootFolder       != null) lines.add("  \"rootFolder\": "       + jsonStr(rootFolder));
         if (startMinimized   != null) lines.add("  \"startMinimized\": "   + startMinimized);
         if (windowWidth      != null) lines.add("  \"windowWidth\": "      + windowWidth);

@@ -155,7 +155,8 @@ public class Launcher extends JFrame
     private void applyConfig(LauncherConfig cfg)
     {
         config                  = cfg;
-        effectiveCustomActionMap = new LinkedHashMap<>();
+        effectiveCustomActionMap = LinkedHashMap.newLinkedHashMap(
+                cfg.customActions() != null ? cfg.customActions().size() : 0);
         if (cfg.customActions() != null)
             cfg.customActions().forEach(a -> effectiveCustomActionMap.put(a.id(), a));
         effectiveActionOrder    = resolveActionOrder(cfg);
@@ -496,7 +497,7 @@ public class Launcher extends JFrame
 
     private void showSettings()
     {
-        List<String> knownFolderNames = new ArrayList<>();
+        List<String> knownFolderNames = new ArrayList<>(allEntries.size());
         for (LaunchEntry e : allEntries)
             if (e.type() != EntryType.SCRIPT)
                 knownFolderNames.add(e.file().getName());
@@ -595,7 +596,7 @@ public class Launcher extends JFrame
 
     private void savePriorityList()
     {
-        List<String> names = new ArrayList<>();
+        List<String> names = new ArrayList<>(allEntries.size());
         for (LaunchEntry e : allEntries) names.add(e.file().getName());
         config = new LauncherConfig(
                 config.rootFolder(), config.startMinimized(),
