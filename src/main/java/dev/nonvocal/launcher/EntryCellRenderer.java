@@ -5,6 +5,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileSystemView;
 import java.awt.*;
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -79,10 +80,13 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
     private final ColorTheme theme;
     private final javax.swing.border.Border btnNormalBorder;
     private final javax.swing.border.Border btnSelectedBorder;
+    private final boolean   isHamburger;    // precomputed – avoids String comparison per render
+    private final boolean[] isDel;          // precomputed per action slot – avoids String comparison per render
+    private final Map<String, ImageIcon> appTypeIconCache = new HashMap<>();  // avoids disk I/O per render
+    private final Map<String, Icon>      sysIconCache     = new HashMap<>();  // avoids native system-icon call per render
     private final JLabel nameLabel = new JLabel();
     private final JPanel actionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, ACT_HGAP, 0));
     private final List<String> actionOrder;
-    private final String buttonStyle;
     private final JLabel[] actIcons;
 
     private final transient FileSystemView fsv = FileSystemView.getFileSystemView();
@@ -91,7 +95,7 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
                       Map<String, CustomAction> customActionMap)
     {
         this.actionOrder = actionOrder;
-        this.buttonStyle = buttonStyle;
+        isHamburger      = Launcher.BUTTON_STYLE_HAMBURGER.equals(buttonStyle);
 
         // ── Resolve theme-aware colours against the active Look-and-Feel ──────
         theme = ColorTheme.forCurrentLaf();
@@ -115,7 +119,7 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
         // top/bottom padding: (36 - 18) / 2 = 9 px – centres 18 px buttons in 36 px row
         actionBar.setBorder(new EmptyBorder(9, 0, 9, 0));
 
-        if (Launcher.BUTTON_STYLE_HAMBURGER.equals(buttonStyle))
+        if (isHamburger)
         {
             // Single ☰ button – clicking opens the action popup
             actIcons = new JLabel[1];
@@ -157,6 +161,12 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
             }
         }
         add(actionBar, BorderLayout.EAST);
+
+        // Precompute isDel per action slot – actionOrder is fixed after construction
+        isDel = new boolean[actIcons.length];
+        if (!isHamburger)
+            for (int i = 0; i < actIcons.length; i++)
+                isDel[i] = Launcher.DELETE_ACTION.equals(actionOrder.get(i));
     }
 
     // ── ListCellRenderer ──────────────────────────────────────────────────────
@@ -170,16 +180,25 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
         nameLabel.setToolTipText(e.file().getAbsolutePath());
 
         // Custom icon from app type takes precedence over system icon
-        if (e.appType() != null && e.appType().iconPath() != null)
+        AppType appType = e.appType();
+        if (appType != null && appType.iconPath() != null)
         {
-            ImageIcon customIcon = e.appType().loadIcon(16, 16);
-            nameLabel.setIcon(customIcon);
+            String iconPath = appType.iconPath();
+            if (!appTypeIconCache.containsKey(iconPath))
+                appTypeIconCache.put(iconPath, appType.loadIcon(16, 16));
+            nameLabel.setIcon(appTypeIconCache.get(iconPath));
         }
         else
         {
-            File iconSrc = (e.iconFile() != null) ? e.iconFile() : e.file();
-            try   { nameLabel.setIcon(fsv.getSystemIcon(iconSrc)); }
-            catch (Exception ignored) { nameLabel.setIcon(null); }
+            File   iconSrc = (e.iconFile() != null) ? e.iconFile() : e.file();
+            String iconKey = iconSrc.getAbsolutePath();
+            if (!sysIconCache.containsKey(iconKey))
+            {
+                Icon icon = null;
+                try { icon = fsv.getSystemIcon(iconSrc); } catch (Exception ignored) {}
+                sysIconCache.put(iconKey, icon);
+            }
+            nameLabel.setIcon(sysIconCache.get(iconKey));
         }
 
         actionBar.setVisible(e.type() != EntryType.SCRIPT && !actionOrder.isEmpty());
@@ -205,14 +224,14 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
                 default         -> theme.fgPlain;
             });
 
-            if (Launcher.BUTTON_STYLE_HAMBURGER.equals(buttonStyle))
+            if (isHamburger)
             {
                 if (actIcons.length > 0) resetButton(actIcons[0], false);
             }
             else
             {
                 for (int i = 0; i < actIcons.length; i++)
-                    resetButton(actIcons[i], Launcher.DELETE_ACTION.equals(actionOrder.get(i)));
+                    resetButton(actIcons[i], isDel[i]);
             }
         }
         return this;
