@@ -189,7 +189,7 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
         }
         else
         {
-            setBackground(index % 2 == 0 ? theme.rowEven : theme.rowOdd);
+            setBackground((index & 1) == 0 ? theme.rowEven : theme.rowOdd);
             nameLabel.setForeground(switch (e.type())
             {
                 case SCRIPT     -> theme.fgScript;
