@@ -54,9 +54,9 @@ class EntryLoaderTest
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
         assertEquals(1, entries.size());
-        assertEquals(EntryType.SCRIPT, entries.get(0).type());
-        assertEquals("setup.bat", entries.get(0).file().getName());
-        assertNull(entries.get(0).iconFile());
+        assertEquals(EntryType.SCRIPT, entries.getFirst().type());
+        assertEquals("setup.bat", entries.getFirst().file().getName());
+        assertNull(entries.getFirst().iconFile());
     }
 
     @Test
@@ -67,8 +67,8 @@ class EntryLoaderTest
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
         assertEquals(1, entries.size());
-        assertEquals(EntryType.PLAIN_FOLDER, entries.get(0).type());
-        assertNull(entries.get(0).iconFile());
+        assertEquals(EntryType.PLAIN_FOLDER, entries.getFirst().type());
+        assertNull(entries.getFirst().iconFile());
     }
 
     @Test
@@ -80,8 +80,8 @@ class EntryLoaderTest
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
         assertEquals(1, entries.size());
-        assertEquals(EntryType.APP_FOLDER, entries.get(0).type());
-        assertEquals(lnk, entries.get(0).iconFile());
+        assertEquals(EntryType.APP_FOLDER, entries.getFirst().type());
+        assertEquals(lnk, entries.getFirst().iconFile());
     }
 
     @Test
@@ -95,8 +95,8 @@ class EntryLoaderTest
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
         assertEquals(1, entries.size());
-        assertEquals(EntryType.APP_FOLDER, entries.get(0).type());
-        assertEquals(fallback, entries.get(0).iconFile());
+        assertEquals(EntryType.APP_FOLDER, entries.getFirst().type());
+        assertEquals(fallback, entries.getFirst().iconFile());
     }
 
     @Test
@@ -110,8 +110,8 @@ class EntryLoaderTest
 
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
-        assertEquals(EntryType.APP_FOLDER, entries.get(0).type());
-        assertEquals(lnk, entries.get(0).iconFile(), ".lnk must take precedence over fallback exe");
+        assertEquals(EntryType.APP_FOLDER, entries.getFirst().type());
+        assertEquals(lnk, entries.getFirst().iconFile(), ".lnk must take precedence over fallback exe");
     }
 
     @Test
@@ -140,7 +140,7 @@ class EntryLoaderTest
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
         assertEquals(3, entries.size());
-        assertEquals(EntryType.SCRIPT,       entries.get(0).type());
+        assertEquals(EntryType.SCRIPT,       entries.getFirst().type());
         assertEquals(EntryType.APP_FOLDER,   entries.get(1).type());
         assertEquals(EntryType.PLAIN_FOLDER, entries.get(2).type());
     }
@@ -154,7 +154,7 @@ class EntryLoaderTest
 
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
-        assertEquals("a.bat", entries.get(0).file().getName());
+        assertEquals("a.bat", entries.getFirst().file().getName());
         assertEquals("b.bat", entries.get(1).file().getName());
         assertEquals("c.bat", entries.get(2).file().getName());
     }
@@ -168,7 +168,7 @@ class EntryLoaderTest
 
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
-        assertEquals("alpha.bat",   entries.get(0).file().getName());
+        assertEquals("alpha.bat",   entries.getFirst().file().getName());
         assertEquals("Bravo.bat",   entries.get(1).file().getName());
         assertEquals("CHARLIE.bat", entries.get(2).file().getName());
     }
@@ -186,7 +186,7 @@ class EntryLoaderTest
 
         List<LaunchEntry> entries = EntryLoader.load(dir, cfg);
 
-        assertEquals("gamma.bat", entries.get(0).file().getName());
+        assertEquals("gamma.bat", entries.getFirst().file().getName());
         assertEquals("alpha.bat", entries.get(1).file().getName());
         assertEquals("beta.bat",  entries.get(2).file().getName()); // remainder in default alpha order
     }
@@ -201,7 +201,7 @@ class EntryLoaderTest
         List<LaunchEntry> entries = EntryLoader.load(dir, cfg);
 
         assertEquals(1, entries.size());
-        assertEquals("real.bat", entries.get(0).file().getName());
+        assertEquals("real.bat", entries.getFirst().file().getName());
     }
 
     @Test
@@ -213,7 +213,7 @@ class EntryLoaderTest
         // empty() has priorityList = null
         List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
 
-        assertEquals("a.bat", entries.get(0).file().getName());
+        assertEquals("a.bat", entries.getFirst().file().getName());
         assertEquals("b.bat", entries.get(1).file().getName());
     }
 
@@ -228,7 +228,7 @@ class EntryLoaderTest
 
         List<LaunchEntry> entries = EntryLoader.load(dir, cfg);
 
-        assertEquals("a.bat", entries.get(0).file().getName());
+        assertEquals("a.bat", entries.getFirst().file().getName());
         assertEquals("b.bat", entries.get(1).file().getName());
     }
 
@@ -244,7 +244,7 @@ class EntryLoaderTest
 
         List<LaunchEntry> entries = EntryLoader.load(dir, cfg);
 
-        assertEquals("c.bat", entries.get(0).file().getName());
+        assertEquals("c.bat", entries.getFirst().file().getName());
         assertEquals("a.bat", entries.get(1).file().getName());
         assertEquals("b.bat", entries.get(2).file().getName());
     }

@@ -879,7 +879,7 @@ class SettingsDialog extends JDialog
             if (!t.isEmpty() || paths.isEmpty()) paths.add(t); // preserve empty root-path entry
         }
         // Clean up: if the single entry is empty and user left field blank, use null
-        if (paths.size() == 1 && paths.get(0).isEmpty()) paths.clear();
+        if (paths.size() == 1 && paths.getFirst().isEmpty()) paths.clear();
 
         String[] nameLines = taNames.getText().split("\\n", -1);
         List<String> names = new ArrayList<>(nameLines.length);
