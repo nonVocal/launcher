@@ -6,6 +6,9 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * A user-defined action that can appear in the entry action bar, the toolbar, or both.
@@ -29,7 +32,11 @@ record CustomAction(
         String iconPath,
         String scriptPath,
         String label,
-        String tooltip)
+        String tooltip,
+        boolean appliesToEntry,
+        boolean appliesToToolbar,
+        String effectiveLabel,
+        String effectiveTooltip)
 {
     // ── Scope constants ───────────────────────────────────────────────────────
 
@@ -42,16 +49,53 @@ record CustomAction(
     /** Action appears in both the per-entry action bar and the toolbar. */
     static final String SCOPE_BOTH    = "BOTH";
 
+    private static final Map<String, Icon> ICON_CACHE = new HashMap<>();
+
+    CustomAction(
+            String id,
+            String scope,
+            String iconPath,
+            String scriptPath,
+            String label,
+            String tooltip)
+    {
+        this(id,scope,iconPath,scriptPath,label,tooltip, null, null, null, null);
+    }
+
+    CustomAction(
+            String id,
+            String scope,
+            String iconPath,
+            String scriptPath,
+            String label,
+            String tooltip,
+            Boolean appliesToEntry,
+            Boolean appliesToToolbar,
+            String effectiveLabel,
+            String effectiveTooltip)
+    {
+        this(id, scope, iconPath, scriptPath, label, tooltip,
+                Objects.requireNonNullElseGet(appliesToEntry, () -> computeAppliesToEntry(scope)).booleanValue(),
+                Objects.requireNonNullElseGet(appliesToToolbar, () -> computeAppliesToToolbar(scope)).booleanValue(),
+                effectiveLabel, effectiveTooltip);
+    }
+
+    CustomAction
+    {
+        effectiveLabel = computeEffectiveLabel(effectiveLabel, id);
+        effectiveTooltip = computeEffectiveTooltip(effectiveTooltip, effectiveLabel);
+    }
+
     // ── Scope helpers ─────────────────────────────────────────────────────────
 
     /** {@code true} when this action may appear in the per-entry action bar. */
-    boolean appliesToEntry()
+    static boolean computeAppliesToEntry(String scope)
     {
         return scope == null || SCOPE_ENTRY.equals(scope) || SCOPE_BOTH.equals(scope);
     }
 
     /** {@code true} when this action may appear in the toolbar. */
-    boolean appliesToToolbar()
+    static boolean computeAppliesToToolbar(String scope)
     {
         return scope == null || SCOPE_TOOLBAR.equals(scope) || SCOPE_BOTH.equals(scope);
     }
@@ -59,15 +103,15 @@ record CustomAction(
     // ── Label / tooltip helpers ───────────────────────────────────────────────
 
     /** Display name – falls back to {@code id} when {@code label} is blank or {@code null}. */
-    String effectiveLabel()
+    static String computeEffectiveLabel(String label, String defaultValue)
     {
-        return (label != null && !label.isBlank()) ? label : id;
+        return (label != null && !label.isBlank()) ? label : defaultValue;
     }
 
     /** Tooltip text – falls back to {@link #effectiveLabel()} when {@code tooltip} is blank or {@code null}. */
-    String effectiveTooltip()
+    static String computeEffectiveTooltip(String tooltip, String defaultValue)
     {
-        return (tooltip != null && !tooltip.isBlank()) ? tooltip : effectiveLabel();
+        return (tooltip != null && !tooltip.isBlank()) ? tooltip : defaultValue;
     }
 
     /**
@@ -77,12 +121,23 @@ record CustomAction(
     ImageIcon loadIcon(int w, int h)
     {
         if (iconPath == null || iconPath.isBlank()) return null;
-        try
+        return ICON_CACHE.computeIfAbsent(iconPath, ip ->
         {
-            BufferedImage raw = ImageIO.read(new File(iconPath));
-            if (raw == null) return null;
-            return new ImageIcon(raw.getScaledInstance(w, h, Image.SCALE_SMOOTH));
-        }
-        catch (IOException e) { return null; }
+            try
+            {
+                BufferedImage raw = ImageIO.read(new File(iconPath));
+                if (raw == null) return Icon.NULL;
+                return new Icon(new ImageIcon(raw.getScaledInstance(w, h, Image.SCALE_SMOOTH)));
+            } catch (IOException e)
+            {
+                return Icon.NULL;
+            }
+        }).icon();
+    }
+
+    record Icon(ImageIcon icon)
+    {
+        final static Icon NULL = new Icon(null);
+
     }
 }
