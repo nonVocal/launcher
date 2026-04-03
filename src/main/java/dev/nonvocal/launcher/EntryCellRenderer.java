@@ -281,16 +281,22 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
     {
         int base = baseColor.getRGB();
         int overlay = overlayColor.getRGB();
-        float r = 1f - ratio;
+        // Fixed-point ratio: 0..256 (use 256 so we can shift by 8 instead of dividing by 255)
+        int t = (int)(ratio * 256f);  // 0..256
+        int s = 256 - t;              // complement
 
-        int bR = (base   >> 16) & 0xFF,  oR = (overlay >> 16) & 0xFF;
-        int bG = (base   >>  8) & 0xFF,  oG = (overlay >>  8) & 0xFF;
-        int bB =  base          & 0xFF,  oB =  overlay         & 0xFF;
+        // Pack RG channels into the high/low halves of a long (with guard bits)
+        // Layout: [00 R 00 G] — each channel in its own 16-bit lane, value in low 8 bits
+        long baseRG    = ((long)(base    >> 16 & 0xFF) << 32) | (base    >> 8 & 0xFF);
+        long overlayRG = ((long)(overlay >> 16 & 0xFF) << 32) | (overlay >> 8 & 0xFF);
 
-        int red   = (int)(bR * r + oR * ratio);
-        int green = (int)(bG * r + oG * ratio);
-        int blue  = (int)(bB * r + oB * ratio);
+        long rg = (baseRG * s + overlayRG * t) >> 8;  // >> 8 undoes the *256 scale
 
-        return new Color((red << 16) | (green << 8) | blue);
+        // Blue channel — plain int, no packing needed
+        int blue = ((base & 0xFF) * s + (overlay & 0xFF) * t) >> 8;
+
+        return new Color(((int)(rg >> 32) & 0xFF) << 16   // R
+                | ((int) rg        & 0xFF) << 8    // G
+                |  blue);                           // B
     }
 }
