@@ -19,11 +19,11 @@ class SettingsDialog extends JDialog
     private static final EmptyBorder TAB_PANEL_BORDER = new EmptyBorder(10, 6, 6, 6);
     private static final EmptyBorder CELL_ITEM_BORDER = new EmptyBorder(2, 6, 2, 6);
 
-    private final String             launcherId;
-    private final LauncherConfig     config;
-    private final List<String>       effectiveActionOrder;
-    private final List<String>       effectiveToolbarActions;
-    private final List<String>       knownFolderNames;
+    private final String launcherId;
+    private final LauncherConfig config;
+    private final List<String> effectiveActionOrder;
+    private final List<String> effectiveToolbarActions;
+    private final List<String> knownFolderNames;
     private final Consumer<LauncherConfig> onSave;
 
     SettingsDialog(JFrame owner, String launcherId, LauncherConfig config,
@@ -32,12 +32,12 @@ class SettingsDialog extends JDialog
                    Consumer<LauncherConfig> onSave)
     {
         super(owner, "Settings  \u2013  " + launcherId, true);
-        this.launcherId              = launcherId;
-        this.config                  = config;
-        this.effectiveActionOrder    = effectiveActionOrder;
+        this.launcherId = launcherId;
+        this.config = config;
+        this.effectiveActionOrder = effectiveActionOrder;
         this.effectiveToolbarActions = effectiveToolbarActions;
-        this.knownFolderNames        = knownFolderNames;
-        this.onSave                  = onSave;
+        this.knownFolderNames = knownFolderNames;
+        this.onSave = onSave;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setResizable(false);
         buildContent();
@@ -60,7 +60,7 @@ class SettingsDialog extends JDialog
 
         tabGeneral.add(sectionLabel("Configuration files"));
         tabGeneral.add(Box.createVerticalStrut(4));
-        tabGeneral.add(infoRow("Launcher ID",     launcherId, null));
+        tabGeneral.add(infoRow("Launcher ID", launcherId, null));
         tabGeneral.add(Box.createVerticalStrut(2));
         tabGeneral.add(infoRow("Global config",
                 LauncherConfig.globalConfigFile().getAbsolutePath(),
@@ -89,12 +89,17 @@ class SettingsDialog extends JDialog
         tabGeneral.add(themeHint);
         tabGeneral.add(Box.createVerticalStrut(4));
         JRadioButton rbThemeSystem = new JRadioButton("System default  \u2013  follow the OS dark/light preference");
-        JRadioButton rbThemeLight  = new JRadioButton("Light mode");
-        JRadioButton rbThemeDark   = new JRadioButton("Dark mode");
-        new ButtonGroup() {{ add(rbThemeSystem); add(rbThemeLight); add(rbThemeDark); }};
-        if      (Launcher.THEME_DARK.equals(config.theme()))  rbThemeDark.setSelected(true);
+        JRadioButton rbThemeLight = new JRadioButton("Light mode");
+        JRadioButton rbThemeDark = new JRadioButton("Dark mode");
+        new ButtonGroup()
+        {{
+            add(rbThemeSystem);
+            add(rbThemeLight);
+            add(rbThemeDark);
+        }};
+        if (Launcher.THEME_DARK.equals(config.theme())) rbThemeDark.setSelected(true);
         else if (Launcher.THEME_LIGHT.equals(config.theme())) rbThemeLight.setSelected(true);
-        else                                                   rbThemeSystem.setSelected(true);
+        else rbThemeSystem.setSelected(true);
         rbThemeSystem.setAlignmentX(Component.LEFT_ALIGNMENT);
         rbThemeLight.setAlignmentX(Component.LEFT_ALIGNMENT);
         rbThemeDark.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -105,7 +110,7 @@ class SettingsDialog extends JDialog
 
         // ── Accent colour ─────────────────────────────────────────────────────
         final Color defaultAccent = Launcher.DEFAULT_ACCENT;
-        final Color[] selectedAccent = { Launcher.parseHexColor(config.accentColor(), null) };
+        final Color[] selectedAccent = {Launcher.parseHexColor(config.accentColor(), null)};
 
         JLabel accentLbl = new JLabel("Accent color:");
         accentLbl.setFont(accentLbl.getFont().deriveFont(Font.BOLD, 11f));
@@ -114,7 +119,8 @@ class SettingsDialog extends JDialog
         // Swatch – shows the current (or default) colour
         JPanel accentSwatch = new JPanel()
         {
-            @Override protected void paintComponent(Graphics g)
+            @Override
+            protected void paintComponent(Graphics g)
             {
                 super.paintComponent(g);
                 g.setColor(selectedAccent[0] != null ? selectedAccent[0] : defaultAccent);
@@ -132,12 +138,20 @@ class SettingsDialog extends JDialog
         accentChooseBtn.addActionListener(ev ->
         {
             Color initial = selectedAccent[0] != null ? selectedAccent[0] : defaultAccent;
-            Color chosen  = JColorChooser.showDialog(this, "Choose Accent Color", initial);
-            if (chosen != null) { selectedAccent[0] = chosen; accentSwatch.repaint(); }
+            Color chosen = JColorChooser.showDialog(this, "Choose Accent Color", initial);
+            if (chosen != null)
+            {
+                selectedAccent[0] = chosen;
+                accentSwatch.repaint();
+            }
         });
 
         JButton accentResetBtn = new JButton("Reset to default");
-        accentResetBtn.addActionListener(ev -> { selectedAccent[0] = null; accentSwatch.repaint(); });
+        accentResetBtn.addActionListener(ev ->
+        {
+            selectedAccent[0] = null;
+            accentSwatch.repaint();
+        });
 
         JPanel accentRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         accentRow.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -167,9 +181,13 @@ class SettingsDialog extends JDialog
         styleHint.setAlignmentX(Component.LEFT_ALIGNMENT);
         tabGeneral.add(styleHint);
         tabGeneral.add(Box.createVerticalStrut(4));
-        JRadioButton rbIcons     = new JRadioButton("Inline icons  \u2013 one small button per action");
+        JRadioButton rbIcons = new JRadioButton("Inline icons  \u2013 one small button per action");
         JRadioButton rbHamburger = new JRadioButton("Hamburger menu (\u2630) \u2013 single button opens a popup");
-        new ButtonGroup() {{ add(rbIcons); add(rbHamburger); }};
+        new ButtonGroup()
+        {{
+            add(rbIcons);
+            add(rbHamburger);
+        }};
         boolean isHamburger = Launcher.BUTTON_STYLE_HAMBURGER.equals(config.entryButtonStyle());
         rbHamburger.setSelected(isHamburger);
         rbIcons.setSelected(!isHamburger);
@@ -212,9 +230,9 @@ class SettingsDialog extends JDialog
         {
             String scopeTag = switch (value.scope())
             {
-                case CustomAction.SCOPE_ENTRY   -> " [entry]";
+                case CustomAction.SCOPE_ENTRY -> " [entry]";
                 case CustomAction.SCOPE_TOOLBAR -> " [toolbar]";
-                default                         -> " [both]";
+                default -> " [both]";
             };
             JLabel lbl = new JLabel(value.effectiveLabel() + "  (" + value.id() + ")" + scopeTag);
             lbl.setFont(lst.getFont().deriveFont(11f));
@@ -233,8 +251,8 @@ class SettingsDialog extends JDialog
             return lbl;
         });
 
-        JButton caBtnAdd    = new JButton("Add");
-        JButton caBtnEdit   = new JButton("Edit");
+        JButton caBtnAdd = new JButton("Add");
+        JButton caBtnEdit = new JButton("Edit");
         JButton caBtnRemove = new JButton("Remove");
 
         caBtnAdd.addActionListener(ev ->
@@ -326,31 +344,44 @@ class SettingsDialog extends JDialog
         });
         tbList.addMouseListener(new MouseAdapter()
         {
-            @Override public void mouseClicked(MouseEvent ev)
+            @Override
+            public void mouseClicked(MouseEvent ev)
             {
                 int idx = tbList.locationToIndex(ev.getPoint());
                 if (idx < 0) return;
                 String key = tbModel.getElementAt(idx);
-                if (tbChecked.contains(key)) tbChecked.remove(key); else tbChecked.add(key);
+                if (tbChecked.contains(key)) tbChecked.remove(key);
+                else tbChecked.add(key);
                 tbList.repaint();
             }
         });
 
-        JButton tbBtnUp   = new JButton("\u2191");
+        JButton tbBtnUp = new JButton("\u2191");
         JButton tbBtnDown = new JButton("\u2193");
         tbBtnUp.addActionListener(ev ->
         {
             int i = tbList.getSelectedIndex();
-            if (i > 0) { String item = tbModel.remove(i); tbModel.add(i - 1, item); tbList.setSelectedIndex(i - 1); }
+            if (i > 0)
+            {
+                String item = tbModel.remove(i);
+                tbModel.add(i - 1, item);
+                tbList.setSelectedIndex(i - 1);
+            }
         });
         tbBtnDown.addActionListener(ev ->
         {
             int i = tbList.getSelectedIndex();
-            if (i >= 0 && i < tbModel.getSize() - 1) { String item = tbModel.remove(i); tbModel.add(i + 1, item); tbList.setSelectedIndex(i + 1); }
+            if (i >= 0 && i < tbModel.getSize() - 1)
+            {
+                String item = tbModel.remove(i);
+                tbModel.add(i + 1, item);
+                tbList.setSelectedIndex(i + 1);
+            }
         });
 
         JPanel tbActButtons = new JPanel(new GridLayout(2, 1, 0, 2));
-        tbActButtons.add(tbBtnUp); tbActButtons.add(tbBtnDown);
+        tbActButtons.add(tbBtnUp);
+        tbActButtons.add(tbBtnDown);
 
         JPanel tbPanel = new JPanel(new BorderLayout(6, 0));
         tbPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -403,31 +434,44 @@ class SettingsDialog extends JDialog
         });
         actList.addMouseListener(new MouseAdapter()
         {
-            @Override public void mouseClicked(MouseEvent ev)
+            @Override
+            public void mouseClicked(MouseEvent ev)
             {
                 int idx = actList.locationToIndex(ev.getPoint());
                 if (idx < 0) return;
                 String key = actModel.getElementAt(idx);
-                if (checked.contains(key)) checked.remove(key); else checked.add(key);
+                if (checked.contains(key)) checked.remove(key);
+                else checked.add(key);
                 actList.repaint();
             }
         });
 
-        JButton btnUp   = new JButton("\u2191");
+        JButton btnUp = new JButton("\u2191");
         JButton btnDown = new JButton("\u2193");
         btnUp.addActionListener(ev ->
         {
             int i = actList.getSelectedIndex();
-            if (i > 0) { String item = actModel.remove(i); actModel.add(i - 1, item); actList.setSelectedIndex(i - 1); }
+            if (i > 0)
+            {
+                String item = actModel.remove(i);
+                actModel.add(i - 1, item);
+                actList.setSelectedIndex(i - 1);
+            }
         });
         btnDown.addActionListener(ev ->
         {
             int i = actList.getSelectedIndex();
-            if (i >= 0 && i < actModel.getSize() - 1) { String item = actModel.remove(i); actModel.add(i + 1, item); actList.setSelectedIndex(i + 1); }
+            if (i >= 0 && i < actModel.getSize() - 1)
+            {
+                String item = actModel.remove(i);
+                actModel.add(i + 1, item);
+                actList.setSelectedIndex(i + 1);
+            }
         });
 
         JPanel actButtons = new JPanel(new GridLayout(2, 1, 0, 2));
-        actButtons.add(btnUp); actButtons.add(btnDown);
+        actButtons.add(btnUp);
+        actButtons.add(btnDown);
 
         JPanel actPanel = new JPanel(new BorderLayout(6, 0));
         actPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -464,7 +508,7 @@ class SettingsDialog extends JDialog
         {
             JLabel lbl = new JLabel(value.id()
                     + (value.executableNames() != null && !value.executableNames().isEmpty()
-                       ? "  \u2192 " + String.join(", ", value.executableNames()) : ""));
+                    ? "  \u2192 " + String.join(", ", value.executableNames()) : ""));
             lbl.setFont(lst.getFont().deriveFont(11f));
             lbl.setOpaque(true);
             lbl.setBorder(new EmptyBorder(2, 6, 2, 6));
@@ -481,8 +525,8 @@ class SettingsDialog extends JDialog
             return lbl;
         });
 
-        JButton atBtnAdd    = new JButton("Add");
-        JButton atBtnEdit   = new JButton("Edit");
+        JButton atBtnAdd = new JButton("Add");
+        JButton atBtnEdit = new JButton("Edit");
         JButton atBtnRemove = new JButton("Remove");
 
         atBtnAdd.addActionListener(ev ->
@@ -567,8 +611,8 @@ class SettingsDialog extends JDialog
             return lbl;
         });
 
-        JButton assBtnAdd    = new JButton("Add");
-        JButton assBtnEdit   = new JButton("Edit");
+        JButton assBtnAdd = new JButton("Add");
+        JButton assBtnEdit = new JButton("Edit");
         JButton assBtnRemove = new JButton("Remove");
 
         Runnable assAdd = () ->
@@ -618,7 +662,7 @@ class SettingsDialog extends JDialog
         // ── Save / Cancel ─────────────────────────────────────────────────────
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         btnPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JButton btnSave   = new JButton("Save");
+        JButton btnSave = new JButton("Save");
         JButton btnCancel = new JButton("Cancel");
         btnPanel.add(btnSave);
         btnPanel.add(btnCancel);
@@ -651,13 +695,13 @@ class SettingsDialog extends JDialog
                 newAssignments.put(pair[0], pair[1]);
             }
 
-            String explorerVal    = tfExplorer.getText().trim();
-            String editorVal      = tfEditor.getText().trim();
+            String explorerVal = tfExplorer.getText().trim();
+            String editorVal = tfEditor.getText().trim();
             String newButtonStyle = rbHamburger.isSelected()
                     ? Launcher.BUTTON_STYLE_HAMBURGER : Launcher.BUTTON_STYLE_ICONS;
-            String newTheme = rbThemeDark.isSelected()   ? Launcher.THEME_DARK
-                            : rbThemeLight.isSelected()  ? Launcher.THEME_LIGHT
-                            :                              Launcher.THEME_SYSTEM;
+            String newTheme = rbThemeDark.isSelected() ? Launcher.THEME_DARK
+                    : rbThemeLight.isSelected() ? Launcher.THEME_LIGHT
+                      : Launcher.THEME_SYSTEM;
             String newAccent = selectedAccent[0] == null ? null
                     : String.format("#%06X", selectedAccent[0].getRGB() & 0xFFFFFF);
 
@@ -666,13 +710,13 @@ class SettingsDialog extends JDialog
                     config.windowWidth(), config.windowHeight(),
                     config.priorityList(),
                     explorerVal.isEmpty() ? null : explorerVal,
-                    editorVal.isEmpty()   ? null : editorVal,
-                    newOrder.isEmpty()    ? null : newOrder,
+                    editorVal.isEmpty() ? null : editorVal,
+                    newOrder.isEmpty() ? null : newOrder,
                     newButtonStyle, cbContextMenu.isSelected(),
-                    newToolbarActions.isEmpty()  ? null : newToolbarActions,
-                    newCustomActions.isEmpty()   ? null : newCustomActions,
-                    newAppTypes.isEmpty()        ? null : newAppTypes,
-                    newAssignments.isEmpty()     ? null : newAssignments,
+                    newToolbarActions.isEmpty() ? null : newToolbarActions,
+                    newCustomActions.isEmpty() ? null : newCustomActions,
+                    newAppTypes.isEmpty() ? null : newAppTypes,
+                    newAssignments.isEmpty() ? null : newAssignments,
                     newTheme, newAccent));
             dispose();
         });
@@ -688,7 +732,7 @@ class SettingsDialog extends JDialog
         return switch (key)
         {
             case Launcher.SVN_CHECKOUT_ACTION -> "SVN Checkout";
-            case Launcher.SVN_BROWSER_ACTION  -> "SVN Repository Browser";
+            case Launcher.SVN_BROWSER_ACTION -> "SVN Repository Browser";
             default ->
             {
                 if (config.customActions() != null)
@@ -704,9 +748,9 @@ class SettingsDialog extends JDialog
         return switch (key)
         {
             case Launcher.EXPLORE_ACTION -> "Open in File Explorer";
-            case Launcher.EDITOR_ACTION  -> "Open in Editor";
-            case Launcher.COPY_ACTION    -> "Copy with Robocopy";
-            case Launcher.DELETE_ACTION  -> "Delete";
+            case Launcher.EDITOR_ACTION -> "Open in Editor";
+            case Launcher.COPY_ACTION -> "Copy with Robocopy";
+            case Launcher.DELETE_ACTION -> "Delete";
             default ->
             {
                 if (config.customActions() != null)
@@ -728,25 +772,27 @@ class SettingsDialog extends JDialog
     {
         boolean isNew = (existing == null);
 
-        JTextField tfId     = new JTextField(isNew ? "" : existing.id(), 24);
-        JTextField tfLabel  = new JTextField(isNew ? "" : nvl(existing.label()),  24);
+        JTextField tfId = new JTextField(isNew ? "" : existing.id(), 24);
+        JTextField tfLabel = new JTextField(isNew ? "" : nvl(existing.label()), 24);
         JTextField tfScript = new JTextField(isNew ? "" : nvl(existing.scriptPath()), 32);
-        JTextField tfIcon   = new JTextField(isNew ? "" : nvl(existing.iconPath()),   32);
-        JTextField tfTip    = new JTextField(isNew ? "" : nvl(existing.tooltip()),    32);
+        JTextField tfIcon = new JTextField(isNew ? "" : nvl(existing.iconPath()), 32);
+        JTextField tfTip = new JTextField(isNew ? "" : nvl(existing.tooltip()), 32);
 
         if (!isNew) tfId.setEditable(false); // ID must stay stable once created
 
         // Scope radio buttons
-        JRadioButton rbEntry   = new JRadioButton("Entry action bar only");
+        JRadioButton rbEntry = new JRadioButton("Entry action bar only");
         JRadioButton rbToolbar = new JRadioButton("Toolbar only");
-        JRadioButton rbBoth    = new JRadioButton("Both (entry bar and toolbar)");
-        ButtonGroup  bgScope   = new ButtonGroup();
-        bgScope.add(rbEntry); bgScope.add(rbToolbar); bgScope.add(rbBoth);
+        JRadioButton rbBoth = new JRadioButton("Both (entry bar and toolbar)");
+        ButtonGroup bgScope = new ButtonGroup();
+        bgScope.add(rbEntry);
+        bgScope.add(rbToolbar);
+        bgScope.add(rbBoth);
 
         String currentScope = isNew ? null : existing.scope();
-        if      (CustomAction.SCOPE_ENTRY.equals(currentScope))   rbEntry.setSelected(true);
+        if (CustomAction.SCOPE_ENTRY.equals(currentScope)) rbEntry.setSelected(true);
         else if (CustomAction.SCOPE_TOOLBAR.equals(currentScope)) rbToolbar.setSelected(true);
-        else                                                       rbBoth.setSelected(true);
+        else rbBoth.setSelected(true);
 
         JPanel scopePanel = new JPanel(new GridLayout(3, 1, 0, 2));
         scopePanel.add(rbEntry);
@@ -785,21 +831,22 @@ class SettingsDialog extends JDialog
 
         JPanel p = new JPanel(new GridBagLayout());
         GridBagConstraints lc = new GridBagConstraints();
-        lc.anchor  = GridBagConstraints.NORTHWEST;
-        lc.insets  = new Insets(3, 0, 3, 8);
-        lc.gridx   = 0;
+        lc.anchor = GridBagConstraints.NORTHWEST;
+        lc.insets = new Insets(3, 0, 3, 8);
+        lc.gridx = 0;
 
         GridBagConstraints fc2 = new GridBagConstraints();
-        fc2.fill    = GridBagConstraints.HORIZONTAL;
+        fc2.fill = GridBagConstraints.HORIZONTAL;
         fc2.weightx = 1;
-        fc2.insets  = new Insets(3, 0, 3, 0);
-        fc2.gridx   = 1;
+        fc2.insets = new Insets(3, 0, 3, 0);
+        fc2.gridx = 1;
 
-        String[]    lbls = {"ID (unique key):", "Scope *:", "Label:", "Script / Executable:", "Icon image path:", "Tooltip:"};
+        String[] lbls = {"ID (unique key):", "Scope *:", "Label:", "Script / Executable:", "Icon image path:", "Tooltip:"};
         Component[] flds = {tfId, scopePanel, tfLabel, scriptRow, iconRow, tfTip};
         for (int i = 0; i < lbls.length; i++)
         {
-            lc.gridy = i; fc2.gridy = i;
+            lc.gridy = i;
+            fc2.gridy = i;
             p.add(new JLabel(lbls[i]), lc);
             p.add(flds[i], fc2);
         }
@@ -824,22 +871,25 @@ class SettingsDialog extends JDialog
             return null;
         }
 
-        String scope      = rbEntry.isSelected()   ? CustomAction.SCOPE_ENTRY
-                          : rbToolbar.isSelected() ? CustomAction.SCOPE_TOOLBAR
-                          :                          CustomAction.SCOPE_BOTH;
+        String scope = rbEntry.isSelected() ? CustomAction.SCOPE_ENTRY
+                : rbToolbar.isSelected() ? CustomAction.SCOPE_TOOLBAR
+                  : CustomAction.SCOPE_BOTH;
         String scriptPath = tfScript.getText().trim();
-        String iconPath   = tfIcon.getText().trim();
-        String label      = tfLabel.getText().trim();
-        String tooltip    = tfTip.getText().trim();
+        String iconPath = tfIcon.getText().trim();
+        String label = tfLabel.getText().trim();
+        String tooltip = tfTip.getText().trim();
 
         return new CustomAction(id, scope,
-                iconPath.isEmpty()   ? null : iconPath,
+                iconPath.isEmpty() ? null : iconPath,
                 scriptPath.isEmpty() ? null : scriptPath,
-                label.isEmpty()      ? null : label,
-                tooltip.isEmpty()    ? null : tooltip);
+                label.isEmpty() ? null : label,
+                tooltip.isEmpty() ? null : tooltip);
     }
 
-    private static String nvl(String s) { return s != null ? s : ""; }
+    private static String nvl(String s)
+    {
+        return s != null ? s : "";
+    }
 
     // ── Application type editor ───────────────────────────────────────────────
 
@@ -847,7 +897,7 @@ class SettingsDialog extends JDialog
     {
         boolean isNew = (existing == null);
 
-        JTextField tfId   = new JTextField(isNew ? "" : existing.id(), 22);
+        JTextField tfId = new JTextField(isNew ? "" : existing.id(), 22);
         JTextField tfIcon = new JTextField(isNew ? "" : nvl(existing.iconPath()), 32);
 
         String pathsText = (existing != null && existing.executablePaths() != null)
@@ -878,25 +928,34 @@ class SettingsDialog extends JDialog
         iconRow.add(browseIcon, BorderLayout.EAST);
 
         JPanel p = new JPanel(new GridBagLayout());
-        GridBagConstraints lc  = new GridBagConstraints();
-        lc.anchor  = GridBagConstraints.NORTHWEST; lc.insets = new Insets(4, 0, 4, 8); lc.gridx = 0;
+        GridBagConstraints lc = new GridBagConstraints();
+        lc.anchor = GridBagConstraints.NORTHWEST;
+        lc.insets = new Insets(4, 0, 4, 8);
+        lc.gridx = 0;
         GridBagConstraints fc2 = new GridBagConstraints();
-        fc2.fill   = GridBagConstraints.HORIZONTAL; fc2.weightx = 1; fc2.insets = new Insets(4, 0, 4, 0); fc2.gridx = 1;
+        fc2.fill = GridBagConstraints.HORIZONTAL;
+        fc2.weightx = 1;
+        fc2.insets = new Insets(4, 0, 4, 0);
+        fc2.gridx = 1;
 
-        String[]    lblTexts = {"ID (unique key):", "Icon image path:",
-                                "Executable paths\n(one per line, highest priority first):",
-                                "Executable names\n(one per line, highest priority first):"};
-        Component[] fields   = {tfId, iconRow, new JScrollPane(taPaths), new JScrollPane(taNames)};
+        String[] lblTexts = {"ID (unique key):", "Icon image path:",
+                "Executable paths\n(one per line, highest priority first):",
+                "Executable names\n(one per line, highest priority first):"};
+        Component[] fields = {tfId, iconRow, new JScrollPane(taPaths), new JScrollPane(taNames)};
         for (int i = 0; i < lblTexts.length; i++)
         {
-            lc.gridy = i; fc2.gridy = i;
+            lc.gridy = i;
+            fc2.gridy = i;
             JLabel lbl = new JLabel("<html>" + lblTexts[i].replace("\n", "<br>") + "</html>");
             lbl.setFont(lbl.getFont().deriveFont(11f));
             p.add(lbl, lc);
             p.add(fields[i], fc2);
         }
         GridBagConstraints hc = new GridBagConstraints();
-        hc.gridx = 0; hc.gridy = lblTexts.length; hc.gridwidth = 2; hc.anchor = GridBagConstraints.WEST;
+        hc.gridx = 0;
+        hc.gridy = lblTexts.length;
+        hc.gridwidth = 2;
+        hc.anchor = GridBagConstraints.WEST;
         hc.insets = new Insets(4, 0, 0, 0);
         JLabel hint = new JLabel("<html><i>Use \"\" (empty string) as a path to search the app folder root.<br>"
                 + "Names may include .lnk shortcuts and .exe files.</i></html>");
@@ -930,13 +989,16 @@ class SettingsDialog extends JDialog
         String[] nameLines = taNames.getText().split("\\n", -1);
         List<String> names = new ArrayList<>(nameLines.length);
         for (String line : nameLines)
-        { String t = line.trim(); if (!t.isEmpty()) names.add(t); }
+        {
+            String t = line.trim();
+            if (!t.isEmpty()) names.add(t);
+        }
 
         String iconPath = tfIcon.getText().trim();
         return new AppType(id,
                 iconPath.isEmpty() ? null : iconPath,
-                paths.isEmpty()    ? null : paths,
-                names.isEmpty()    ? null : names);
+                paths.isEmpty() ? null : paths,
+                names.isEmpty() ? null : names);
     }
 
     // ── Assignment editor ─────────────────────────────────────────────────────
@@ -1021,24 +1083,30 @@ class SettingsDialog extends JDialog
         return ids;
     }
 
-    /** Builds the two-row folder/type panel shared by both assignment editors. */
+    /**
+     * Builds the two-row folder/type panel shared by both assignment editors.
+     */
     private static JPanel buildAssignmentPanel(Component folderComponent, JComboBox<String> cbType)
     {
         JPanel p = new JPanel(new GridBagLayout());
-        GridBagConstraints lc  = new GridBagConstraints();
-        lc.anchor  = GridBagConstraints.WEST;
-        lc.insets  = new Insets(4, 0, 4, 8);
-        lc.gridx   = 0;
+        GridBagConstraints lc = new GridBagConstraints();
+        lc.anchor = GridBagConstraints.WEST;
+        lc.insets = new Insets(4, 0, 4, 8);
+        lc.gridx = 0;
         GridBagConstraints fc = new GridBagConstraints();
-        fc.fill    = GridBagConstraints.HORIZONTAL;
+        fc.fill = GridBagConstraints.HORIZONTAL;
         fc.weightx = 1;
-        fc.insets  = new Insets(4, 0, 4, 0);
-        fc.gridx   = 1;
+        fc.insets = new Insets(4, 0, 4, 0);
+        fc.gridx = 1;
 
-        lc.gridy = 0; fc.gridy = 0;
-        p.add(new JLabel("Folder name:"),      lc); p.add(folderComponent, fc);
-        lc.gridy = 1; fc.gridy = 1;
-        p.add(new JLabel("Application type:"), lc); p.add(cbType, fc);
+        lc.gridy = 0;
+        fc.gridy = 0;
+        p.add(new JLabel("Folder name:"), lc);
+        p.add(folderComponent, fc);
+        lc.gridy = 1;
+        fc.gridy = 1;
+        p.add(new JLabel("Application type:"), lc);
+        p.add(cbType, fc);
         return p;
     }
 
@@ -1061,28 +1129,63 @@ class SettingsDialog extends JDialog
      * </ul>
      * Falls back to the Windows-blue default ({@code #0078D7}) when no accent is configured.
      */
-    private Color sectionLabelColor()
-    {
-        Color accent = Launcher.parseHexColor(config.accentColor(), Launcher.DEFAULT_ACCENT);
-        if (ColorTheme.isDark())
-        {
-            // Lighten: blend 40 % toward white
-            int r = (int) (accent.getRed()   + (255 - accent.getRed())   * 0.4);
-            int g = (int) (accent.getGreen() + (255 - accent.getGreen()) * 0.4);
-            int b = (int) (accent.getBlue()  + (255 - accent.getBlue())  * 0.4);
-            return new Color(clamp(r), clamp(g), clamp(b));
-        }
-        else
-        {
-            // Darken: blend 35 % toward black
-            int r = (int) (accent.getRed()   * 0.65);
-            int g = (int) (accent.getGreen() * 0.65);
-            int b = (int) (accent.getBlue()  * 0.65);
-            return new Color(clamp(r), clamp(g), clamp(b));
-        }
+private Color sectionLabelColor() {
+    Color accent = Launcher.parseHexColor(config.accentColor(), Launcher.DEFAULT_ACCENT);
+    int base = accent.getRGB();
+
+    // Pack R, G, B into a long: [0][R:16][G:16][B:16]
+    // Each channel gets 16 bits so overflow from multiply can't bleed into neighbours
+    long rgb = ((long) (base >> 16 & 0xFF) << 32)
+            | ((long) (base >>  8 & 0xFF) << 16)
+            |         (base       & 0xFF);
+
+    long result;
+    if (ColorTheme.isDark()) {
+        // Lighten: blend 40% toward white  →  ch + (255 - ch) * 0.4
+        //        = ch * 0.6 + 255 * 0.4
+        //        = ch * 6 / 10 + 102
+        // Multiply every packed channel by 6 (no inter-channel overflow in 16-bit lanes)
+        long scaled = rgb * 6;                              // ch * 6, still in 16-bit lanes
+        // Add 102 (= floor(255 * 0.4)) to every lane simultaneously
+        long bias   = (102L << 32) | (102L << 16) | 102L;
+        long sum    = scaled + bias;                        // ch*6 + 102, no carry bleed
+        // Divide each lane by 10 – extract, divide, repack
+        result = divLanes10(sum);
+    } else {
+        // Darken: blend 35% toward black  →  ch * 0.65 = ch * 13 / 20
+        long scaled = rgb * 13;
+        result = divLanes20(scaled);
     }
 
-    private static int clamp(int v) { return Math.max(0, Math.min(255, v)); }
+    // Unpack and clamp (clamp guards against the integer-division rounding)
+    int r = clamp((int) (result >> 32 & 0xFF));
+    int g = clamp((int) (result >> 16 & 0xFF));
+    int b = clamp((int) (result       & 0xFF));
+    return new Color(r, g, b);
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+    /** Divide each 16-bit lane in a packed [R|G|B] long by 10. */
+    private static long divLanes10(long v) {
+        int r = (int) (v >> 32 & 0xFFFF) / 10;
+        int g = (int) (v >> 16 & 0xFFFF) / 10;
+        int b = (int) (v       & 0xFFFF) / 10;
+        return ((long) r << 32) | ((long) g << 16) | b;
+    }
+
+    /** Divide each 16-bit lane in a packed [R|G|B] long by 20. */
+    private static long divLanes20(long v) {
+        int r = (int) (v >> 32 & 0xFFFF) / 20;
+        int g = (int) (v >> 16 & 0xFFFF) / 20;
+        int b = (int) (v       & 0xFFFF) / 20;
+        return ((long) r << 32) | ((long) g << 16) | b;
+    }
+
+    private static int clamp(int v)
+    {
+        return Math.clamp(v, 0, 255);
+    }
 
     private static JSeparator separator()
     {
@@ -1120,7 +1223,12 @@ class SettingsDialog extends JDialog
             final File dir = openDir;
             btn.addActionListener(e ->
             {
-                try { Desktop.getDesktop().open(dir); } catch (Exception ignored) {}
+                try
+                {
+                    Desktop.getDesktop().open(dir);
+                } catch (Exception ignored)
+                {
+                }
             });
             row.add(btn, BorderLayout.EAST);
         }
