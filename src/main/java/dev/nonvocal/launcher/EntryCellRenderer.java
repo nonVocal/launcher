@@ -92,13 +92,14 @@ final class EntryCellRenderer extends JPanel implements ListCellRenderer<LaunchE
     private final transient FileSystemView fsv = FileSystemView.getFileSystemView();
 
     EntryCellRenderer(List<String> actionOrder, String buttonStyle,
-                      Map<String, CustomAction> customActionMap)
+                      Map<String, CustomAction> customActionMap,
+                      Map<String, String> customThemeColors)
     {
         this.actionOrder = actionOrder;
         isHamburger      = Launcher.BUTTON_STYLE_HAMBURGER.equals(buttonStyle);
 
         // ── Resolve theme-aware colours against the active Look-and-Feel ──────
-        theme = ColorTheme.forCurrentLaf();
+        theme = ColorTheme.forCurrentLaf(customThemeColors);
         btnNormalBorder   = BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(theme.actBord, 1),
                 BorderFactory.createEmptyBorder(1, 3, 1, 3));

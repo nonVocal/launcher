@@ -38,7 +38,8 @@ record LauncherConfig(
         Map<String, String> appTypeAssignments,   // folderName → appType id
         String              theme,                // "light", "dark", null/"system"
         String              accentColor,          // hex string e.g. "#0078D7", null = default
-        List<String>        hiddenEntries)        // folder/file names excluded from the list
+        List<String>        hiddenEntries,        // folder/file names excluded from the list
+        Map<String, String> customThemeColors)    // per-key hex overrides, e.g. {"rowEven":"#2B2D30"}
 {
     // ── Static paths ───────────────────────────────────────────────────────────
 
@@ -66,13 +67,13 @@ record LauncherConfig(
     /** All fields null – represents "nothing set at this level". */
     static LauncherConfig empty()
     {
-        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /** Hardcoded application defaults (all fields non-null). */
     static LauncherConfig defaults()
     {
-        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -119,7 +120,8 @@ record LauncherConfig(
                 appTypeAssignments  != null ? appTypeAssignments  : base.appTypeAssignments,
                 theme               != null ? theme               : base.theme,
                 accentColor         != null ? accentColor         : base.accentColor,
-                hiddenEntries       != null ? hiddenEntries       : base.hiddenEntries);
+                hiddenEntries       != null ? hiddenEntries       : base.hiddenEntries,
+                customThemeColors   != null ? customThemeColors   : base.customThemeColors);
     }
 
     /**
@@ -145,7 +147,8 @@ record LauncherConfig(
                 appTypeAssignments,
                 theme,
                 accentColor,
-                hiddenEntries);
+                hiddenEntries,
+                customThemeColors);
     }
 
     // ── Persistence ────────────────────────────────────────────────────────────
@@ -206,6 +209,10 @@ record LauncherConfig(
         if (hiddenEntries != null && !hiddenEntries.isEmpty())
         {
             lines.add(jsonStrList("hiddenEntries", hiddenEntries));
+        }
+        if (customThemeColors != null && !customThemeColors.isEmpty())
+        {
+            lines.add(jsonCustomThemeColors(customThemeColors));
         }
         return "{\n" + String.join(",\n", lines) + "\n}";
     }
@@ -298,6 +305,21 @@ record LauncherConfig(
         return sb.toString();
     }
 
+    private static String jsonCustomThemeColors(Map<String, String> colors)
+    {
+        StringBuilder sb = new StringBuilder("  \"customThemeColors\": {\n");
+        int i = 0;
+        for (Map.Entry<String, String> e : colors.entrySet())
+        {
+            sb.append("    ").append(jsonStr(e.getKey())).append(": ").append(jsonStr(e.getValue()));
+            if (i < colors.size() - 1) sb.append(",");
+            sb.append("\n");
+            i++;
+        }
+        sb.append("  }");
+        return sb.toString();
+    }
+
     private static String jsonStr(String s)
     {
         if (s == null) return "null";
@@ -335,7 +357,8 @@ record LauncherConfig(
                 parseAppTypeAssignments(json),
                 parseStr              (json, "theme"),
                 parseStr              (json, "accentColor"),
-                parseStrList          (json, "hiddenEntries"));
+                parseStrList          (json, "hiddenEntries"),
+                parseCustomThemeColors(json));
     }
 
     // ── CustomAction deserialisation ──────────────────────────────────────────
@@ -511,6 +534,39 @@ record LauncherConfig(
             result.add(em.group(1).replace("\\\\", "\\").replace("\\\"", "\""));
         }
         return result;
+    }
+
+    private static Map<String, String> parseCustomThemeColors(String json)
+    {
+        int keyIdx = json.indexOf("\"customThemeColors\"");
+        if (keyIdx < 0) return null;
+        int objStart = json.indexOf('{', keyIdx);
+        if (objStart < 0) return null;
+
+        int depth = 0, objEnd = objStart;
+        boolean inStr = false;
+        for (int i = objStart; i < json.length(); i++)
+        {
+            char c = json.charAt(i);
+            if (inStr) { if (c == '\\') i++; else if (c == '"') inStr = false; }
+            else if (c == '"') inStr = true;
+            else if (c == '{') depth++;
+            else if (c == '}') { if (--depth == 0) { objEnd = i; break; } }
+        }
+        String inner = json.substring(objStart + 1, objEnd).trim();
+        if (inner.isEmpty()) return null;
+
+        // Extract consecutive quoted-string pairs → (key, value)
+        Map<String, String> result = new LinkedHashMap<>();
+        Matcher m = QUOTED_STRING_PATTERN.matcher(inner);
+        while (m.find())
+        {
+            String k = m.group(1);
+            if (!m.find()) break;
+            String v = m.group(1);
+            if (!k.isBlank() && !v.isBlank()) result.put(k, v);
+        }
+        return result.isEmpty() ? null : result;
     }
 }
 

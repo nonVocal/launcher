@@ -177,7 +177,7 @@ public class Launcher extends JFrame
 
         // Create the renderer AFTER the theme is active so its colours are correct.
         cellRenderer = new EntryCellRenderer(effectiveActionOrder, effectiveButtonStyle,
-                                             effectiveCustomActionMap);
+                                             effectiveCustomActionMap, cfg.customThemeColors());
         if (list != null)
         {
             list.setCellRenderer(cellRenderer);
@@ -597,7 +597,7 @@ public class Launcher extends JFrame
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
                 config.toolbarActions(), config.customActions(),
                 config.appTypes(), config.appTypeAssignments(), config.theme(), config.accentColor(),
-                config.hiddenEntries());
+                config.hiddenEntries(), config.customThemeColors());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -612,7 +612,7 @@ public class Launcher extends JFrame
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
                 config.toolbarActions(), config.customActions(),
                 config.appTypes(), config.appTypeAssignments(), config.theme(), config.accentColor(),
-                config.hiddenEntries());
+                config.hiddenEntries(), config.customThemeColors());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -718,7 +718,7 @@ public class Launcher extends JFrame
     {
         if (legendPanel == null) return;   // buildUI not yet called
 
-        ColorTheme theme = ColorTheme.forCurrentLaf();
+        ColorTheme theme = ColorTheme.forCurrentLaf(config != null ? config.customThemeColors() : null);
 
         // Header – use configured accent colour, fall back to the default Windows blue
         if (headerPanel != null)
@@ -870,7 +870,7 @@ public class Launcher extends JFrame
                 merged.actionOrder(), merged.entryButtonStyle(), merged.showContextMenu(),
                 merged.toolbarActions(), merged.customActions(),
                 merged.appTypes(), merged.appTypeAssignments(), merged.theme(), merged.accentColor(),
-                merged.hiddenEntries());
+                merged.hiddenEntries(), merged.customThemeColors());
         resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
 
         final boolean minimized = startMinimized;

@@ -726,6 +726,151 @@ class SettingsDialog extends JDialog
         tabHidden.add(hiddenListPanel);
         tabs.addTab("Hidden Entries", new JScrollPane(tabHidden));
 
+        // ── Tab 6: Colors ─────────────────────────────────────────────────────
+        JPanel tabColors = new JPanel();
+        tabColors.setLayout(new BoxLayout(tabColors, BoxLayout.Y_AXIS));
+        tabColors.setBorder(TAB_PANEL_BORDER);
+
+        tabColors.add(sectionLabel("Custom Theme Colors"));
+        tabColors.add(Box.createVerticalStrut(4));
+        JLabel colorsHint = new JLabel(
+                "Override individual theme colors. A hatched swatch means \u201cuse theme default\u201d.");
+        colorsHint.setFont(colorsHint.getFont().deriveFont(Font.ITALIC, 10f));
+        colorsHint.setForeground(Color.GRAY);
+        colorsHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabColors.add(colorsHint);
+        tabColors.add(Box.createVerticalStrut(6));
+
+        // Ordered list of (configKey, human-readable label) pairs
+        String[][] colorDefs = {
+            {"rowEven",    "Even row background"},
+            {"rowOdd",     "Odd row background"},
+            {"fgScript",   "Script text color"},
+            {"fgFolder",   "App folder text color"},
+            {"fgPlain",    "Plain folder text color"},
+            {"selBg",      "Selection background"},
+            {"actFg",      "Action button text"},
+            {"actDel",     "Delete button text"},
+            {"actBg",      "Action button background"},
+            {"actBord",    "Action button border"},
+            {"selActBg",   "Selected action background"},
+            {"selActBord", "Selected action border"},
+            {"sepColor",   "Separator / border color"},
+            {"searchFg",   "Search label color"}
+        };
+
+        // Mutable map of currently chosen colors (null value → use theme default)
+        Map<String, Color> customColorSelections = new LinkedHashMap<>();
+        if (config.customThemeColors() != null)
+        {
+            config.customThemeColors().forEach((k, v) ->
+            {
+                Color c = Launcher.parseHexColor(v, null);
+                if (c != null) customColorSelections.put(k, c);
+            });
+        }
+
+        JPanel colorGrid = new JPanel(new GridBagLayout());
+        colorGrid.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        List<Runnable> colorResetActions = new ArrayList<>();
+
+        for (int ci = 0; ci < colorDefs.length; ci++)
+        {
+            String colorKey   = colorDefs[ci][0];
+            String colorLabel = colorDefs[ci][1];
+            Color[] currentColor = { customColorSelections.get(colorKey) };
+
+            GridBagConstraints glc = new GridBagConstraints();
+            glc.gridx = 0; glc.gridy = ci;
+            glc.anchor = GridBagConstraints.WEST;
+            glc.insets = new Insets(2, 0, 2, 8);
+            JLabel clbl = new JLabel(colorLabel + ":");
+            clbl.setFont(clbl.getFont().deriveFont(11f));
+            colorGrid.add(clbl, glc);
+
+            JPanel swatch = new JPanel()
+            {
+                @Override protected void paintComponent(Graphics g)
+                {
+                    super.paintComponent(g);
+                    if (currentColor[0] != null)
+                    {
+                        g.setColor(currentColor[0]);
+                        g.fillRect(0, 0, getWidth(), getHeight());
+                    }
+                    else
+                    {
+                        // Hatched pattern = "using theme default"
+                        g.setColor(UIManager.getColor("Panel.background") != null
+                                ? UIManager.getColor("Panel.background") : Color.LIGHT_GRAY);
+                        g.fillRect(0, 0, getWidth(), getHeight());
+                        g.setColor(Color.GRAY);
+                        for (int dx = -getHeight(); dx < getWidth(); dx += 4)
+                            g.drawLine(dx, 0, dx + getHeight(), getHeight());
+                    }
+                }
+            };
+            swatch.setPreferredSize(new Dimension(22, 22));
+            swatch.setMinimumSize(new Dimension(22, 22));
+            swatch.setMaximumSize(new Dimension(22, 22));
+            swatch.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+            swatch.setOpaque(false);
+
+            JButton pickBtn  = new JButton("Pick\u2026");
+            JButton resetBtn = new JButton("Reset");
+
+            pickBtn.addActionListener(ev ->
+            {
+                Color initial = currentColor[0] != null ? currentColor[0] : Color.GRAY;
+                Color chosen  = JColorChooser.showDialog(this,
+                        "Choose color for \u201c" + colorLabel + "\u201d", initial);
+                if (chosen != null)
+                {
+                    currentColor[0] = chosen;
+                    customColorSelections.put(colorKey, chosen);
+                    swatch.repaint();
+                }
+            });
+            resetBtn.addActionListener(ev ->
+            {
+                currentColor[0] = null;
+                customColorSelections.remove(colorKey);
+                swatch.repaint();
+            });
+            colorResetActions.add(() ->
+            {
+                currentColor[0] = null;
+                customColorSelections.remove(colorKey);
+                swatch.repaint();
+            });
+
+            GridBagConstraints gsc = new GridBagConstraints();
+            gsc.gridx = 1; gsc.gridy = ci; gsc.insets = new Insets(2, 0, 2, 4);
+            colorGrid.add(swatch, gsc);
+
+            GridBagConstraints gpc = new GridBagConstraints();
+            gpc.gridx = 2; gpc.gridy = ci; gpc.insets = new Insets(2, 0, 2, 2);
+            colorGrid.add(pickBtn, gpc);
+
+            GridBagConstraints grc = new GridBagConstraints();
+            grc.gridx = 3; grc.gridy = ci; grc.insets = new Insets(2, 0, 2, 0);
+            colorGrid.add(resetBtn, grc);
+        }
+
+        JButton resetAllColorsBtn = new JButton("Reset All to Theme Defaults");
+        resetAllColorsBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        resetAllColorsBtn.addActionListener(ev ->
+        {
+            customColorSelections.clear();
+            colorResetActions.forEach(Runnable::run);
+        });
+
+        tabColors.add(resetAllColorsBtn);
+        tabColors.add(Box.createVerticalStrut(8));
+        tabColors.add(colorGrid);
+        tabs.addTab("Colors", new JScrollPane(tabColors));
+
         main.add(tabs, BorderLayout.CENTER);
 
         // ── Save / Cancel ─────────────────────────────────────────────────────
@@ -777,6 +922,16 @@ class SettingsDialog extends JDialog
             List<String> newHiddenEntries = new ArrayList<>(hiddenModel.getSize());
             for (int i = 0; i < hiddenModel.getSize(); i++) newHiddenEntries.add(hiddenModel.getElementAt(i));
 
+            // Collect custom theme color overrides as hex strings
+            Map<String, String> newCustomThemeColors = null;
+            if (!customColorSelections.isEmpty())
+            {
+                newCustomThemeColors = new LinkedHashMap<>();
+                for (Map.Entry<String, Color> ce : customColorSelections.entrySet())
+                    newCustomThemeColors.put(ce.getKey(),
+                            String.format("#%06X", ce.getValue().getRGB() & 0xFFFFFF));
+            }
+
             onSave.accept(new LauncherConfig(
                     config.rootFolder(), cbMinimized.isSelected(),
                     config.windowWidth(), config.windowHeight(),
@@ -790,7 +945,8 @@ class SettingsDialog extends JDialog
                     newAppTypes.isEmpty() ? null : newAppTypes,
                     newAssignments.isEmpty() ? null : newAssignments,
                     newTheme, newAccent,
-                    newHiddenEntries.isEmpty() ? null : newHiddenEntries));
+                    newHiddenEntries.isEmpty() ? null : newHiddenEntries,
+                    newCustomThemeColors));
             dispose();
         });
         btnCancel.addActionListener(e -> dispose());

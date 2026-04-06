@@ -2,6 +2,7 @@ package dev.nonvocal.launcher;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.Map;
 
 /**
  * Holds all theme-aware colours for the launcher's cell renderer.
@@ -57,6 +58,47 @@ final class ColorTheme
                 base.actFg, base.actDel, base.actBg, base.actBord,
                 base.selActBg, base.selActBord,
                 sepColor, base.searchFg);
+    }
+
+    /**
+     * Returns a {@link ColorTheme} resolved against the active Look-and-Feel,
+     * then applies any per-key hex-string overrides from {@code customColors}.
+     * Pass {@code null} or an empty map to skip overrides.
+     */
+    static ColorTheme forCurrentLaf(Map<String, String> customColors)
+    {
+        ColorTheme base = forCurrentLaf();
+        if (customColors == null || customColors.isEmpty()) return base;
+        return applyCustomColors(base, customColors);
+    }
+
+    /** Builds a new {@link ColorTheme} identical to {@code base} except where {@code overrides} supplies a colour. */
+    private static ColorTheme applyCustomColors(ColorTheme base, Map<String, String> overrides)
+    {
+        return new ColorTheme(
+                override(overrides, "rowEven",    base.rowEven),
+                override(overrides, "rowOdd",     base.rowOdd),
+                override(overrides, "fgScript",   base.fgScript),
+                override(overrides, "fgFolder",   base.fgFolder),
+                override(overrides, "fgPlain",    base.fgPlain),
+                override(overrides, "selBg",      base.selBg),
+                override(overrides, "actFg",      base.actFg),
+                override(overrides, "actDel",     base.actDel),
+                override(overrides, "actBg",      base.actBg),
+                override(overrides, "actBord",    base.actBord),
+                override(overrides, "selActBg",   base.selActBg),
+                override(overrides, "selActBord", base.selActBord),
+                override(overrides, "sepColor",   base.sepColor),
+                override(overrides, "searchFg",   base.searchFg));
+    }
+
+    /** Returns the decoded colour for {@code key} in {@code overrides}, or {@code fallback} if absent / unparseable. */
+    private static Color override(Map<String, String> overrides, String key, Color fallback)
+    {
+        String hex = overrides.get(key);
+        if (hex == null || hex.isBlank()) return fallback;
+        try   { return Color.decode(hex); }
+        catch (NumberFormatException ignored) { return fallback; }
     }
 
     // ── Theme detection ───────────────────────────────────────────────────────

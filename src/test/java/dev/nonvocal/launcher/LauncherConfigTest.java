@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -61,8 +62,8 @@ class LauncherConfigTest
     @Test
     void mergeOver_nonNullFieldsInOverrideWin()
     {
-        LauncherConfig base = new LauncherConfig("base", false, 400, 400, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        LauncherConfig over = new LauncherConfig("over", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        LauncherConfig base = new LauncherConfig("base", false, 400, 400, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        LauncherConfig over = new LauncherConfig("over", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         LauncherConfig merged = over.mergeOver(base);
 
         assertEquals("over", merged.rootFolder());   // override wins
@@ -74,7 +75,7 @@ class LauncherConfigTest
     void mergeOver_nullFieldsFallBackToBase()
     {
         LauncherConfig base = new LauncherConfig(
-                "baseRoot", true, 800, 600, null, "exp.exe", "nano", null, "ICONS", true, null, null, null, null, null, null, null);
+                "baseRoot", true, 800, 600, null, "exp.exe", "nano", null, "ICONS", true, null, null, null, null, null, null, null, null);
         LauncherConfig merged = LauncherConfig.empty().mergeOver(base);
 
         assertEquals("baseRoot",  merged.rootFolder());
@@ -91,9 +92,9 @@ class LauncherConfigTest
     void mergeOver_allFieldsOverridden()
     {
         LauncherConfig base = new LauncherConfig("base", false, 400, 400,
-                List.of("a"), "e1", "ed1", List.of("X"), "ICONS", true, null, null, null, null, null, null, null);
+                List.of("a"), "e1", "ed1", List.of("X"), "ICONS", true, null, null, null, null, null, null, null, null);
         LauncherConfig over = new LauncherConfig("over", true, 800, 900,
-                List.of("b"), "e2", "ed2", List.of("Y"), "HAMBURGER", false, null, null, null, null, null, null, null);
+                List.of("b"), "e2", "ed2", List.of("Y"), "HAMBURGER", false, null, null, null, null, null, null, null, null);
         LauncherConfig merged = over.mergeOver(base);
 
         assertEquals("over",                  merged.rootFolder());
@@ -111,9 +112,9 @@ class LauncherConfigTest
     @Test
     void mergeOver_threeLevels_explicit_overrides_instance_overrides_global()
     {
-        LauncherConfig global   = new LauncherConfig("globalRoot", false, 400, 400, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        LauncherConfig instance = new LauncherConfig(null, null, 600, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        LauncherConfig explicit = new LauncherConfig("explicitRoot", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        LauncherConfig global   = new LauncherConfig("globalRoot", false, 400, 400, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        LauncherConfig instance = new LauncherConfig(null, null, 600, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        LauncherConfig explicit = new LauncherConfig("explicitRoot", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         LauncherConfig merged = explicit.mergeOver(instance.mergeOver(global)).withDefaults();
 
@@ -138,7 +139,7 @@ class LauncherConfigTest
     void withDefaults_preservesExplicitValues()
     {
         LauncherConfig c = new LauncherConfig(
-                null, true, 1024, 768, null, null, null, null, null, null, null, null, null, null, null, null, null).withDefaults();
+                null, true, 1024, 768, null, null, null, null, null, null, null, null, null, null, null, null, null, null).withDefaults();
         assertEquals(true, c.startMinimized());
         assertEquals(1024, c.windowWidth());
         assertEquals(768,  c.windowHeight());
@@ -165,7 +166,7 @@ class LauncherConfigTest
     {
         File f = new File(tmp, "config.json");
         LauncherConfig original = new LauncherConfig(
-                "C:\\Apps", true, 700, 500, null, "explorer.exe", "code", null, "HAMBURGER", false, null, null, null, null, null, null, null);
+                "C:\\Apps", true, 700, 500, null, "explorer.exe", "code", null, "HAMBURGER", false, null, null, null, null, null, null, null, null);
         original.save(f);
 
         LauncherConfig loaded = LauncherConfig.loadFile(f);
@@ -184,7 +185,7 @@ class LauncherConfigTest
     {
         File f = new File(tmp, "config.json");
         List<String> priority = List.of("app-one", "app-two", "daily-script.bat");
-        new LauncherConfig(null, null, null, null, priority, null, null, null, null, null, null, null, null, null, null, null, null).save(f);
+        new LauncherConfig(null, null, null, null, priority, null, null, null, null, null, null, null, null, null, null, null, null, null).save(f);
 
         assertEquals(priority, LauncherConfig.loadFile(f).priorityList());
     }
@@ -194,7 +195,7 @@ class LauncherConfigTest
     {
         File f = new File(tmp, "config.json");
         List<String> order = List.of("EXPLORE_ACTION", "DELETE_ACTION");
-        new LauncherConfig(null, null, null, null, null, null, null, order, null, null, null, null, null, null, null, null, null).save(f);
+        new LauncherConfig(null, null, null, null, null, null, null, order, null, null, null, null, null, null, null, null, null, null).save(f);
 
         assertEquals(order, LauncherConfig.loadFile(f).actionOrder());
     }
@@ -204,7 +205,7 @@ class LauncherConfigTest
     {
         File f = new File(tmp, "config.json");
         String path = "C:\\My Apps\\Sub Folder";
-        new LauncherConfig(path, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null).save(f);
+        new LauncherConfig(path, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null).save(f);
 
         assertEquals(path, LauncherConfig.loadFile(f).rootFolder());
     }
@@ -214,7 +215,7 @@ class LauncherConfigTest
     {
         File f = new File(tmp, "config.json");
         String editor = "C:\\Program Files\\\"My Editor\"\\edit.exe";
-        new LauncherConfig(null, null, null, null, null, null, editor, null, null, null, null, null, null, null, null, null, null).save(f);
+        new LauncherConfig(null, null, null, null, null, null, editor, null, null, null, null, null, null, null, null, null, null, null).save(f);
 
         assertEquals(editor, LauncherConfig.loadFile(f).editor());
     }
@@ -235,7 +236,7 @@ class LauncherConfigTest
     void save_emptyActionOrder_isNotWrittenToJson(@TempDir File tmp) throws IOException
     {
         File f = new File(tmp, "config.json");
-        new LauncherConfig(null, null, null, null, null, null, null, List.of(), null, null, null, null, null, null, null, null, null).save(f);
+        new LauncherConfig(null, null, null, null, null, null, null, List.of(), null, null, null, null, null, null, null, null, null, null).save(f);
 
         // An empty array is not serialized; on load the field will be absent → null
         assertNull(LauncherConfig.loadFile(f).actionOrder(),
@@ -308,6 +309,47 @@ class LauncherConfigTest
         LauncherConfig c = LauncherConfig.loadFile(f);
         assertNull(c.rootFolder(), "Explicit JSON null should be treated as not-set (null)");
         assertEquals(500, c.windowWidth());
+    }
+
+    // ── customThemeColors round-trip ──────────────────────────────────────────
+
+    @Test
+    void saveAndLoad_customThemeColors(@TempDir File tmp) throws IOException
+    {
+        File f = new File(tmp, "colors.json");
+        Map<String, String> colors = new java.util.LinkedHashMap<>();
+        colors.put("rowEven", "#2B2D30");
+        colors.put("fgScript", "#4FC1DA");
+        colors.put("searchFg", "#66AAFF");
+        new LauncherConfig(null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, colors).save(f);
+
+        LauncherConfig loaded = LauncherConfig.loadFile(f);
+        assertNotNull(loaded.customThemeColors());
+        assertEquals("#2B2D30", loaded.customThemeColors().get("rowEven"));
+        assertEquals("#4FC1DA", loaded.customThemeColors().get("fgScript"));
+        assertEquals("#66AAFF", loaded.customThemeColors().get("searchFg"));
+    }
+
+    @Test
+    void mergeOver_customThemeColors_overrideWins(@TempDir File tmp)
+    {
+        Map<String, String> baseColors = Map.of("rowEven", "#111111");
+        Map<String, String> overColors = Map.of("rowEven", "#AABBCC", "fgScript", "#FF0000");
+        LauncherConfig base = new LauncherConfig(null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, baseColors);
+        LauncherConfig over = new LauncherConfig(null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, overColors);
+
+        LauncherConfig merged = over.mergeOver(base);
+        assertEquals("#AABBCC", merged.customThemeColors().get("rowEven"));
+        assertEquals("#FF0000", merged.customThemeColors().get("fgScript"));
+    }
+
+    @Test
+    void empty_customThemeColors_isNull()
+    {
+        assertNull(LauncherConfig.empty().customThemeColors());
     }
 }
 
