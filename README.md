@@ -12,6 +12,8 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 - **Configurable entry order** – drag any row to a new position with the mouse; the order is saved automatically to the instance config as a `priorityList` and restored on the next launch. Entries not in the list follow the default sort (scripts A–Z → app folders A–Z → plain folders A–Z)
 - **Dark mode / Light mode** – choose between **Light**, **Dark**, or **System default** (follows the OS preference). The full UI – list rows, action buttons, toolbar, footer, and all dialogs – adapts to the active theme instantly when you save settings.
 - **Custom accent color** – pick any colour with the built-in colour picker to tint the header bar, the Settings dialog section labels, and FlatLaf's system-wide highlights (selection, focused borders, scroll bars, …). Reset to the default Windows blue at any time.
+- **Custom theme colors** – override individual launcher-specific colours (row backgrounds, foreground colours for each entry type, action button colours, separator colour, search label colour) independently of the base theme.
+- **LAF color overrides** – override any FlatLaf `@variable` (e.g. `@background`, `@foreground`, `@selectionBackground`, `@textBackground`, `@buttonBackground`, `@menuBackground`) or UIManager property to create a fully cohesive custom theme that extends beyond the launcher list to **all** Swing components.
 - **Toolbar** below the header bar with quick-access buttons:
   - **SVN Checkout** (left-1) – classic command-line checkout: prompts for a URL, checks out directly into the target folder using the `svn` CLI, and shows real-time output
   - **SVN Repository Browser** (left-2) – opens the TortoiseSVN repository browser so you can navigate the repo and check out any sub-path; the application list refreshes **automatically** when a new directory appears in the launcher folder
@@ -30,11 +32,14 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 - **Three-level configuration** stored in `%APPDATA%\nvLauncher\` — global defaults, per-instance overrides, and an optional explicit config file
 - **User-defined custom actions** – define your own actions (script/executable + icon + label) and assign them to the entry action bar and/or the toolbar; fully manageable from the Settings dialog
 - **Configurable application types** – define your own app type categories with custom executable detection paths, executable names (priority lists), and optional icons; assign specific folders to a type via the Settings dialog or config file
-- **Settings dialog** – organized in **four tabs** for easy navigation:
+- **Hidden entries** – exclude specific folder or file names from the launcher list via the Settings dialog or `hiddenEntries` config field
+- **Settings dialog** – organized in **six tabs** for easy navigation:
   - **General** – config-file paths, startup options, **appearance (theme + accent colour)**, `EXPLORER`/`EDITOR` commands, button style, and context-menu toggle
   - **Custom Actions** – add, edit, and remove user-defined actions
   - **Action Buttons** – show/hide and reorder toolbar buttons and per-entry action buttons
   - **App Types** – manage application type definitions and folder assignments
+  - **Hidden Entries** – manage entries excluded from the list
+  - **Colors** – override individual launcher colours and FlatLaf LAF variables to craft a cohesive custom theme
 - Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
 - **Folder-chooser dialog** when no path is supplied on startup
 - **Color-coded list** for scripts, application folders, and plain folders – colours automatically adapt to the current light/dark theme
@@ -157,7 +162,36 @@ CLI arguments override all config files.
       "scriptPath": "C:\\scripts\\build.bat",
       "label": "Build All"
     }
-  ]
+  ],
+  "hiddenEntries": [
+    "temp-folder",
+    "archive.bat"
+  ],
+  "customThemeColors": {
+    "rowEven": "#1E2030",
+    "rowOdd": "#1A1B2A",
+    "fgScript": "#89DCEB",
+    "fgFolder": "#A6E3A1",
+    "fgPlain": "#CDD6F4",
+    "selBg": "#313244",
+    "actFg": "#89B4FA",
+    "actDel": "#F38BA8",
+    "actBg": "#292B3D",
+    "actBord": "#45475A",
+    "selActBg": "#45475A",
+    "selActBord": "#6C7086",
+    "sepColor": "#313244",
+    "searchFg": "#89B4FA"
+  },
+  "customLafDefaults": {
+    "@background": "#1E1E2E",
+    "@foreground": "#CDD6F4",
+    "@selectionBackground": "#313244",
+    "@selectionForeground": "#CDD6F4",
+    "@textBackground": "#181825",
+    "@buttonBackground": "#292B3D",
+    "@menuBackground": "#181825"
+  }
 }
 ```
 
@@ -181,6 +215,9 @@ Any field can be omitted; omitted fields are inherited from the level below.
 | `customActions` | object array | List of user-defined custom actions. Each object defines an action that can be referenced in `actionOrder` (entry bar) and/or `toolbarActions` (toolbar). See [Custom Actions](#custom-actions) below. |
 | `appTypes` | object array | List of user-defined application type definitions. Each type defines how to detect and display a category of application folder. See [Application Types](#application-types) below. |
 | `appTypeAssignments` | object array | Explicit assignments of folder names to application type IDs, overriding auto-detection. See [Application Types](#application-types) below. |
+| `hiddenEntries` | string array | Names of folders or files to exclude from the launcher list. The comparison is case-sensitive and matches the file/folder name exactly. |
+| `customThemeColors` | object | Per-key hex colour overrides for the launcher's own colour palette. Keys are the palette slot names (see [Custom Theme Colors](#custom-theme-colors) below); values are CSS hex strings (e.g. `"#1E2030"`). Missing keys fall back to the theme default. |
+| `customLafDefaults` | object | FlatLaf `@variable` overrides and/or direct UIManager property overrides. Applied globally via `FlatLaf.setGlobalExtraDefaults()` before the L&F is installed, so they cascade through **all** Swing components. See [LAF Color Overrides](#laf-color-overrides) below. |
 
 ### Action Keys
 
@@ -355,7 +392,7 @@ A toolbar sits between the header and the entry list.
 
 ### Settings Dialog
 
-Open by clicking the **⚙ gear icon** on the right side of the toolbar. The dialog is organized into **four tabs**. The **Save** and **Cancel** buttons are always visible at the bottom, regardless of the active tab.
+Open by clicking the **⚙ gear icon** on the right side of the toolbar. The dialog is organized into **six tabs**. The **Save** and **Cancel** buttons are always visible at the bottom, regardless of the active tab.
 
 #### Tab: General
 
@@ -390,6 +427,17 @@ Add, edit, or remove user-defined custom actions. Each action has an ID, a manda
 | Application Types | Add, edit, or remove application type definitions. Each type has an ID, priority-ordered **executable paths** and **executable names**, and an optional icon path. |
 | Application Type Assignments | Manually assign a specific folder to an application type (overrides auto-detection). |
 
+#### Tab: Hidden Entries
+
+Manage the list of folder/file names excluded from the launcher. Add names from the known-folders dropdown (or type any name), remove existing entries. Changes take effect when you click Save.
+
+#### Tab: Colors
+
+| Section | Description |
+|---|---|
+| **Launcher Colors** | 14 colour slots covering row backgrounds, foreground colours for each entry type, action button colours, separator, and search label. Each slot shows a colour swatch (hatched = using theme default), a **Pick…** button, and a **Reset** button. A **Reset All to Theme Defaults** button clears all overrides. |
+| **Look-and-Feel Color Overrides** | Seven pre-defined FlatLaf `@variable` rows (background, foreground, selectionBackground, selectionForeground, textBackground, buttonBackground, menuBackground) with colour pickers. A **Reset All LAF Overrides** button clears them. Below that, a free-form **Add / Edit / Remove** list for any additional FlatLaf variable or UIManager property key with a built-in colour picker. |
+
 Click **Save** to persist all changes across all tabs, or **Cancel** to discard.
 
 ### Theme and Appearance
@@ -409,10 +457,14 @@ The theme is applied via [FlatLaf](https://www.formdev.com/flatlaf/). The follow
 - **Toolbar and footer** – background follows the system panel colour; borders use the theme separator colour
 - **All standard Swing controls** – text fields, buttons, checkboxes, radio buttons, tabs, dialogs, …
 
-The **accent colour** is used for:
-- The header bar background
-- Section labels in the Settings dialog (lightened in dark mode, darkened in light mode)
-- FlatLaf's system-wide selection highlight, focused component borders, and similar controls
+**Three layers of colour customisation** (applied in order, each overrides the previous):
+
+| Layer | Config field | Scope |
+|---|---|---|
+| 1. Base theme | `theme` + FlatLaf L&F | Entire application |
+| 2. Accent colour | `accentColor` → `@accentColor` | Header, selection highlights, focused borders |
+| 3. LAF overrides | `customLafDefaults` → `setGlobalExtraDefaults()` | Any FlatLaf `@variable` or UIManager key — entire application |
+| 4. Launcher palette | `customThemeColors` | Launcher list rows, action buttons, separator, search label |
 
 ### Inline Action Icons / Hamburger Menu
 
@@ -494,19 +546,20 @@ Launcher uses the following strategy (in priority order):
 
 | File | Description |
 |---|---|
-| `Launcher.java` | Application entry point and UI shell. Includes `applyTheme(theme, accentColor)` (applies FlatLaf L&F + accent colour via `setGlobalExtraDefaults`), `refreshThemeColors()` (updates header, borders, legend labels on theme/accent change), and `parseHexColor()` utility. |
-| `LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic; **16 fields** including `theme`, `accentColor`, `customActions`, `appTypes`, `appTypeAssignments` |
+| `Launcher.java` | Application entry point and UI shell. Includes `applyTheme(theme, accentColor, customLafDefaults)` (merges `customLafDefaults` with the accent colour into `FlatLaf.setGlobalExtraDefaults()`, then installs the L&F), `refreshThemeColors()` (updates header, borders, legend labels on theme/accent change), and `parseHexColor()` utility. |
+| `LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic; **19 fields** including `theme`, `accentColor`, `customActions`, `appTypes`, `appTypeAssignments`, `hiddenEntries`, `customThemeColors`, and `customLafDefaults`. Shared `jsonStringMap` / `parseJsonStringMap` helpers for serializing both color-map fields. |
+| `ColorTheme.java` | Colour palette for the launcher's cell renderer. `forCurrentLaf()` resolves colours from the active L&F; `forCurrentLaf(Map<String,String>)` additionally applies `customThemeColors` overrides on top. `applyCustomColors()` substitutes individual hex-colour values by palette-slot name. |
 | `CustomAction.java` | Immutable record for user-defined actions: `id`, `scope`, `iconPath`, `scriptPath`, `label`, `tooltip` |
 | `AppType.java` | Immutable record for custom application types: `id`, `iconPath`, `executablePaths`, `executableNames` |
 | `EntryType.java` | Enum: `SCRIPT`, `APP_FOLDER`, `PLAIN_FOLDER` |
 | `LaunchEntry.java` | Immutable record for one list row: `file()`, `type()`, `iconFile()`, `appType()` |
-| `EntryLoader.java` | Scans the root folder, classifies entries, applies priority-list sorting |
+| `EntryLoader.java` | Scans the root folder, classifies entries, applies priority-list sorting and hidden-entry filtering |
 | `EntryLauncher.java` | Launches scripts and application folders |
 | `FolderActions.java` | Folder-level operations: explorer, editor, robocopy, delete, SVN Checkout, SVN Browser, custom actions |
-| `EntryCellRenderer.java` | Swing list-cell renderer. All colours are computed from the active Look-and-Feel at construction time via `isDark()` (`FlatLaf.isLafDark()`), so they adapt automatically to light/dark themes. The renderer is recreated on every theme/settings change. |
+| `EntryCellRenderer.java` | Swing list-cell renderer. Accepts `customThemeColors` in its constructor and calls `ColorTheme.forCurrentLaf(customThemeColors)` so the palette reflects both the active L&F and any user-defined overrides. Recreated on every theme/settings change. |
 | `ListMouseHandler.java` | `MouseAdapter` – action button clicks, double-click launch, hover cursor, right-click menu |
 | `EntryListTransferHandler.java` | Drag-and-drop reordering (disabled while a search filter is active) |
-| `SettingsDialog.java` | Modal settings `JDialog` – four tabs. *General* now includes the **Appearance section** (theme radio buttons + accent colour swatch/picker/reset). Section labels derive their colour from the configured accent (lightened in dark mode, darkened in light mode). |
+| `SettingsDialog.java` | Modal settings `JDialog` – **six tabs**: General (theme + accent), Custom Actions, Action Buttons, App Types, Hidden Entries, Colors (launcher palette + LAF overrides). `buildNewLafDefaults()` merges predefined `@variable` swatches with the free-form list into the `customLafDefaults` map. |
 | `ProcessOutputWindow.java` | Streams real-time process output into a dedicated, auto-closing window |
 
 ### Test files
@@ -515,8 +568,8 @@ Tests are written with **JUnit 5** (`mvn test`):
 
 | File | Tests | What is covered |
 |---|---|---|
-| `LauncherConfigTest.java` | 23 | `empty()`, `defaults()`, `mergeOver()`, `withDefaults()`, three-level merge chain, JSON round-trips, missing/malformed files |
-| `EntryLoaderTest.java` | 26 | Script detection, folder classification, sort order, priority-list reordering |
+| `LauncherConfigTest.java` | 26 | `empty()`, `defaults()`, `mergeOver()`, `withDefaults()`, three-level merge chain, JSON round-trips for scalars / lists / `customThemeColors` / `customLafDefaults`, missing/malformed files |
+| `EntryLoaderTest.java` | 26 | Script detection, folder classification, sort order, priority-list reordering, hidden-entry filtering |
 | `LaunchEntryTest.java` | 9 | Constructors, `toString()`, equality, hash code, `EntryType` values |
 
 > **UI classes not covered by unit tests:** `FolderActions`, `ListMouseHandler`, `SettingsDialog`, `EntryLauncher`, and `ProcessOutputWindow` require a UI-testing framework such as AssertJ Swing.
@@ -616,7 +669,8 @@ The instance config will be stored at `%APPDATA%\nvLauncher\myapps\config.json`.
 ## Troubleshooting
 
 ### Theme Does Not Apply Correctly
-- Click **Save** in the Settings dialog – the theme and accent are applied immediately. No restart is needed.
+- Click **Save** in the Settings dialog – the theme, accent, and all colour overrides are applied immediately. No restart is needed.
+- If `customLafDefaults` entries have no visible effect, verify the key spelling (FlatLaf variables must start with `@`; UIManager keys are case-sensitive, e.g. `Panel.background`).
 
 ### "Could not open editor" Error
 - Enter the full path in **Settings ⚙ → General → EDITOR**, e.g. `C:\Program Files\Microsoft VS Code\bin\code.cmd`
@@ -662,7 +716,15 @@ Each instance uses its own `%APPDATA%\nvLauncher\{launcherId}\config.json`.
 Edit `%APPDATA%\nvLauncher\config.json` to set defaults for **all** instances, e.g.:
 
 ```json
-{ "theme": "dark", "accentColor": "#1A73E8", "startMinimized": false }
+{
+  "theme": "dark",
+  "accentColor": "#1A73E8",
+  "startMinimized": false,
+  "customLafDefaults": {
+    "@background": "#1E1E2E",
+    "@foreground": "#CDD6F4"
+  }
+}
 ```
 
 Instance configs override only the fields they explicitly set.
