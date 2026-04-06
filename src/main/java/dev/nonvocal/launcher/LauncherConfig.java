@@ -39,7 +39,8 @@ record LauncherConfig(
         String              theme,                // "light", "dark", null/"system"
         String              accentColor,          // hex string e.g. "#0078D7", null = default
         List<String>        hiddenEntries,        // folder/file names excluded from the list
-        Map<String, String> customThemeColors)    // per-key hex overrides, e.g. {"rowEven":"#2B2D30"}
+        Map<String, String> customThemeColors,    // per-key hex overrides, e.g. {"rowEven":"#2B2D30"}
+        Map<String, String> customLafDefaults)    // FlatLaf @vars / UIManager keys → values, e.g. {"@background":"#1E1E2E"}
 {
     // ── Static paths ───────────────────────────────────────────────────────────
 
@@ -67,13 +68,13 @@ record LauncherConfig(
     /** All fields null – represents "nothing set at this level". */
     static LauncherConfig empty()
     {
-        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null);
     }
 
     /** Hardcoded application defaults (all fields non-null). */
     static LauncherConfig defaults()
     {
-        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null,false,560,680,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null);
     }
 
     /**
@@ -121,7 +122,8 @@ record LauncherConfig(
                 theme               != null ? theme               : base.theme,
                 accentColor         != null ? accentColor         : base.accentColor,
                 hiddenEntries       != null ? hiddenEntries       : base.hiddenEntries,
-                customThemeColors   != null ? customThemeColors   : base.customThemeColors);
+                customThemeColors   != null ? customThemeColors   : base.customThemeColors,
+                customLafDefaults   != null ? customLafDefaults   : base.customLafDefaults);
     }
 
     /**
@@ -148,7 +150,8 @@ record LauncherConfig(
                 theme,
                 accentColor,
                 hiddenEntries,
-                customThemeColors);
+                customThemeColors,
+                customLafDefaults);
     }
 
     // ── Persistence ────────────────────────────────────────────────────────────
@@ -213,6 +216,10 @@ record LauncherConfig(
         if (customThemeColors != null && !customThemeColors.isEmpty())
         {
             lines.add(jsonCustomThemeColors(customThemeColors));
+        }
+        if (customLafDefaults != null && !customLafDefaults.isEmpty())
+        {
+            lines.add(jsonStringMap("customLafDefaults", customLafDefaults));
         }
         return "{\n" + String.join(",\n", lines) + "\n}";
     }
@@ -307,12 +314,17 @@ record LauncherConfig(
 
     private static String jsonCustomThemeColors(Map<String, String> colors)
     {
-        StringBuilder sb = new StringBuilder("  \"customThemeColors\": {\n");
+        return jsonStringMap("customThemeColors", colors);
+    }
+
+    private static String jsonStringMap(String key, Map<String, String> map)
+    {
+        StringBuilder sb = new StringBuilder("  ").append(jsonStr(key)).append(": {\n");
         int i = 0;
-        for (Map.Entry<String, String> e : colors.entrySet())
+        for (Map.Entry<String, String> e : map.entrySet())
         {
             sb.append("    ").append(jsonStr(e.getKey())).append(": ").append(jsonStr(e.getValue()));
-            if (i < colors.size() - 1) sb.append(",");
+            if (i < map.size() - 1) sb.append(",");
             sb.append("\n");
             i++;
         }
@@ -358,7 +370,8 @@ record LauncherConfig(
                 parseStr              (json, "theme"),
                 parseStr              (json, "accentColor"),
                 parseStrList          (json, "hiddenEntries"),
-                parseCustomThemeColors(json));
+                parseCustomThemeColors(json),
+                parseJsonStringMap    (json, "customLafDefaults"));
     }
 
     // ── CustomAction deserialisation ──────────────────────────────────────────
@@ -538,7 +551,12 @@ record LauncherConfig(
 
     private static Map<String, String> parseCustomThemeColors(String json)
     {
-        int keyIdx = json.indexOf("\"customThemeColors\"");
+        return parseJsonStringMap(json, "customThemeColors");
+    }
+
+    private static Map<String, String> parseJsonStringMap(String json, String fieldName)
+    {
+        int keyIdx = json.indexOf("\"" + fieldName + "\"");
         if (keyIdx < 0) return null;
         int objStart = json.indexOf('{', keyIdx);
         if (objStart < 0) return null;

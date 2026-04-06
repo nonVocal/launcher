@@ -869,6 +869,179 @@ class SettingsDialog extends JDialog
         tabColors.add(resetAllColorsBtn);
         tabColors.add(Box.createVerticalStrut(8));
         tabColors.add(colorGrid);
+
+        // ── LAF color overrides sub-section ──────────────────────────────────
+        tabColors.add(separator());
+        tabColors.add(sectionLabel("Look-and-Feel Color Overrides"));
+        tabColors.add(Box.createVerticalStrut(4));
+        JLabel lafHint = new JLabel("<html>Override FlatLaf theme variables (e.g. <b>@background</b>) or UIManager keys.<br>"
+                + "These affect <i>all</i> Swing components globally and cascade through the LAF.</html>");
+        lafHint.setFont(lafHint.getFont().deriveFont(Font.ITALIC, 10f));
+        lafHint.setForeground(Color.GRAY);
+        lafHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabColors.add(lafHint);
+        tabColors.add(Box.createVerticalStrut(6));
+
+        // Common FlatLaf @variables with color pickers
+        String[][] lafDefs = {
+            {"@background",          "Window / panel background"},
+            {"@foreground",          "Default text color"},
+            {"@selectionBackground", "Selection background (lists, text)"},
+            {"@selectionForeground", "Selection text color"},
+            {"@textBackground",      "Text input field background"},
+            {"@buttonBackground",    "Button background"},
+            {"@menuBackground",      "Menu / menu-bar background"},
+        };
+
+        // Mutable map for the common variables
+        Map<String, Color> lafColorSelections = new LinkedHashMap<>();
+        // Additional free-form entries (key → raw string value)
+        DefaultListModel<String[]> lafExtraModel = new DefaultListModel<>();
+
+        if (config.customLafDefaults() != null)
+        {
+            Set<String> knownLafKeys = new java.util.HashSet<>();
+            for (String[] def : lafDefs) knownLafKeys.add(def[0]);
+
+            config.customLafDefaults().forEach((k, v) ->
+            {
+                if (knownLafKeys.contains(k))
+                {
+                    Color c = Launcher.parseHexColor(v, null);
+                    if (c != null) lafColorSelections.put(k, c);
+                }
+                else
+                {
+                    lafExtraModel.addElement(new String[]{k, v});
+                }
+            });
+        }
+
+        JPanel lafColorGrid = new JPanel(new GridBagLayout());
+        lafColorGrid.setAlignmentX(Component.LEFT_ALIGNMENT);
+        List<Runnable> lafColorResetActions = new ArrayList<>();
+
+        for (int ci = 0; ci < lafDefs.length; ci++)
+        {
+            String lafKey   = lafDefs[ci][0];
+            String lafLabel = lafDefs[ci][1];
+            Color[] lafCurrent = { lafColorSelections.get(lafKey) };
+
+            GridBagConstraints glc = new GridBagConstraints();
+            glc.gridx = 0; glc.gridy = ci; glc.anchor = GridBagConstraints.WEST;
+            glc.insets = new Insets(2, 0, 2, 8);
+            JLabel clbl = new JLabel(lafLabel + "  (" + lafKey + "):");
+            clbl.setFont(clbl.getFont().deriveFont(11f));
+            lafColorGrid.add(clbl, glc);
+
+            JPanel swatch = new JPanel()
+            {
+                @Override protected void paintComponent(Graphics g)
+                {
+                    super.paintComponent(g);
+                    if (lafCurrent[0] != null) { g.setColor(lafCurrent[0]); g.fillRect(0, 0, getWidth(), getHeight()); }
+                    else
+                    {
+                        g.setColor(UIManager.getColor("Panel.background") != null
+                                ? UIManager.getColor("Panel.background") : Color.LIGHT_GRAY);
+                        g.fillRect(0, 0, getWidth(), getHeight());
+                        g.setColor(Color.GRAY);
+                        for (int dx = -getHeight(); dx < getWidth(); dx += 4)
+                            g.drawLine(dx, 0, dx + getHeight(), getHeight());
+                    }
+                }
+            };
+            swatch.setPreferredSize(new Dimension(22, 22));
+            swatch.setMinimumSize(new Dimension(22, 22));
+            swatch.setMaximumSize(new Dimension(22, 22));
+            swatch.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+            swatch.setOpaque(false);
+
+            JButton pickBtn  = new JButton("Pick\u2026");
+            JButton resetBtn = new JButton("Reset");
+            pickBtn.addActionListener(ev ->
+            {
+                Color initial = lafCurrent[0] != null ? lafCurrent[0] : Color.GRAY;
+                Color chosen  = JColorChooser.showDialog(this, "Choose \u201c" + lafLabel + "\u201d", initial);
+                if (chosen != null) { lafCurrent[0] = chosen; lafColorSelections.put(lafKey, chosen); swatch.repaint(); }
+            });
+            resetBtn.addActionListener(ev -> { lafCurrent[0] = null; lafColorSelections.remove(lafKey); swatch.repaint(); });
+            lafColorResetActions.add(() -> { lafCurrent[0] = null; lafColorSelections.remove(lafKey); swatch.repaint(); });
+
+            GridBagConstraints gsc = new GridBagConstraints(); gsc.gridx = 1; gsc.gridy = ci; gsc.insets = new Insets(2, 0, 2, 4);
+            lafColorGrid.add(swatch, gsc);
+            GridBagConstraints gpc = new GridBagConstraints(); gpc.gridx = 2; gpc.gridy = ci; gpc.insets = new Insets(2, 0, 2, 2);
+            lafColorGrid.add(pickBtn, gpc);
+            GridBagConstraints grc = new GridBagConstraints(); grc.gridx = 3; grc.gridy = ci; grc.insets = new Insets(2, 0, 2, 0);
+            lafColorGrid.add(resetBtn, grc);
+        }
+
+        JButton resetAllLafBtn = new JButton("Reset All LAF Overrides");
+        resetAllLafBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        resetAllLafBtn.addActionListener(ev ->
+        {
+            lafColorSelections.clear();
+            lafColorResetActions.forEach(Runnable::run);
+            lafExtraModel.clear();
+        });
+        tabColors.add(resetAllLafBtn);
+        tabColors.add(Box.createVerticalStrut(4));
+        tabColors.add(lafColorGrid);
+
+        // Free-form entries for any other LAF key
+        tabColors.add(Box.createVerticalStrut(8));
+        JLabel extraLafHint = new JLabel("Additional overrides \u2013 any FlatLaf variable or UIManager key:");
+        extraLafHint.setFont(extraLafHint.getFont().deriveFont(10f));
+        extraLafHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabColors.add(extraLafHint);
+        tabColors.add(Box.createVerticalStrut(4));
+
+        JList<String[]> lafExtraList = new JList<>(lafExtraModel);
+        lafExtraList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        lafExtraList.setFixedCellHeight(22);
+        lafExtraList.setCellRenderer((lst, value, index, isSelected, focus) ->
+        {
+            JLabel lbl = new JLabel(value[0] + ": " + value[1]);
+            lbl.setFont(lst.getFont().deriveFont(11f));
+            lbl.setOpaque(true);
+            lbl.setBorder(CELL_ITEM_BORDER);
+            if (isSelected) { lbl.setBackground(lst.getSelectionBackground()); lbl.setForeground(lst.getSelectionForeground()); }
+            else            { lbl.setBackground(lst.getBackground());           lbl.setForeground(lst.getForeground()); }
+            return lbl;
+        });
+
+        JButton lafAddBtn    = new JButton("Add");
+        JButton lafEditBtn   = new JButton("Edit");
+        JButton lafRemoveBtn = new JButton("Remove");
+
+        lafAddBtn.addActionListener(ev ->
+        {
+            String[] entry = showLafEntryEditor(null);
+            if (entry != null) lafExtraModel.addElement(entry);
+        });
+        lafEditBtn.addActionListener(ev ->
+        {
+            int idx = lafExtraList.getSelectedIndex();
+            if (idx < 0) return;
+            String[] edited = showLafEntryEditor(lafExtraModel.getElementAt(idx));
+            if (edited != null) lafExtraModel.set(idx, edited);
+        });
+        lafRemoveBtn.addActionListener(ev ->
+        {
+            int idx = lafExtraList.getSelectedIndex();
+            if (idx >= 0) lafExtraModel.remove(idx);
+        });
+
+        JPanel lafExtraBtns = new JPanel(new GridLayout(3, 1, 0, 2));
+        lafExtraBtns.add(lafAddBtn); lafExtraBtns.add(lafEditBtn); lafExtraBtns.add(lafRemoveBtn);
+
+        JPanel lafExtraPanel = new JPanel(new BorderLayout(6, 0));
+        lafExtraPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lafExtraPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 4 * 22 + 8));
+        lafExtraPanel.add(new JScrollPane(lafExtraList), BorderLayout.CENTER);
+        lafExtraPanel.add(lafExtraBtns, BorderLayout.EAST);
+        tabColors.add(lafExtraPanel);
+
         tabs.addTab("Colors", new JScrollPane(tabColors));
 
         main.add(tabs, BorderLayout.CENTER);
@@ -946,7 +1119,8 @@ class SettingsDialog extends JDialog
                     newAssignments.isEmpty() ? null : newAssignments,
                     newTheme, newAccent,
                     newHiddenEntries.isEmpty() ? null : newHiddenEntries,
-                    newCustomThemeColors));
+                    newCustomThemeColors,
+                    buildNewLafDefaults(lafColorSelections, lafExtraModel)));
             dispose();
         });
         btnCancel.addActionListener(e -> dispose());
@@ -955,6 +1129,65 @@ class SettingsDialog extends JDialog
     }
 
     // ── Static UI helpers ─────────────────────────────────────────────────────
+
+    /** Merges common LAF color selections and free-form extras into one map. */
+    private static Map<String, String> buildNewLafDefaults(
+            Map<String, Color> colorSels, DefaultListModel<String[]> extraModel)
+    {
+        Map<String, String> result = new LinkedHashMap<>();
+        colorSels.forEach((k, v) -> result.put(k, String.format("#%06X", v.getRGB() & 0xFFFFFF)));
+        for (int i = 0; i < extraModel.getSize(); i++)
+        {
+            String[] pair = extraModel.getElementAt(i);
+            result.put(pair[0], pair[1]);
+        }
+        return result.isEmpty() ? null : result;
+    }
+
+    /** Shows a dialog to add or edit a free-form LAF key→value entry. */
+    private String[] showLafEntryEditor(String[] existing)
+    {
+        JTextField tfKey   = new JTextField(existing != null ? existing[0] : "@", 28);
+        JTextField tfValue = new JTextField(existing != null ? existing[1] : "", 18);
+
+        JButton pickColor = new JButton("Pick color\u2026");
+        pickColor.addActionListener(ev ->
+        {
+            Color initial = Launcher.parseHexColor(tfValue.getText().trim(), Color.GRAY);
+            Color chosen  = JColorChooser.showDialog(this, "Choose Color", initial);
+            if (chosen != null) tfValue.setText(String.format("#%06X", chosen.getRGB() & 0xFFFFFF));
+        });
+
+        JPanel valueRow = new JPanel(new BorderLayout(4, 0));
+        valueRow.add(tfValue, BorderLayout.CENTER);
+        valueRow.add(pickColor, BorderLayout.EAST);
+
+        JPanel p = new JPanel(new GridBagLayout());
+        GridBagConstraints lc = new GridBagConstraints();
+        lc.anchor = GridBagConstraints.WEST; lc.insets = new Insets(4, 0, 4, 8); lc.gridx = 0;
+        GridBagConstraints fc = new GridBagConstraints();
+        fc.fill = GridBagConstraints.HORIZONTAL; fc.weightx = 1; fc.insets = new Insets(4, 0, 4, 0); fc.gridx = 1;
+
+        lc.gridy = 0; fc.gridy = 0;
+        p.add(new JLabel("Key (e.g. @background, Panel.background):"), lc); p.add(tfKey, fc);
+        lc.gridy = 1; fc.gridy = 1;
+        p.add(new JLabel("Value (e.g. #1E1E2E or any FlatLaf value):"), lc); p.add(valueRow, fc);
+
+        int res = JOptionPane.showConfirmDialog(this, p,
+                existing == null ? "Add LAF Override" : "Edit LAF Override",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (res != JOptionPane.OK_OPTION) return null;
+
+        String k = tfKey.getText().trim();
+        String v = tfValue.getText().trim();
+        if (k.isEmpty() || v.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this, "Key and value must not be empty.",
+                    "Validation Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+        return new String[]{k, v};
+    }
 
     private String toolbarLabel(String key)
     {
