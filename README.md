@@ -46,52 +46,83 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 
 ## Prerequisites
 
-- **Java JDK 16 or later** with `javaw` available on your `PATH`
+### Running the self-contained application (recommended)
+
+Download the `Launcher/` folder from the [Releases](../../releases) page and double-click **`Launcher.exe`** — no JDK or JRE installation needed.
+
+### Running from the uber-JAR
+
+- **Java JDK 26** (or a compatible JRE) with `javaw` on your `PATH`
   - Records (used internally) require Java 16+
-  - Tested with [SapMachine 26](https://sap.github.io/SapMachine/), but any JDK 16+ will work
+  - Tested with [OpenJDK 26](https://openjdk.org/)
   - **FlatLaf** (modern Swing Look & Feel library) is bundled in the uber-JAR – no separate installation needed at runtime
-- *(Optional)* An **editor** on your `PATH` – only needed for the *Open in Editor* action. Defaults to `code` (VS Code); configurable via `EDITOR` in the config file or Settings dialog
-- *(Optional)* A custom **file explorer** – defaults to the system default; configurable via `EXPLORER` in the config file or Settings dialog
-- *(Optional)* **SVN command-line client** on your `PATH` – only needed for the *SVN Checkout* toolbar button. Verify with `svn --version` in Command Prompt.
-- *(Optional)* **TortoiseSVN** – only needed for the *SVN Repository Browser* toolbar button. Install from [tortoisesvn.net](https://tortoisesvn.net/). The application uses `TortoiseProc.exe` from its standard installation path.
+
+### Building from source
+
+- **Java JDK 26** (required by the compiler and `jpackage`)  
+  `jpackage` (bundled with JDK 14+) is used to create the self-contained application image
+- **Maven 3.6+** – or use the bundled Maven in IntelliJ IDEA
+
+### Optional runtime tools
+
+- **Editor** on your `PATH` – only needed for the *Open in Editor* action. Defaults to `code` (VS Code); configurable via `EDITOR` in the config file or Settings dialog
+- **Custom file explorer** – defaults to the system default; configurable via `EXPLORER` in the config file or Settings dialog
+- **SVN command-line client** on your `PATH` – only needed for the *SVN Checkout* toolbar button. Verify with `svn --version` in Command Prompt.
+- **TortoiseSVN** – only needed for the *SVN Repository Browser* toolbar button. Install from [tortoisesvn.net](https://tortoisesvn.net/). The application uses `TortoiseProc.exe` from its standard installation path.
   - `robocopy` is built-in to Windows, so *Copy with Robocopy* works out of the box
 
 ## Setup
 
-### 1. Install a JDK
+### 1. Build
 
-Download and install a JDK, then make sure `javaw` is on your system `PATH`.
-
-```
-java -version   # should print something like: openjdk 26
+```bat
+scripts\build.bat
 ```
 
-### 2. Build
+Or, if Maven is on your `PATH`:
 
 ```bat
 mvn clean package
 ```
 
-This compiles the project and creates a **self-contained uber-JAR** in the `target/` folder that includes FlatLaf and all other runtime dependencies. No separate classpath setup is needed at runtime.
+This compiles the project and produces **two outputs** in the `target/` folder:
 
-### 3. Run
+| Output | Path | Notes |
+|---|---|---|
+| **Self-contained app** (recommended) | `target\dist\Launcher\Launcher.exe` | Bundled JRE – no Java install needed on target machine. Distribute the whole `Launcher\` folder. |
+| **Uber-JAR** | `target\launcher-0.0.4.jar` | Fat JAR including FlatLaf. Requires JRE 26+ on the target machine. |
+
+> **Note:** `jpackage` (JDK 14+) must be available in the JDK running Maven.  
+> `scripts\build.bat` automatically sets `JAVA_HOME` to JDK 26 and calls IntelliJ's bundled Maven.
+
+### 2. Run
+
+#### Self-contained exe (no JRE needed)
+
+Double-click `Launcher.exe` inside `target\dist\Launcher\`, or start it from a shortcut / batch file:
+
+```bat
+start "" "target\dist\Launcher\Launcher.exe" "C:\path\to\your\folder"
+```
+
+#### Uber-JAR (requires JRE 26+)
 
 **With a folder-chooser dialog** (prompts you to pick a folder):
 
 ```bat
-javaw -jar target\launcher-0.0.1.jar
+javaw -jar target\launcher-0.0.4.jar
 ```
 
 **With a specific folder** (opens that folder directly):
 
 ```bat
-javaw -jar target\launcher-0.0.1.jar  C:\path\to\your\folder
+javaw -jar target\launcher-0.0.4.jar  C:\path\to\your\folder
 ```
 
 **Minimized to the system tray**:
 
 ```bat
-javaw -jar target\launcher-0.0.1.jar  C:\path\to\your\folder  --minimized
+javaw -jar target\launcher-0.0.4.jar  C:\path\to\your\folder  --minimized
 ```
 
 ## Command-Line Options
@@ -612,9 +643,9 @@ Tests are written with **JUnit 5** (`mvn test`):
 | File | Description |
 |---|---|
 | `src/main/resources/` | PNG icon files used for action buttons, window icon, and system tray |
-| `pom.xml` | Maven configuration (JDK 26, JUnit 5, **FlatLaf 3.5.4**, **maven-shade-plugin** for self-contained uber-JAR) |
-| `scripts/build.bat` | Legacy `javac` compile script (Maven recommended) |
-| `scripts/run.bat` | Legacy run script (use `javaw -jar target\launcher-0.0.1.jar` instead) |
+| `pom.xml` | Maven configuration (JDK 26, JUnit 5, **FlatLaf 3.5.4**, **maven-shade-plugin** for uber-JAR, **maven-antrun-plugin** + **jpackage-maven-plugin** for self-contained exe) |
+| `scripts/build.bat` | Maven build script – sets `JAVA_HOME` to JDK 26, calls IntelliJ's bundled Maven, runs `mvn package`; outputs both the uber-JAR and the self-contained `target\dist\Launcher\Launcher.exe` |
+| `scripts/run.bat` | Legacy run script (use `target\dist\Launcher\Launcher.exe` or `javaw -jar target\launcher-0.0.4.jar` instead) |
 | `example_start_at_logon_in_apps_folder.bat` | Example batch file for starting Launcher minimized to the tray at logon |
 | `icon-attribution.md` | Icon licence credits (Flaticon) |
 | `README.md` | This file |
@@ -666,32 +697,42 @@ All colours adapt automatically to the active light/dark theme.
 ### Option A - Startup Folder (simplest)
 
 1. Press **Win + R**, type `shell:startup`, press **Enter**.
-2. Create a shortcut to your launcher batch file inside that folder.
+2. Create a shortcut to `Launcher.exe` (self-contained) or to your launcher batch file inside that folder.
 3. Log off and back on – Launcher will start automatically.
 
 ### Option B - Task Scheduler (recommended for tray/minimized use)
 
 1. Open **Task Scheduler** → **Create Basic Task…**
-2. Set **Trigger** to *When I log on*, **Action** to *Start a program*, point to your batch file.
+2. Set **Trigger** to *When I log on*, **Action** to *Start a program*, point to `Launcher.exe` or your batch file.
 3. In **Properties → General**, check *Run only when user is logged on*.
 
 ---
 
 ## Creating a Batch File to Start Launcher at Logon
 
+### Using the self-contained exe (no JRE needed)
+
+```bat
+@echo off
+REM Start Launcher minimized in the system tray for a specific folder
+start "" "C:\path\to\Launcher\Launcher.exe" "C:\path\to\your\apps\folder" --minimized --launcherId=myapps
+```
+
+### Using the uber-JAR (requires JRE 26+)
+
 ```bat
 @echo off
 REM Start Launcher minimized in the system tray for a specific folder
 
-start "" "C:\path\to\your\jdk\bin\javaw" -jar "C:\path\to\launcher-0.0.1.jar" ^
+start "" "C:\path\to\your\jdk\bin\javaw" -jar "C:\path\to\launcher-0.0.4.jar" ^
     "C:\path\to\your\apps\folder" --minimized --launcherId=myapps
 ```
 
-### Example
+### Example (uber-JAR)
 
 ```bat
 @echo off
-start "" "C:\Program Files\SapMachine\jdk-26\bin\javaw" -jar "D:\Launcher\launcher-0.0.1.jar" ^
+start "" "C:\Users\benda\.jdks\openjdk-26\bin\javaw" -jar "D:\Launcher\launcher-0.0.4.jar" ^
     "D:\MyApps" --minimized --launcherId=myapps
 ```
 
@@ -737,9 +778,16 @@ The instance config will be stored at `%APPDATA%\nvLauncher\myapps\config.json`.
 
 ### Running Multiple Launcher Instances
 
+**Self-contained exe:**
 ```bat
-javaw -jar launcher-0.0.1.jar "D:\Apps"     --launcherId=apps
-javaw -jar launcher-0.0.1.jar "D:\Projects" --launcherId=projects
+start "" "D:\Launcher\Launcher.exe" "D:\Apps"     --launcherId=apps
+start "" "D:\Launcher\Launcher.exe" "D:\Projects" --launcherId=projects
+```
+
+**Uber-JAR:**
+```bat
+javaw -jar launcher-0.0.4.jar "D:\Apps"     --launcherId=apps
+javaw -jar launcher-0.0.4.jar "D:\Projects" --launcherId=projects
 ```
 
 Each instance uses its own `%APPDATA%\nvLauncher\{launcherId}\config.json`.

@@ -5,7 +5,7 @@
 
     <groupId>dev.nonvocal</groupId>
     <artifactId>launcher</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.4</version>
     <name>launcher</name>
     <description>Simple Maven launcher project</description>
 
@@ -60,6 +60,69 @@
                                     <mainClass>dev.nonvocal.launcher.Launcher</mainClass>
                                 </transformer>
                             </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Step 2: Copy the fat-JAR into a clean jpackage input directory -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>prepare-jpackage-input</id>
+                        <phase>package</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.build.directory}/jpackage-input"/>
+                                <copy file="${project.build.directory}/${project.artifactId}-${project.version}.jar"
+                                      todir="${project.build.directory}/jpackage-input"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                Step 3: jpackage – bundles the JRE from the current JDK into a
+                self-contained application image.  No JRE installation required
+                on the target machine.
+
+                Output: target/dist/Launcher/
+                  ├── Launcher.exe   ← native launcher
+                  ├── app/           ← fat-JAR
+                  └── runtime/       ← bundled JRE (no install needed)
+
+                Distribute the whole Launcher/ folder (or zip it up).
+
+                To build an installer instead of a portable folder:
+                  • EXE  → change <type> to EXE   (requires Inno Setup on build machine)
+                  • MSI  → change <type> to MSI   (requires WiX Toolset on build machine)
+            -->
+            <plugin>
+                <groupId>org.panteleyev</groupId>
+                <artifactId>jpackage-maven-plugin</artifactId>
+                <version>1.6.5</version>
+                <executions>
+                    <execution>
+                        <id>create-app-image</id>
+                        <phase>package</phase>
+                        <goals><goal>jpackage</goal></goals>
+                        <configuration>
+                            <name>Launcher</name>
+                            <appVersion>${project.version}</appVersion>
+                            <vendor>nonvocal</vendor>
+                            <destination>${project.build.directory}/dist</destination>
+                            <input>${project.build.directory}/jpackage-input</input>
+                            <mainJar>${project.artifactId}-${project.version}.jar</mainJar>
+                            <mainClass>dev.nonvocal.launcher.Launcher</mainClass>
+                            <!-- APP_IMAGE = portable folder, no extra tools required -->
+                            <type>APP_IMAGE</type>
+                            <!-- Suppress the console window for this GUI app -->
+                            <winConsole>false</winConsole>
                         </configuration>
                     </execution>
                 </executions>
