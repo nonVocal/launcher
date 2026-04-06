@@ -202,16 +202,21 @@ class SettingsDialog extends JDialog
         cbContextMenu.setAlignmentX(Component.LEFT_ALIGNMENT);
         tabGeneral.add(cbContextMenu);
 
-        tabGeneral.add(separator());
+        tabs.addTab("General", new JScrollPane(tabGeneral));
 
-        tabGeneral.add(sectionLabel("Hidden Entries"));
-        tabGeneral.add(Box.createVerticalStrut(4));
+        // ── Tab 5: Hidden Entries ─────────────────────────────────────────────
+        JPanel tabHidden = new JPanel();
+        tabHidden.setLayout(new BoxLayout(tabHidden, BoxLayout.Y_AXIS));
+        tabHidden.setBorder(TAB_PANEL_BORDER);
+
+        tabHidden.add(sectionLabel("Hidden Entries"));
+        tabHidden.add(Box.createVerticalStrut(4));
         JLabel hiddenHint = new JLabel("Entries listed here are excluded from the launcher list");
         hiddenHint.setFont(hiddenHint.getFont().deriveFont(Font.ITALIC, 10f));
         hiddenHint.setForeground(Color.GRAY);
         hiddenHint.setAlignmentX(Component.LEFT_ALIGNMENT);
-        tabGeneral.add(hiddenHint);
-        tabGeneral.add(Box.createVerticalStrut(4));
+        tabHidden.add(hiddenHint);
+        tabHidden.add(Box.createVerticalStrut(4));
 
         DefaultListModel<String> hiddenModel = new DefaultListModel<>();
         if (config.hiddenEntries() != null)
@@ -237,7 +242,6 @@ class SettingsDialog extends JDialog
         hiddenBtnAdd.addActionListener(ev ->
         {
             List<String> allNames = new ArrayList<>(knownFolderNames);
-            // also suggest script names from allEntries (not available here, use folder names)
             JComboBox<String> cbName = new JComboBox<>(allNames.toArray(new String[0]));
             cbName.setEditable(true);
             cbName.setSelectedIndex(allNames.isEmpty() ? -1 : 0);
@@ -265,10 +269,6 @@ class SettingsDialog extends JDialog
         hiddenListPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         hiddenListPanel.add(new JScrollPane(hiddenList), BorderLayout.CENTER);
         hiddenListPanel.add(hiddenBtnPanel, BorderLayout.EAST);
-        hiddenListPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 22 + 8));
-        tabGeneral.add(hiddenListPanel);
-
-        tabs.addTab("General", new JScrollPane(tabGeneral));
 
         // ── Tab 2: Custom Actions ─────────────────────────────────────────────
         JPanel tabCustomActions = new JPanel();
@@ -722,6 +722,9 @@ class SettingsDialog extends JDialog
         tabAppTypes.add(assListPanel);
 
         tabs.addTab("App Types", new JScrollPane(tabAppTypes));
+
+        tabHidden.add(hiddenListPanel);
+        tabs.addTab("Hidden Entries", new JScrollPane(tabHidden));
 
         main.add(tabs, BorderLayout.CENTER);
 
