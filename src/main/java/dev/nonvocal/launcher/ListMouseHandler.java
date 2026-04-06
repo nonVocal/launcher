@@ -138,7 +138,7 @@ class ListMouseHandler extends MouseAdapter
             default ->
             {
                 CustomAction ca = customActions.get().get(key);
-                if (ca != null) folderActions.executeCustomAction(ca, sel.file());
+                if (ca != null) folderActions.executeCustomAction(ca, sel.file(), sel);
             }
         }
     }

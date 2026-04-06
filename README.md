@@ -268,6 +268,39 @@ Custom actions let you hook your own scripts or executables into the launcher UI
 | `label` | ❌ optional | Display label for the button and context menu item. Falls back to the `id` if omitted. |
 | `tooltip` | ❌ optional | Tooltip text shown on hover. Falls back to `label` (or `id`) if omitted. |
 
+#### Environment variables
+
+In addition to the folder path passed as the first CLI argument, Launcher always sets the following environment variables for the child process so that scripts can inspect the full entry context:
+
+| Variable | Description |
+|---|---|
+| `NV_LAUNCHER_FOLDER` | Absolute path of the launcher root folder |
+| `NV_ENTRY_PATH` | Absolute path of the target entry (same as the first CLI argument) |
+| `NV_ENTRY_NAME` | File/folder name of the target entry |
+| `NV_ENTRY_TYPE` | `SCRIPT`, `APP_FOLDER`, or `PLAIN_FOLDER` — empty when triggered from the toolbar with no entry selected |
+| `NV_APP_TYPE_ID` | ID of the matched application type (see [Application Types](#application-types)), or empty string if not an app-typed folder |
+| `NV_ICON_FILE` | Absolute path to the icon file (`.lnk` or fallback `.exe`) used to display the entry's icon, or empty string if none |
+
+**Example – batch script using entry metadata:**
+
+```bat
+@echo off
+echo Entry name : %NV_ENTRY_NAME%
+echo Entry type : %NV_ENTRY_TYPE%
+echo App type   : %NV_APP_TYPE_ID%
+echo Root folder: %NV_LAUNCHER_FOLDER%
+echo Icon file  : %NV_ICON_FILE%
+pause
+```
+
+**Example – PowerShell script using entry metadata:**
+
+```powershell
+Write-Host "Deploying: $env:NV_ENTRY_NAME (type=$env:NV_ENTRY_TYPE, appType=$env:NV_APP_TYPE_ID)"
+Write-Host "Root: $env:NV_LAUNCHER_FOLDER"
+# ... deployment logic using $args[0] (the entry folder path)
+```
+
 #### Example – one custom action in entry bar and toolbar
 
 ```json

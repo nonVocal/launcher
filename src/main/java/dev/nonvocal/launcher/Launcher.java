@@ -214,9 +214,9 @@ public class Launcher extends JFrame
                     btn.addActionListener(ev ->
                     {
                         LaunchEntry sel = list.getSelectedValue();
-                        File target = (sel != null && sel.type() != EntryType.SCRIPT)
-                                ? sel.file() : baseFolder;
-                        folderActions.executeCustomAction(ca, target);
+                        boolean hasFolderEntry = sel != null && sel.type() != EntryType.SCRIPT;
+                        File target = hasFolderEntry ? sel.file() : baseFolder;
+                        folderActions.executeCustomAction(ca, target, hasFolderEntry ? sel : null);
                     });
                     toolbarLeftPanel.add(btn);
                 }
@@ -491,7 +491,7 @@ public class Launcher extends JFrame
                 default ->
                 {
                     CustomAction ca = effectiveCustomActionMap.get(k);
-                    if (ca != null) mi.addActionListener(e -> folderActions.executeCustomAction(ca, sel.file()));
+                    if (ca != null) mi.addActionListener(e -> folderActions.executeCustomAction(ca, sel.file(), sel));
                 }
             }
             menu.add(mi);

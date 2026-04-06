@@ -127,8 +127,24 @@ class FolderActions
     /**
      * Executes a user-defined {@link CustomAction} with {@code targetFolder} as the
      * first command-line argument.  The process output is streamed in a dedicated window.
+     * <p>
+     * The following environment variables are always set for the child process:
+     * <ul>
+     *   <li>{@code NV_LAUNCHER_FOLDER} – absolute path of the launcher root folder</li>
+     *   <li>{@code NV_ENTRY_PATH}      – absolute path passed as the first CLI argument</li>
+     *   <li>{@code NV_ENTRY_NAME}      – file/folder name of the entry (or root folder)</li>
+     *   <li>{@code NV_ENTRY_TYPE}      – {@code SCRIPT}, {@code APP_FOLDER}, or {@code PLAIN_FOLDER}
+     *                                    (empty when no entry context is available)</li>
+     *   <li>{@code NV_APP_TYPE_ID}     – ID of the matched {@link AppType}, or empty string</li>
+     *   <li>{@code NV_ICON_FILE}       – absolute path of the icon file, or empty string</li>
+     * </ul>
+     *
+     * @param action       the custom action to execute
+     * @param targetFolder the folder passed as the first CLI argument
+     * @param entry        the list entry that triggered the action, or {@code null} when
+     *                     triggered from the toolbar without a selected entry
      */
-    void executeCustomAction(CustomAction action, File targetFolder)
+    void executeCustomAction(CustomAction action, File targetFolder, LaunchEntry entry)
     {
         if (action.scriptPath() == null || action.scriptPath().isBlank())
         {
@@ -142,6 +158,25 @@ class FolderActions
             ProcessBuilder pb = new ProcessBuilder(
                     action.scriptPath(), targetFolder.getAbsolutePath());
             pb.redirectErrorStream(true);
+
+            // ── Expose entry metadata as environment variables ────────────────
+            java.util.Map<String, String> env = pb.environment();
+            env.put("NV_LAUNCHER_FOLDER", baseFolder.getAbsolutePath());
+            env.put("NV_ENTRY_PATH",      targetFolder.getAbsolutePath());
+            env.put("NV_ENTRY_NAME",      targetFolder.getName());
+            if (entry != null)
+            {
+                env.put("NV_ENTRY_TYPE",  entry.type().name());
+                env.put("NV_APP_TYPE_ID", entry.appType()  != null ? entry.appType().id()                      : "");
+                env.put("NV_ICON_FILE",   entry.iconFile() != null ? entry.iconFile().getAbsolutePath()         : "");
+            }
+            else
+            {
+                env.put("NV_ENTRY_TYPE",  "");
+                env.put("NV_APP_TYPE_ID", "");
+                env.put("NV_ICON_FILE",   "");
+            }
+
             ProcessOutputWindow.show(pb.start(), action.effectiveLabel(), null);
         }
         catch (IOException ex)

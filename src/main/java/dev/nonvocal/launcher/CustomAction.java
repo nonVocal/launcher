@@ -25,6 +25,18 @@ import java.util.Objects;
  * When used as a <em>list-entry action</em> the selected folder's absolute path is passed
  * as the first argument to the script.  When used as a <em>toolbar action</em> the
  * launcher root folder path is passed instead.
+ * <p>
+ * In both cases the following environment variables are additionally set so that scripts
+ * can inspect the full entry context without needing to parse additional arguments:
+ * <ul>
+ *   <li>{@code NV_LAUNCHER_FOLDER} – absolute path of the launcher root folder</li>
+ *   <li>{@code NV_ENTRY_PATH}      – same as the first CLI argument</li>
+ *   <li>{@code NV_ENTRY_NAME}      – file/folder name of the entry</li>
+ *   <li>{@code NV_ENTRY_TYPE}      – {@code SCRIPT}, {@code APP_FOLDER}, or {@code PLAIN_FOLDER}
+ *                                    (empty when triggered from the toolbar with no selection)</li>
+ *   <li>{@code NV_APP_TYPE_ID}     – ID of the matched application type, or empty string</li>
+ *   <li>{@code NV_ICON_FILE}       – absolute path of the icon file, or empty string</li>
+ * </ul>
  */
 record CustomAction(
         String id,
