@@ -596,7 +596,8 @@ public class Launcher extends JFrame
                 config.priorityList(), config.explorer(), config.editor(),
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
                 config.toolbarActions(), config.customActions(),
-                config.appTypes(), config.appTypeAssignments(), config.theme(), config.accentColor());
+                config.appTypes(), config.appTypeAssignments(), config.theme(), config.accentColor(),
+                config.hiddenEntries());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -610,7 +611,8 @@ public class Launcher extends JFrame
                 names, config.explorer(), config.editor(),
                 config.actionOrder(), config.entryButtonStyle(), config.showContextMenu(),
                 config.toolbarActions(), config.customActions(),
-                config.appTypes(), config.appTypeAssignments(), config.theme(), config.accentColor());
+                config.appTypes(), config.appTypeAssignments(), config.theme(), config.accentColor(),
+                config.hiddenEntries());
         config.save(LauncherConfig.instanceConfigFile(launcherId));
     }
 
@@ -867,7 +869,8 @@ public class Launcher extends JFrame
                 merged.priorityList(), merged.explorer(), merged.editor(),
                 merged.actionOrder(), merged.entryButtonStyle(), merged.showContextMenu(),
                 merged.toolbarActions(), merged.customActions(),
-                merged.appTypes(), merged.appTypeAssignments(), merged.theme(), merged.accentColor());
+                merged.appTypes(), merged.appTypeAssignments(), merged.theme(), merged.accentColor(),
+                merged.hiddenEntries());
         resolvedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
 
         final boolean minimized = startMinimized;

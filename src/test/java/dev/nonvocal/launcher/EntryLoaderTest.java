@@ -229,7 +229,7 @@ class EntryLoaderTest
         touch(dir, "a.bat");
 
         LauncherConfig cfg = new LauncherConfig(
-                null, null, null, null, List.of(), null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, List.of(), null, null, null, null, null, null, null, null, null, null, null, null);
 
         List<LaunchEntry> entries = EntryLoader.load(dir, cfg);
 
@@ -254,6 +254,57 @@ class EntryLoaderTest
         assertEquals("b.bat", entries.get(2).file().getName());
     }
 
+    // ── load() – hidden entries ───────────────────────────────────────────────
+
+    @Test
+    void load_hiddenEntries_excludesMatchingFiles(@TempDir File dir) throws IOException
+    {
+        touch(dir, "visible.bat");
+        touch(dir, "hidden.bat");
+
+        LauncherConfig cfg = withHidden("hidden.bat");
+        List<LaunchEntry> entries = EntryLoader.load(dir, cfg);
+
+        assertEquals(1, entries.size());
+        assertEquals("visible.bat", entries.getFirst().file().getName());
+    }
+
+    @Test
+    void load_hiddenEntries_excludesMatchingFolders(@TempDir File dir)
+    {
+        new File(dir, "visible").mkdir();
+        new File(dir, "hidden").mkdir();
+
+        LauncherConfig cfg = withHidden("hidden");
+        List<LaunchEntry> entries = EntryLoader.load(dir, cfg);
+
+        assertEquals(1, entries.size());
+        assertEquals("visible", entries.getFirst().file().getName());
+    }
+
+    @Test
+    void load_hiddenEntries_null_showsAll(@TempDir File dir) throws IOException
+    {
+        touch(dir, "a.bat");
+        touch(dir, "b.bat");
+
+        // hiddenEntries = null → nothing filtered
+        List<LaunchEntry> entries = EntryLoader.load(dir, LauncherConfig.empty());
+        assertEquals(2, entries.size());
+    }
+
+    @Test
+    void load_hiddenEntries_unknownName_isIgnored(@TempDir File dir) throws IOException
+    {
+        touch(dir, "real.bat");
+
+        LauncherConfig cfg = withHidden("ghost.bat");
+        List<LaunchEntry> entries = EntryLoader.load(dir, cfg);
+
+        assertEquals(1, entries.size());
+        assertEquals("real.bat", entries.getFirst().file().getName());
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     /** Creates an empty file in {@code parent} and returns it. */
@@ -275,7 +326,13 @@ class EntryLoaderTest
     /** Builds a config that has only the given priority list set. */
     private static LauncherConfig withPriority(String... names)
     {
-        return new LauncherConfig(null, null, null, null, List.of(names), null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, null, null, null, List.of(names), null, null, null, null, null, null, null, null, null, null, null, null);
+    }
+
+    /** Builds a config that has only the given hidden entries set. */
+    private static LauncherConfig withHidden(String... names)
+    {
+        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, List.of(names));
     }
 }
 

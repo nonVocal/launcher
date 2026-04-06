@@ -202,6 +202,72 @@ class SettingsDialog extends JDialog
         cbContextMenu.setAlignmentX(Component.LEFT_ALIGNMENT);
         tabGeneral.add(cbContextMenu);
 
+        tabGeneral.add(separator());
+
+        tabGeneral.add(sectionLabel("Hidden Entries"));
+        tabGeneral.add(Box.createVerticalStrut(4));
+        JLabel hiddenHint = new JLabel("Entries listed here are excluded from the launcher list");
+        hiddenHint.setFont(hiddenHint.getFont().deriveFont(Font.ITALIC, 10f));
+        hiddenHint.setForeground(Color.GRAY);
+        hiddenHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tabGeneral.add(hiddenHint);
+        tabGeneral.add(Box.createVerticalStrut(4));
+
+        DefaultListModel<String> hiddenModel = new DefaultListModel<>();
+        if (config.hiddenEntries() != null)
+            config.hiddenEntries().forEach(hiddenModel::addElement);
+
+        JList<String> hiddenList = new JList<>(hiddenModel);
+        hiddenList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        hiddenList.setFixedCellHeight(22);
+        hiddenList.setCellRenderer((lst, value, index, isSelected, focus) ->
+        {
+            JLabel lbl = new JLabel(value);
+            lbl.setFont(lst.getFont().deriveFont(11f));
+            lbl.setOpaque(true);
+            lbl.setBorder(CELL_ITEM_BORDER);
+            if (isSelected) { lbl.setBackground(lst.getSelectionBackground()); lbl.setForeground(lst.getSelectionForeground()); }
+            else            { lbl.setBackground(lst.getBackground());           lbl.setForeground(lst.getForeground()); }
+            return lbl;
+        });
+
+        JButton hiddenBtnAdd    = new JButton("Add");
+        JButton hiddenBtnRemove = new JButton("Remove");
+
+        hiddenBtnAdd.addActionListener(ev ->
+        {
+            List<String> allNames = new ArrayList<>(knownFolderNames);
+            // also suggest script names from allEntries (not available here, use folder names)
+            JComboBox<String> cbName = new JComboBox<>(allNames.toArray(new String[0]));
+            cbName.setEditable(true);
+            cbName.setSelectedIndex(allNames.isEmpty() ? -1 : 0);
+            int res = JOptionPane.showConfirmDialog(this, cbName,
+                    "Add Hidden Entry", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+            if (res != JOptionPane.OK_OPTION) return;
+            Object sel = cbName.getSelectedItem();
+            String name = sel != null ? sel.toString().trim() : "";
+            if (name.isEmpty()) return;
+            for (int i = 0; i < hiddenModel.getSize(); i++)
+                if (hiddenModel.getElementAt(i).equals(name)) return; // already present
+            hiddenModel.addElement(name);
+        });
+        hiddenBtnRemove.addActionListener(ev ->
+        {
+            int idx = hiddenList.getSelectedIndex();
+            if (idx >= 0) hiddenModel.remove(idx);
+        });
+
+        JPanel hiddenBtnPanel = new JPanel(new GridLayout(2, 1, 0, 2));
+        hiddenBtnPanel.add(hiddenBtnAdd);
+        hiddenBtnPanel.add(hiddenBtnRemove);
+
+        JPanel hiddenListPanel = new JPanel(new BorderLayout(6, 0));
+        hiddenListPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        hiddenListPanel.add(new JScrollPane(hiddenList), BorderLayout.CENTER);
+        hiddenListPanel.add(hiddenBtnPanel, BorderLayout.EAST);
+        hiddenListPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 22 + 8));
+        tabGeneral.add(hiddenListPanel);
+
         tabs.addTab("General", new JScrollPane(tabGeneral));
 
         // ── Tab 2: Custom Actions ─────────────────────────────────────────────
@@ -705,6 +771,9 @@ class SettingsDialog extends JDialog
             String newAccent = selectedAccent[0] == null ? null
                     : String.format("#%06X", selectedAccent[0].getRGB() & 0xFFFFFF);
 
+            List<String> newHiddenEntries = new ArrayList<>(hiddenModel.getSize());
+            for (int i = 0; i < hiddenModel.getSize(); i++) newHiddenEntries.add(hiddenModel.getElementAt(i));
+
             onSave.accept(new LauncherConfig(
                     config.rootFolder(), cbMinimized.isSelected(),
                     config.windowWidth(), config.windowHeight(),
@@ -717,7 +786,8 @@ class SettingsDialog extends JDialog
                     newCustomActions.isEmpty() ? null : newCustomActions,
                     newAppTypes.isEmpty() ? null : newAppTypes,
                     newAssignments.isEmpty() ? null : newAssignments,
-                    newTheme, newAccent));
+                    newTheme, newAccent,
+                    newHiddenEntries.isEmpty() ? null : newHiddenEntries));
             dispose();
         });
         btnCancel.addActionListener(e -> dispose());

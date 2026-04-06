@@ -36,6 +36,9 @@ class EntryLoader
         Map<String, String> assignments = config.appTypeAssignments() != null
                 ? config.appTypeAssignments() : Collections.emptyMap();
 
+        Set<String> hidden = (config.hiddenEntries() != null && !config.hiddenEntries().isEmpty())
+                ? new HashSet<>(config.hiddenEntries()) : Collections.emptySet();
+
         List<LaunchEntry> scripts = new ArrayList<>();
         List<LaunchEntry> apps    = new ArrayList<>();
         List<LaunchEntry> plain   = new ArrayList<>();
@@ -46,6 +49,7 @@ class EntryLoader
             Arrays.sort(children, Comparator.comparing(f -> f.getName().toLowerCase(Locale.ROOT)));
             for (File f : children)
             {
+                if (hidden.contains(f.getName())) continue;   // skip hidden entries
                 if (f.isDirectory())
                 {
                     LaunchEntry entry = classifyDirectory(f, assignments, typeById);

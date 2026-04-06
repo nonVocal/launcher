@@ -37,7 +37,8 @@ record LauncherConfig(
         List<AppType>       appTypes,
         Map<String, String> appTypeAssignments,   // folderName → appType id
         String              theme,                // "light", "dark", null/"system"
-        String              accentColor)          // hex string e.g. "#0078D7", null = default
+        String              accentColor,          // hex string e.g. "#0078D7", null = default
+        List<String>        hiddenEntries)        // folder/file names excluded from the list
 {
     // ── Static paths ───────────────────────────────────────────────────────────
 
@@ -65,13 +66,13 @@ record LauncherConfig(
     /** All fields null – represents "nothing set at this level". */
     static LauncherConfig empty()
     {
-        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /** Hardcoded application defaults (all fields non-null). */
     static LauncherConfig defaults()
     {
-        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LauncherConfig(null, false, 560, 680, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -117,7 +118,8 @@ record LauncherConfig(
                 appTypes            != null ? appTypes            : base.appTypes,
                 appTypeAssignments  != null ? appTypeAssignments  : base.appTypeAssignments,
                 theme               != null ? theme               : base.theme,
-                accentColor         != null ? accentColor         : base.accentColor);
+                accentColor         != null ? accentColor         : base.accentColor,
+                hiddenEntries       != null ? hiddenEntries       : base.hiddenEntries);
     }
 
     /**
@@ -142,7 +144,8 @@ record LauncherConfig(
                 appTypes,
                 appTypeAssignments,
                 theme,
-                accentColor);
+                accentColor,
+                hiddenEntries);
     }
 
     // ── Persistence ────────────────────────────────────────────────────────────
@@ -199,6 +202,10 @@ record LauncherConfig(
         if (appTypeAssignments != null && !appTypeAssignments.isEmpty())
         {
             lines.add(jsonAppTypeAssignments(appTypeAssignments));
+        }
+        if (hiddenEntries != null && !hiddenEntries.isEmpty())
+        {
+            lines.add(jsonStrList("hiddenEntries", hiddenEntries));
         }
         return "{\n" + String.join(",\n", lines) + "\n}";
     }
@@ -327,7 +334,8 @@ record LauncherConfig(
                 parseAppTypes         (json),
                 parseAppTypeAssignments(json),
                 parseStr              (json, "theme"),
-                parseStr              (json, "accentColor"));
+                parseStr              (json, "accentColor"),
+                parseStrList          (json, "hiddenEntries"));
     }
 
     // ── CustomAction deserialisation ──────────────────────────────────────────
