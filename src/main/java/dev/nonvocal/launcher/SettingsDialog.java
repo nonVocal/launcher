@@ -39,9 +39,14 @@ class SettingsDialog extends JDialog
         this.knownFolderNames = knownFolderNames;
         this.onSave = onSave;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setResizable(false);
+        setResizable(true);
         buildContent();
         pack();
+        // Cap the dialog height so it fits on screen and the tab JScrollPanes actually scroll
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        int maxH = (int) (screen.height * 0.78);
+        if (getHeight() > maxH)
+            setSize(getWidth(), maxH);
     }
 
     // ── Content ───────────────────────────────────────────────────────────────
