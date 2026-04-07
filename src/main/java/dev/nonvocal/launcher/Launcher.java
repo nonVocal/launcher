@@ -90,6 +90,9 @@ public class Launcher extends JFrame
     /** Registered in buildUI (save + exit). Removed by setupTray() so only the tray adapter fires. */
     private WindowAdapter defaultCloseAdapter;
 
+    /** {@code true} once setupTray() has successfully placed the app in the system tray. */
+    private boolean trayActive = false;
+
     // Collaborators
     private FolderActions  folderActions;
     private EntryLauncher  entryLauncher;
@@ -269,6 +272,7 @@ public class Launcher extends JFrame
         folderActions = new FolderActions(this, baseFolder, () -> config, this::refreshList);
         entryLauncher = new EntryLauncher(this);
 
+        setUndecorated(true);
         setTitle("Launcher  \u2013  " + baseFolder.getAbsolutePath());
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setSize(config.windowWidth(), config.windowHeight());
@@ -292,6 +296,48 @@ public class Launcher extends JFrame
         dirLabel.setFont(dirLabel.getFont().deriveFont(Font.BOLD, 13f));
         dirLabel.setForeground(Color.WHITE);
         header.add(dirLabel, BorderLayout.CENTER);
+
+        // ── Minus button (minimize / hide-to-tray) ───────────────────────────
+        JButton minBtn = new JButton("\u2212");   // U+2212 MINUS SIGN
+        minBtn.setForeground(Color.WHITE);
+        minBtn.setOpaque(false);
+        minBtn.setBorderPainted(false);
+        minBtn.setContentAreaFilled(false);
+        minBtn.setFocusPainted(false);
+        minBtn.setFont(minBtn.getFont().deriveFont(Font.PLAIN, 18f));
+        minBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        minBtn.setMargin(new Insets(0, 8, 0, 2));
+        minBtn.setToolTipText("Minimize");
+        minBtn.addActionListener(ev ->
+        {
+            if (trayActive) setVisible(false);
+            else            setExtendedState(JFrame.ICONIFIED);
+        });
+        header.add(minBtn, BorderLayout.EAST);
+
+        // ── Drag-to-move (undecorated frame) ────────────────────────────────
+        final Point[] pressScreen = {null};
+        final Point[] pressFrame  = {null};
+        MouseAdapter dragAdapter = new MouseAdapter()
+        {
+            @Override public void mousePressed(MouseEvent e)
+            {
+                pressScreen[0] = e.getLocationOnScreen();
+                pressFrame[0]  = getLocation();
+            }
+            @Override public void mouseReleased(MouseEvent e) { pressScreen[0] = null; }
+            @Override public void mouseDragged(MouseEvent e)
+            {
+                if (pressScreen[0] == null) return;
+                Point s = e.getLocationOnScreen();
+                setLocation(pressFrame[0].x + s.x - pressScreen[0].x,
+                             pressFrame[0].y + s.y - pressScreen[0].y);
+            }
+        };
+        header.addMouseListener(dragAdapter);
+        header.addMouseMotionListener(dragAdapter);
+        dirLabel.addMouseListener(dragAdapter);
+        dirLabel.addMouseMotionListener(dragAdapter);
 
         // ── Entry list ───────────────────────────────────────────────────────
         listModel = new DefaultListModel<>();
@@ -570,6 +616,7 @@ public class Launcher extends JFrame
 
         try { SystemTray.getSystemTray().add(trayIcon); }
         catch (AWTException ex) { setVisible(true); return; }
+        trayActive = true;
 
         // Replace exit-on-close with hide-to-tray
         if (defaultCloseAdapter != null) { removeWindowListener(defaultCloseAdapter); defaultCloseAdapter = null; }
@@ -754,6 +801,9 @@ public class Launcher extends JFrame
         // Search label foreground
         if (searchLabel != null)
             searchLabel.setForeground(theme.searchFg);
+
+        // 1-px outer border for the undecorated window so it stands out from the desktop
+        getRootPane().setBorder(BorderFactory.createLineBorder(theme.sepColor, 1));
     }
 
     /**

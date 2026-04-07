@@ -9,6 +9,11 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - **Application folders** – sub-folders that contain a `.lnk` shortcut or a known fallback executable; shown with the **application's own icon**
   - **Folders** – all other sub-folders (double-click opens in File Explorer)
 - **Double-click / Enter** to run a script or launch an application
+- **Custom title bar** – the OS title bar is replaced by the accent-colored header. A **minus button (−)** is the only window-control button:
+  - If started with `--minimized` (tray mode): hides the window to the system tray
+  - Otherwise: minimizes the window to the taskbar
+  - **Drag** the header to move the window anywhere on screen
+- **Bottom-right positioning** – the window and the Settings dialog always open in the bottom-right corner of the screen, respecting the taskbar insets
 - **Configurable entry order** – drag any row to a new position with the mouse; the order is saved automatically to the instance config as a `priorityList` and restored on the next launch. Entries not in the list follow the default sort (scripts A–Z → app folders A–Z → plain folders A–Z)
 - **Dark mode / Light mode** – choose between **Light**, **Dark**, or **System default** (follows the OS preference). The full UI – list rows, action buttons, toolbar, footer, and all dialogs – adapts to the active theme instantly when you save settings.
 - **Custom accent color** – pick any colour with the built-in colour picker to tint the header bar, the Settings dialog section labels, and FlatLaf's system-wide highlights (selection, focused borders, scroll bars, …). Reset to the default Windows blue at any time.
@@ -40,7 +45,7 @@ A lightweight Java Swing application that lets you browse and launch scripts and
   - **App Types** – manage application type definitions and folder assignments
   - **Hidden Entries** – manage entries excluded from the list
   - **Colors** – override individual launcher colours and FlatLaf LAF variables to craft a cohesive custom theme
-- Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide
+- Optional **system tray** support – start minimized with `--minimized`; **single-click** the tray icon to show/hide; the tray right-click menu has **Show / Hide** and **Exit** items
 - **Folder-chooser dialog** when no path is supplied on startup
 - **Color-coded list** for scripts, application folders, and plain folders – colours automatically adapt to the current light/dark theme
 
@@ -49,6 +54,10 @@ A lightweight Java Swing application that lets you browse and launch scripts and
 ### Running the self-contained application (recommended)
 
 Download the `Launcher/` folder from the [Releases](../../releases) page and double-click **`Launcher.exe`** — no JDK or JRE installation needed.
+
+### Running the native binary (AOT-compiled, no JRE required)
+
+Build with `scripts\build-native.bat` (see [AOT / Native Build](#aot--native-build) below). The resulting `Launcher.exe` is a single standalone binary with no bundled JRE.
 
 ### Running from the uber-JAR
 
@@ -125,12 +134,48 @@ javaw -jar target\launcher-0.0.4.jar  C:\path\to\your\folder
 javaw -jar target\launcher-0.0.4.jar  C:\path\to\your\folder  --minimized
 ```
 
+## AOT / Native Build
+
+The Maven `native` profile compiles the application ahead-of-time with **GraalVM Native Image** into a single, self-contained `Launcher.exe` — no bundled JRE, no Java installation required on the target machine.
+
+### Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| **GraalVM JDK 26** | Oracle GraalVM or GraalVM CE. Download from [graalvm.org](https://www.graalvm.org/downloads/) or [GitHub Releases](https://github.com/graalvm/graalvm-ce-builds/releases). Adjust `GRAALVM_HOME` in `scripts\build-native.bat`. |
+| **Visual Studio Build Tools** | "Desktop development with C++" workload. Run the build from an *x64 Native Tools Command Prompt for VS 20xx*, or call `vcvarsall.bat` beforehand. |
+
+### Build
+
+```bat
+scripts\build-native.bat
+```
+
+Or directly with Maven (with GraalVM JDK active):
+
+```bat
+mvn package -Pnative -DskipTests
+```
+
+Output: `target\Launcher.exe` (~50–80 MB, standalone — distribute this single file).
+
+### Missing reflection / resource configuration
+
+If the native build fails with *"Class X was used but not registered"* or the app crashes at runtime, run the native-image agent on the regular JAR to collect the missing configuration automatically:
+
+```bat
+java -agentlib:native-image-agent=config-output-dir=src\main\resources\META-INF\native-image\dev.nonvocal\launcher ^
+     -jar target\launcher-0.0.4.jar
+```
+
+Exercise the features you need (open the Settings dialog, use custom actions, etc.), then close the app and rebuild with `-Pnative`. The agent writes all required `reflect-config.json`, `resource-config.json`, and `proxy-config.json` files.
+
 ## Command-Line Options
 
 | Option | Description |
 |---|---|
 | `<rootFolder>` | Path to the root folder to browse. If omitted, the last-used folder from config is opened; if none exists, a folder-chooser dialog is shown. |
-| `--minimized` | Start hidden in the system tray. Single-click the tray icon to show/hide; use the tray menu to exit. |
+| `--minimized` | Start hidden in the system tray. The minus button (−) in the title bar hides the window to the tray. Single-click the tray icon to show/hide; use the tray menu to exit. |
 | `--launcherId=<id>` | Explicitly set the launcher instance ID. Used to locate the instance-specific config. Defaults to an 8-character hex hash of the root folder path. |
 | `--config=<path>` | Load an additional JSON config file. Its values override both the global and instance configs (highest priority among config files). |
 
@@ -247,8 +292,8 @@ Any field can be omitted; omitted fields are inherited from the level below.
 | `appTypes` | object array | List of user-defined application type definitions. Each type defines how to detect and display a category of application folder. See [Application Types](#application-types) below. |
 | `appTypeAssignments` | object array | Explicit assignments of folder names to application type IDs, overriding auto-detection. See [Application Types](#application-types) below. |
 | `hiddenEntries` | string array | Names of folders or files to exclude from the launcher list. The comparison is case-sensitive and matches the file/folder name exactly. |
-| `customThemeColors` | object | Per-key hex colour overrides for the launcher's own colour palette. Keys are the palette slot names (see [Custom Theme Colors](#custom-theme-colors) below); values are CSS hex strings (e.g. `"#1E2030"`). Missing keys fall back to the theme default. |
-| `customLafDefaults` | object | FlatLaf `@variable` overrides and/or direct UIManager property overrides. Applied globally via `FlatLaf.setGlobalExtraDefaults()` before the L&F is installed, so they cascade through **all** Swing components. See [LAF Color Overrides](#laf-color-overrides) below. |
+| `customThemeColors` | object | Per-key hex colour overrides for the launcher's own colour palette. Keys are the palette slot names; values are CSS hex strings (e.g. `"#1E2030"`). Missing keys fall back to the theme default. |
+| `customLafDefaults` | object | FlatLaf `@variable` overrides and/or direct UIManager property overrides. Applied globally via `FlatLaf.setGlobalExtraDefaults()` before the L&F is installed, so they cascade through **all** Swing components. |
 
 ### Action Keys
 
@@ -309,7 +354,7 @@ In addition to the folder path passed as the first CLI argument, Launcher always
 | `NV_ENTRY_PATH` | Absolute path of the target entry (same as the first CLI argument) |
 | `NV_ENTRY_NAME` | File/folder name of the target entry |
 | `NV_ENTRY_TYPE` | `SCRIPT`, `APP_FOLDER`, or `PLAIN_FOLDER` — empty when triggered from the toolbar with no entry selected |
-| `NV_APP_TYPE_ID` | ID of the matched application type (see [Application Types](#application-types)), or empty string if not an app-typed folder |
+| `NV_APP_TYPE_ID` | ID of the matched application type, or empty string if not an app-typed folder |
 | `NV_ICON_FILE` | Absolute path to the icon file (`.lnk` or fallback `.exe`) used to display the entry's icon, or empty string if none |
 
 **Example – batch script using entry metadata:**
@@ -444,6 +489,19 @@ On the very first launch, `%APPDATA%\nvLauncher\config.json` is created automati
   - **Application folders** search for and launch `.lnk` shortcuts or the fallback executable
   - **Plain folders** open in Windows File Explorer
 
+### Custom Title Bar
+
+The window uses a custom, undecorated title bar instead of the OS window chrome:
+
+| Element | Description |
+|---|---|
+| **Header background** | Filled with the configured accent colour (default: Windows blue `#0078D7`) |
+| **Directory label** | Shows the folder name and full path; drag it to move the window |
+| **Minus button (−)** | Single window-control button. In tray mode (`--minimized`): hides the window to the tray. Otherwise: iconifies to the taskbar. |
+| **Window border** | 1 px border that adapts to the current theme's separator colour |
+
+The window opens in the **bottom-right corner** of the screen by default, respecting the taskbar area. The Settings dialog opens in the same corner.
+
 ### Toolbar
 
 A toolbar sits between the header and the entry list.
@@ -456,7 +514,7 @@ A toolbar sits between the header and the entry list.
 
 ### Settings Dialog
 
-Open by clicking the **⚙ gear icon** on the right side of the toolbar. The dialog is organized into **six tabs**. The **Save** and **Cancel** buttons are always visible at the bottom, regardless of the active tab.
+Open by clicking the **⚙ gear icon** on the right side of the toolbar. The dialog opens in the **bottom-right corner** of the screen. It is organized into **six tabs**. The **Save** and **Cancel** buttons are always visible at the bottom, regardless of the active tab.
 
 #### Tab: General
 
@@ -519,6 +577,7 @@ The theme is applied via [FlatLaf](https://www.formdev.com/flatlaf/). The follow
 - **List rows** – alternating row colours, entry-type foreground colours, action button colours
 - **Action buttons** – background, border, icon foreground, delete-button red
 - **Toolbar and footer** – background follows the system panel colour; borders use the theme separator colour
+- **Window border** – 1 px outer border adapts to the theme separator colour
 - **All standard Swing controls** – text fields, buttons, checkboxes, radio buttons, tabs, dialogs, …
 
 **Three layers of colour customisation** (applied in order, each overrides the previous):
@@ -610,9 +669,9 @@ Launcher uses the following strategy (in priority order):
 
 | File | Description |
 |---|---|
-| `Launcher.java` | Application entry point and UI shell. Includes `applyTheme(theme, accentColor, customLafDefaults)` (merges `customLafDefaults` with the accent colour into `FlatLaf.setGlobalExtraDefaults()`, then installs the L&F), `refreshThemeColors()` (updates header, borders, legend labels on theme/accent change), and `parseHexColor()` utility. |
-| `LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic; **19 fields** including `theme`, `accentColor`, `customActions`, `appTypes`, `appTypeAssignments`, `hiddenEntries`, `customThemeColors`, and `customLafDefaults`. Shared `jsonStringMap` / `parseJsonStringMap` helpers for serializing both color-map fields. |
-| `ColorTheme.java` | Colour palette for the launcher's cell renderer. `forCurrentLaf()` resolves colours from the active L&F; `forCurrentLaf(Map<String,String>)` additionally applies `customThemeColors` overrides on top. `applyCustomColors()` substitutes individual hex-colour values by palette-slot name. |
+| `Launcher.java` | Application entry point and UI shell. Custom undecorated title bar with accent-colored header, minus button (−), and drag-to-move support. `positionAtBottomRight(Window)` positions both the main window and the Settings dialog in the screen's bottom-right corner (taskbar-aware). `applyTheme()` and `refreshThemeColors()` handle theming including the 1 px window border. |
+| `LauncherConfig.java` | Config record – JSON load/save/merge, three-level override logic; **19 fields** including `theme`, `accentColor`, `customActions`, `appTypes`, `appTypeAssignments`, `hiddenEntries`, `customThemeColors`, and `customLafDefaults`. |
+| `ColorTheme.java` | Colour palette for the launcher's cell renderer. `forCurrentLaf()` resolves colours from the active L&F; `forCurrentLaf(Map<String,String>)` additionally applies `customThemeColors` overrides on top. |
 | `CustomAction.java` | Immutable record for user-defined actions: `id`, `scope`, `iconPath`, `scriptPath`, `label`, `tooltip` |
 | `AppType.java` | Immutable record for custom application types: `id`, `iconPath`, `executablePaths`, `executableNames` |
 | `EntryType.java` | Enum: `SCRIPT`, `APP_FOLDER`, `PLAIN_FOLDER` |
@@ -623,7 +682,7 @@ Launcher uses the following strategy (in priority order):
 | `EntryCellRenderer.java` | Swing list-cell renderer. Accepts `customThemeColors` in its constructor and calls `ColorTheme.forCurrentLaf(customThemeColors)` so the palette reflects both the active L&F and any user-defined overrides. Recreated on every theme/settings change. |
 | `ListMouseHandler.java` | `MouseAdapter` – action button clicks, double-click launch, hover cursor, right-click menu |
 | `EntryListTransferHandler.java` | Drag-and-drop reordering (disabled while a search filter is active) |
-| `SettingsDialog.java` | Modal settings `JDialog` – **six tabs**: General (theme + accent), Custom Actions, Action Buttons, App Types, Hidden Entries, Colors (launcher palette + LAF overrides). `buildNewLafDefaults()` merges predefined `@variable` swatches with the free-form list into the `customLafDefaults` map. |
+| `SettingsDialog.java` | Modal settings `JDialog` – **six tabs**: General (theme + accent), Custom Actions, Action Buttons, App Types, Hidden Entries, Colors (launcher palette + LAF overrides). |
 | `ProcessOutputWindow.java` | Streams real-time process output into a dedicated, auto-closing window |
 
 ### Test files
@@ -643,11 +702,12 @@ Tests are written with **JUnit 5** (`mvn test`):
 
 | File | Description |
 |---|---|
-| `src/main/resources/` | PNG icon files used for action buttons, window icon, and system tray |
-| `pom.xml` | Maven configuration (JDK 26, JUnit 5, **FlatLaf 3.5.4**, **maven-shade-plugin** for uber-JAR, **maven-antrun-plugin** + **jpackage-maven-plugin** for self-contained exe) |
-| `scripts/build.bat` | Maven build script – sets `JAVA_HOME` to JDK 26, calls IntelliJ's bundled Maven, runs `mvn package`; outputs both the uber-JAR and the self-contained `target\dist\Launcher\Launcher.exe` |
-| `scripts/run.bat` | Legacy run script (use `target\dist\Launcher\Launcher.exe` or `javaw -jar target\launcher-0.0.4.jar` instead) |
-| `example_start_at_logon_in_apps_folder.bat` | Example batch file for starting Launcher minimized to the tray at logon |
+| `src/main/resources/*.png` | PNG icon files used for action buttons, window icon, and system tray |
+| `src/main/resources/META-INF/native-image/dev.nonvocal/launcher/` | GraalVM Native Image configuration: `reflect-config.json` (L&F and Swing reflection), `resource-config.json` (classpath PNG resources), `native-image.properties` (build args and `--initialize-at-run-time` for FlatLaf) |
+| `pom.xml` | Maven configuration (JDK 26, JUnit 5, **FlatLaf 3.5.4**, **maven-shade-plugin** for uber-JAR, **maven-antrun-plugin** + **jpackage-maven-plugin** for self-contained exe, **`native` profile** with **native-maven-plugin 0.10.4** for GraalVM AOT compilation) |
+| `scripts/build.bat` | Standard Maven build – sets `JAVA_HOME` to JDK 26, runs `mvn package`; outputs uber-JAR and `target\dist\Launcher\Launcher.exe` |
+| `scripts/build-native.bat` | GraalVM Native Image build – sets `JAVA_HOME` to GraalVM JDK 26, runs `mvn package -Pnative`; outputs standalone `target\Launcher.exe` (~50–80 MB, no JRE required). Adjust `GRAALVM_HOME` in the script. |
+| `scripts/run.bat` | Legacy run script (use `target\dist\Launcher\Launcher.exe` or `javaw -jar` instead) |
 | `icon-attribution.md` | Icon licence credits (Flaticon) |
 | `README.md` | This file |
 | `LICENSE` | License information |
@@ -681,6 +741,7 @@ All colours adapt automatically to the active light/dark theme.
 |---|---|
 | Launch selected item | **Enter** or **Double-click** |
 | Reorder entry | **Drag & drop** row (unfiltered list only) |
+| Move window | **Drag the header bar** |
 | Open Settings | **Toolbar ⚙ button** (right) |
 | Open in File Explorer | **Click folder icon** or right-click → *Open in File Explorer* |
 | Open in Editor | **Click document icon** or right-click → *Open in Editor* |
@@ -690,7 +751,7 @@ All colours adapt automatically to the active light/dark theme.
 | Start filtering | **Type any character** |
 | Delete last filter character | **Backspace** |
 | Clear filter | **Escape** |
-| Minimize to tray | Close window (if started with `--minimized`) |
+| Minimize / hide to tray | **Minus button (−)** in the title bar |
 | Show/Hide from tray | **Single-click** tray icon |
 
 ## Auto-start on Logon
@@ -698,7 +759,7 @@ All colours adapt automatically to the active light/dark theme.
 ### Option A - Startup Folder (simplest)
 
 1. Press **Win + R**, type `shell:startup`, press **Enter**.
-2. Create a shortcut to `Launcher.exe` (self-contained) or to your launcher batch file inside that folder.
+2. Create a shortcut to `Launcher.exe` (self-contained or native) or to your launcher batch file inside that folder.
 3. Log off and back on – Launcher will start automatically.
 
 ### Option B - Task Scheduler (recommended for tray/minimized use)
@@ -717,6 +778,14 @@ All colours adapt automatically to the active light/dark theme.
 @echo off
 REM Start Launcher minimized in the system tray for a specific folder
 start "" "C:\path\to\Launcher\Launcher.exe" "C:\path\to\your\apps\folder" --minimized --launcherId=myapps
+```
+
+### Using the native binary (AOT-compiled)
+
+```bat
+@echo off
+REM Native binary – single file, no JRE required
+start "" "C:\path\to\Launcher.exe" "C:\path\to\your\apps\folder" --minimized --launcherId=myapps
 ```
 
 ### Using the uber-JAR (requires JRE 26+)
@@ -773,6 +842,11 @@ The instance config will be stored at `%APPDATA%\nvLauncher\myapps\config.json`.
 - Verify the JSON is valid (no trailing commas, all strings quoted).
 - Use the **Settings** dialog to confirm the exact config file paths for the current instance.
 
+### Native Build Fails
+- Ensure GraalVM JDK 26 is active and `GRAALVM_HOME` in `build-native.bat` points to it.
+- Run from an *x64 Native Tools Command Prompt for VS 20xx* or ensure Visual Studio Build Tools are installed.
+- If the build succeeds but the app crashes with a missing-class error at runtime, run the native-image agent to collect the missing configuration (see [AOT / Native Build](#aot--native-build)).
+
 ---
 
 ## Tips & Best Practices
@@ -828,3 +902,4 @@ See the `LICENSE` file in this project.
 
 Icons used in this application are provided by [Flaticon](https://www.flaticon.com/).
 See [`icon-attribution.md`](icon-attribution.md) for the full list of credits.
+
