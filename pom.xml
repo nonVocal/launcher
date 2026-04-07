@@ -5,9 +5,17 @@
 
     <groupId>dev.nonvocal</groupId>
     <artifactId>launcher</artifactId>
-    <version>0.0.7</version>
+    <version>0.0.8</version>
     <name>launcher</name>
     <description>Simple Maven launcher project</description>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/nonVocal/launcher</url>
+        </repository>
+    </distributionManagement>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
