@@ -181,16 +181,16 @@ CLI arguments override all config files.
     {
       "id": "my-deploy-action",
       "scope": "ENTRY",
-      "iconPath": "C:\\icons\\deploy.png",
-      "scriptPath": "C:\\scripts\\deploy.bat",
+      "icon": "C:\\icons\\deploy.png",
+      "script": "C:\\scripts\\deploy.bat",
       "label": "Deploy",
       "tooltip": "Deploy this application"
     },
     {
       "id": "my-build-action",
       "scope": "TOOLBAR",
-      "iconPath": "C:\\icons\\build.png",
-      "scriptPath": "C:\\scripts\\build.bat",
+      "icon": "C:\\icons\\build.png",
+      "script": "C:\\scripts\\build.bat",
       "label": "Build All"
     }
   ],
@@ -294,8 +294,8 @@ Custom actions let you hook your own scripts or executables into the launcher UI
 |---|---|---|
 | `id` | ✅ yes | Unique identifier. Used as the key in `actionOrder` and `toolbarActions`. Must not clash with built-in keys. |
 | `scope` | ✅ yes | Where the action may appear: `"ENTRY"` (entry action bar only), `"TOOLBAR"` (toolbar only), or `"BOTH"` (entry bar and toolbar). Only actions whose scope matches will appear in the respective list in the Settings dialog. |
-| `scriptPath` | ✅ yes | Full path to the script or executable to run. When triggered from the **entry action bar**, the selected folder's absolute path is passed as the first argument. When triggered from the **toolbar**, the launcher root folder path is passed instead. |
-| `iconPath` | ❌ optional | Full path to a PNG or JPEG image file used as the button icon. If omitted, a short text label is shown instead. |
+| `script` | ✅ yes | Full path to the script or executable to run. When triggered from the **entry action bar**, the selected folder's absolute path is passed as the first argument. When triggered from the **toolbar**, the launcher root folder path is passed instead. |
+| `icon` | ❌ optional | Full path to a PNG or JPEG image file used as the button icon. If omitted, a short text label is shown instead. |
 | `label` | ❌ optional | Display label for the button and context menu item. Falls back to the `id` if omitted. |
 | `tooltip` | ❌ optional | Tooltip text shown on hover. Falls back to `label` (or `id`) if omitted. |
 
@@ -340,8 +340,8 @@ Write-Host "Root: $env:NV_LAUNCHER_FOLDER"
     {
       "id": "my-deploy",
       "scope": "BOTH",
-      "scriptPath": "C:\\scripts\\deploy.bat",
-      "iconPath": "C:\\icons\\deploy.png",
+      "script": "C:\\scripts\\deploy.bat",
+      "icon": "C:\\icons\\deploy.png",
       "label": "Deploy",
       "tooltip": "Deploy the selected application"
     }
@@ -633,8 +633,9 @@ Tests are written with **JUnit 5** (`mvn test`):
 | File | Tests | What is covered |
 |---|---|---|
 | `LauncherConfigTest.java` | 26 | `empty()`, `defaults()`, `mergeOver()`, `withDefaults()`, three-level merge chain, JSON round-trips for scalars / lists / `customThemeColors` / `customLafDefaults`, missing/malformed files |
-| `EntryLoaderTest.java` | 26 | Script detection, folder classification, sort order, priority-list reordering, hidden-entry filtering |
+| `EntryLoaderTest.java` | 30 | Script detection, folder classification, sort order, priority-list reordering, hidden-entry filtering |
 | `LaunchEntryTest.java` | 9 | Constructors, `toString()`, equality, hash code, `EntryType` values |
+| `LauncherTest.java` | — | Placeholder class (no test methods yet) |
 
 > **UI classes not covered by unit tests:** `FolderActions`, `ListMouseHandler`, `SettingsDialog`, `EntryLauncher`, and `ProcessOutputWindow` require a UI-testing framework such as AssertJ Swing.
 
