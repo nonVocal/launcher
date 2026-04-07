@@ -5,7 +5,7 @@
 
     <groupId>dev.nonvocal</groupId>
     <artifactId>launcher</artifactId>
-    <version>0.0.4</version>
+    <version>0.0.7</version>
     <name>launcher</name>
     <description>Simple Maven launcher project</description>
 
@@ -77,6 +77,7 @@
                         <goals><goal>run</goal></goals>
                         <configuration>
                             <target>
+                                <delete dir="${project.build.directory}/dist" quiet="true"/>
                                 <mkdir dir="${project.build.directory}/jpackage-input"/>
                                 <copy file="${project.build.directory}/${project.artifactId}-${project.version}.jar"
                                       todir="${project.build.directory}/jpackage-input"/>
