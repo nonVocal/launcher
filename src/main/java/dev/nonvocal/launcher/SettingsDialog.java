@@ -454,11 +454,13 @@ class SettingsDialog extends JDialog
         tbActButtons.add(tbBtnUp);
         tbActButtons.add(tbBtnDown);
 
+        JScrollPane tbScrollPane = new JScrollPane(tbList);
+        tbScrollPane.setPreferredSize(new Dimension(0, 130));
+
         JPanel tbPanel = new JPanel(new BorderLayout(6, 0));
         tbPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        tbPanel.add(new JScrollPane(tbList), BorderLayout.CENTER);
+        tbPanel.add(tbScrollPane, BorderLayout.CENTER);
         tbPanel.add(tbActButtons, BorderLayout.EAST);
-        tbPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2 * 24 + 8));
         tabActions.add(tbPanel);
         tabActions.add(Box.createVerticalStrut(8));
         tabActions.add(separator());
@@ -544,11 +546,13 @@ class SettingsDialog extends JDialog
         actButtons.add(btnUp);
         actButtons.add(btnDown);
 
+        JScrollPane actScrollPane = new JScrollPane(actList);
+        actScrollPane.setPreferredSize(new Dimension(0, 160));
+
         JPanel actPanel = new JPanel(new BorderLayout(6, 0));
         actPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        actPanel.add(new JScrollPane(actList), BorderLayout.CENTER);
+        actPanel.add(actScrollPane, BorderLayout.CENTER);
         actPanel.add(actButtons, BorderLayout.EAST);
-        actPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 4 * 24 + 8));
         tabActions.add(actPanel);
 
         tabs.addTab("Action Buttons", new JScrollPane(tabActions));
@@ -634,11 +638,13 @@ class SettingsDialog extends JDialog
         atBtnPanel.add(atBtnEdit);
         atBtnPanel.add(atBtnRemove);
 
+        JScrollPane atScrollPane = new JScrollPane(atList);
+        atScrollPane.setPreferredSize(new Dimension(0, 150));
+
         JPanel atListPanel = new JPanel(new BorderLayout(6, 0));
         atListPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        atListPanel.add(new JScrollPane(atList), BorderLayout.CENTER);
+        atListPanel.add(atScrollPane, BorderLayout.CENTER);
         atListPanel.add(atBtnPanel, BorderLayout.EAST);
-        atListPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 24 + 8));
         tabAppTypes.add(atListPanel);
         tabAppTypes.add(Box.createVerticalStrut(8));
         tabAppTypes.add(separator());
@@ -719,11 +725,13 @@ class SettingsDialog extends JDialog
         assBtnPanel.add(assBtnEdit);
         assBtnPanel.add(assBtnRemove);
 
+        JScrollPane assScrollPane = new JScrollPane(assList);
+        assScrollPane.setPreferredSize(new Dimension(0, 150));
+
         JPanel assListPanel = new JPanel(new BorderLayout(6, 0));
         assListPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        assListPanel.add(new JScrollPane(assList), BorderLayout.CENTER);
+        assListPanel.add(assScrollPane, BorderLayout.CENTER);
         assListPanel.add(assBtnPanel, BorderLayout.EAST);
-        assListPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 3 * 24 + 8));
         tabAppTypes.add(assListPanel);
 
         tabs.addTab("App Types", new JScrollPane(tabAppTypes));
