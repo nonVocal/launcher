@@ -216,64 +216,56 @@ class SettingsDialog extends JDialog
 
         tabHidden.add(sectionLabel("Hidden Entries"));
         tabHidden.add(Box.createVerticalStrut(4));
-        JLabel hiddenHint = new JLabel("Entries listed here are excluded from the launcher list");
+        JLabel hiddenHint = new JLabel("Check an entry to hide it from the launcher list");
         hiddenHint.setFont(hiddenHint.getFont().deriveFont(Font.ITALIC, 10f));
         hiddenHint.setForeground(Color.GRAY);
         hiddenHint.setAlignmentX(Component.LEFT_ALIGNMENT);
         tabHidden.add(hiddenHint);
         tabHidden.add(Box.createVerticalStrut(4));
 
-        DefaultListModel<String> hiddenModel = new DefaultListModel<>();
-        if (config.hiddenEntries() != null)
-            config.hiddenEntries().forEach(hiddenModel::addElement);
+        // Mutable set of currently hidden entry names (captured by renderer, listener, and save)
+        final Set<String> hiddenSet = new LinkedHashSet<>();
+        if (config.hiddenEntries() != null) hiddenSet.addAll(config.hiddenEntries());
 
-        JList<String> hiddenList = new JList<>(hiddenModel);
-        hiddenList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        hiddenList.setFixedCellHeight(22);
-        hiddenList.setCellRenderer((lst, value, index, isSelected, focus) ->
+        // Model: all known folders first, then any hidden entries no longer present on disk
+        DefaultListModel<String> hiddenCheckModel = new DefaultListModel<>();
+        for (String name : knownFolderNames) hiddenCheckModel.addElement(name);
+        for (String name : hiddenSet)
+            if (!knownFolderNames.contains(name)) hiddenCheckModel.addElement(name);
+
+        JList<String> hiddenCheckList = new JList<>(hiddenCheckModel);
+        hiddenCheckList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        hiddenCheckList.setFixedCellHeight(22);
+        hiddenCheckList.setCellRenderer((lst, value, index, isSelected, focus) ->
         {
-            JLabel lbl = new JLabel(value);
-            lbl.setFont(lst.getFont().deriveFont(11f));
-            lbl.setOpaque(true);
-            lbl.setBorder(CELL_ITEM_BORDER);
-            if (isSelected) { lbl.setBackground(lst.getSelectionBackground()); lbl.setForeground(lst.getSelectionForeground()); }
-            else            { lbl.setBackground(lst.getBackground());           lbl.setForeground(lst.getForeground()); }
-            return lbl;
+            JCheckBox cb = new JCheckBox(value);
+            cb.setSelected(hiddenSet.contains(value));
+            cb.setOpaque(true);
+            cb.setFont(lst.getFont());
+            if (isSelected) { cb.setBackground(lst.getSelectionBackground()); cb.setForeground(lst.getSelectionForeground()); }
+            else            { cb.setBackground(lst.getBackground());           cb.setForeground(lst.getForeground()); }
+            return cb;
+        });
+        hiddenCheckList.addMouseListener(new MouseAdapter()
+        {
+            @Override
+            public void mouseClicked(MouseEvent ev)
+            {
+                int idx = hiddenCheckList.locationToIndex(ev.getPoint());
+                if (idx < 0) return;
+                String name = hiddenCheckModel.getElementAt(idx);
+                if (hiddenSet.contains(name)) hiddenSet.remove(name);
+                else hiddenSet.add(name);
+                hiddenCheckList.repaint();
+            }
         });
 
-        JButton hiddenBtnAdd    = new JButton("Add");
-        JButton hiddenBtnRemove = new JButton("Remove");
+        JScrollPane hiddenScrollPane = new JScrollPane(hiddenCheckList);
+        hiddenScrollPane.setPreferredSize(new Dimension(0, 200));
 
-        hiddenBtnAdd.addActionListener(ev ->
-        {
-            List<String> allNames = new ArrayList<>(knownFolderNames);
-            JComboBox<String> cbName = new JComboBox<>(allNames.toArray(new String[0]));
-            cbName.setEditable(true);
-            cbName.setSelectedIndex(allNames.isEmpty() ? -1 : 0);
-            int res = JOptionPane.showConfirmDialog(this, cbName,
-                    "Add Hidden Entry", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-            if (res != JOptionPane.OK_OPTION) return;
-            Object sel = cbName.getSelectedItem();
-            String name = sel != null ? sel.toString().trim() : "";
-            if (name.isEmpty()) return;
-            for (int i = 0; i < hiddenModel.getSize(); i++)
-                if (hiddenModel.getElementAt(i).equals(name)) return; // already present
-            hiddenModel.addElement(name);
-        });
-        hiddenBtnRemove.addActionListener(ev ->
-        {
-            int idx = hiddenList.getSelectedIndex();
-            if (idx >= 0) hiddenModel.remove(idx);
-        });
-
-        JPanel hiddenBtnPanel = new JPanel(new GridLayout(2, 1, 0, 2));
-        hiddenBtnPanel.add(hiddenBtnAdd);
-        hiddenBtnPanel.add(hiddenBtnRemove);
-
-        JPanel hiddenListPanel = new JPanel(new BorderLayout(6, 0));
+        JPanel hiddenListPanel = new JPanel(new BorderLayout());
         hiddenListPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        hiddenListPanel.add(new JScrollPane(hiddenList), BorderLayout.CENTER);
-        hiddenListPanel.add(hiddenBtnPanel, BorderLayout.EAST);
+        hiddenListPanel.add(hiddenScrollPane, BorderLayout.CENTER);
 
         // ── Tab 2: Custom Actions ─────────────────────────────────────────────
         JPanel tabCustomActions = new JPanel();
@@ -1105,8 +1097,7 @@ class SettingsDialog extends JDialog
             String newAccent = selectedAccent[0] == null ? null
                     : String.format("#%06X", selectedAccent[0].getRGB() & 0xFFFFFF);
 
-            List<String> newHiddenEntries = new ArrayList<>(hiddenModel.getSize());
-            for (int i = 0; i < hiddenModel.getSize(); i++) newHiddenEntries.add(hiddenModel.getElementAt(i));
+            List<String> newHiddenEntries = new ArrayList<>(hiddenSet);
 
             // Collect custom theme color overrides as hex strings
             Map<String, String> newCustomThemeColors = null;
