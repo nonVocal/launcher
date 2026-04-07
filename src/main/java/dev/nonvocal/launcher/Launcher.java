@@ -273,7 +273,7 @@ public class Launcher extends JFrame
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setSize(config.windowWidth(), config.windowHeight());
         setMinimumSize(new Dimension(320, 200));
-        setLocationRelativeTo(null);
+        positionAtBottomRight(this);
 
         defaultCloseAdapter = new WindowAdapter()
         {
@@ -518,7 +518,8 @@ public class Launcher extends JFrame
                     refreshList();
                     updatedConfig.save(LauncherConfig.instanceConfigFile(launcherId));
                 });
-        dlg.setLocationRelativeTo(this);
+        dlg.setLocationRelativeTo(null);
+        positionAtBottomRight(dlg);
         dlg.setVisible(true);
     }
 
@@ -753,6 +754,24 @@ public class Launcher extends JFrame
         // Search label foreground
         if (searchLabel != null)
             searchLabel.setForeground(theme.searchFg);
+    }
+
+    /**
+     * Positions {@code w} in the bottom-right corner of the screen,
+     * respecting the taskbar / system-insets of the display that contains
+     * the window (or the default screen when no display is matched yet).
+     */
+    static void positionAtBottomRight(Window w)
+    {
+        GraphicsConfiguration gc = w.getGraphicsConfiguration();
+        if (gc == null)
+            gc = GraphicsEnvironment.getLocalGraphicsEnvironment()
+                    .getDefaultScreenDevice().getDefaultConfiguration();
+        Rectangle screen = gc.getBounds();
+        Insets    insets = Toolkit.getDefaultToolkit().getScreenInsets(gc);
+        int x = screen.x + screen.width  - insets.right  - w.getWidth();
+        int y = screen.y + screen.height - insets.bottom - w.getHeight();
+        w.setLocation(x, y);
     }
 
     /** Creates a small coloured legend label. */
