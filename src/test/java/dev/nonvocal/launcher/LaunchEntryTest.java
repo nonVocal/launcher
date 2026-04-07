@@ -41,14 +41,14 @@ class LaunchEntryTest
     @Test
     void toString_returnsFileNameOnly()
     {
-        LaunchEntry entry = new LaunchEntry(new File("C:\\Apps\\MyApp"), EntryType.PLAIN_FOLDER);
+        LaunchEntry entry = new LaunchEntry(new File(new File("Apps"), "MyApp"), EntryType.PLAIN_FOLDER);
         assertEquals("MyApp", entry.toString());
     }
 
     @Test
     void toString_script_returnsFileNameWithExtension()
     {
-        LaunchEntry entry = new LaunchEntry(new File("C:\\Scripts\\deploy.bat"), EntryType.SCRIPT);
+        LaunchEntry entry = new LaunchEntry(new File(new File("Scripts"), "deploy.bat"), EntryType.SCRIPT);
         assertEquals("deploy.bat", entry.toString());
     }
 
